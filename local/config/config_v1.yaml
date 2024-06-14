@@ -7,10 +7,27 @@ DOCKER_DATA_DIR: /home
 # GENCODE ---
 GENCODE:
     SPECIES: hsapiens
-    # hsapiens | mmusculus
+    # hsapiens | mmusculus | mmusculus_hsapiens_combined
     VERSION: "37"
     # 32 | M23
     GENOME: GRCh38.primary_assembly
     # GRCh38.primary_assembly | GRCm38.primary_assembly
     ANNOTATION: primary_assembly.annotation
     # primary_assembly.annotation | basic.annotation
+
+# TRIMMING ---
+FASTP:
+    adapter_r1: AGATCGGAAGAGCACACGTCTGAACTCCAGTCA
+    adapter_r2: AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT
+TRIM_GALORE:
+    PARAM:
+# https://support-docs.illumina.com/SHARE/AdapterSequences/Content/SHARE/AdapterSeq/TruSeq/SingleIndexes.htm
+
+# STAR ---
+STAR:
+    VERSION: 2.7.11a
+    OPTIONS: --outFilterType BySJout --outFilterMultimapNmax 200 --alignSJoverhangMin 8 --alignSJDBoverhangMin 1 --outFilterMismatchNmax 999 --outFilterMismatchNoverReadLmax 0.04 --alignIntronMin 20 --alignIntronMax 1000000 --alignMatesGapMax 1000000
+    # similar to ENCODE standard options, see STAR manual
+    INDEX:
+        GRCh: /home/reference_data/bioinfotree/task/gencode/dataset/hsapiens/45/GRCh38.p14.star_index/2.7.11a/
+        CHM: /home/reference_data/bioinfotree/task/gencode/dataset/hsapiens/T2T-CHM13v2.0/GCF_009914755.1_T2T-CHM13v2.0.star_index/2.7.11a/ 

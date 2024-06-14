@@ -28,16 +28,171 @@ elif config["LAYOUT"] == "PAIRED":
 	ruleorder: umitools_extract_pe > umitools_extract_se
 	ruleorder: trimgalore_pe > trimgalore_se
 
+# STAR ---
+#if config["STAR"]["INDEX"] is None:
+#        STAR_INDEX=GENCODE_DIR+"/"+config["GENCODE"]["GENOME"]+".star_index/"+config["STAR" ]["INDEX_PREFIX"]
+#else:
+#        STAR_INDEX=config["STAR"]["INDEX"]
+
 # Samples ---
 FASTQ_FILES, = glob_wildcards("fastq/{sample}.fastq.gz")
 FASTQ_SAMPLES, = glob_wildcards("fastq/{sample}_R1_001.fastq.gz")
 
 # Include modules ---
 include: "../../local/rules/generic_rules.smk"
-
+include: "../../local/rules/trim.smk"
+include: "../../local/rules/star_alignment.smk"
+include: "../../local/rules/ribo_read_count.smk"
 
 if os.path.exists("Snakefile_versioned.sk"):
     include: "Snakefile_versioned.sk"
 
 
 # Rule ALL ---
+
+# -------------- #
+# Multiqc report #
+# -------------- #
+rule fastqc:
+	input:
+		"{sample}.fastq.gz"
+	output:
+		fastqc_html="{sample}_fastqc.html",
+		fastqc_zip="{sample}_fastqc.zip"
+	params:
+		fastqc_threads=config["CORES"]
+	shell:
+		"fastqc -t {params.fastqc_threads} -o `dirname {input}` {input}"
+
+rule multiqc_fastq:
+    input:
+        fastqc_html=expand("fastq/{fastq}_fastqc.html", fastq=FASTQ_FILES),
+        fastqc_zip=expand("fastq/{fastq}_fastqc.zip", fastq=FASTQ_FILES)
+    output:
+        "fastq/multiqc_report.html"
+    shell:
+        "{CONDA_ACTIVATE} multiqc_v1.19; "
+        "multiqc -f -n {output} fastq"
+
+rule multiqc_alignment:
+	input:
+		fastqc_html=expand("fastq/{fastq}_fastqc.html", fastq=FASTQ_FILES),
+                fastqc_zip=expand("fastq/{fastq}_fastqc.zip", fastq=FASTQ_FILES),
+		bam=expand("bam/{sample}.bam", sample=FASTQ_SAMPLES),
+		bai=expand("bam/{sample}.bam.bai", sample=FASTQ_SAMPLES),
+	output:
+		report="multiqc_report.alignment.html",
+		star="multiqc_report.alignment_data/multiqc_star.txt"
+	shell:
+		"multiqc -f -n {output} ."
+
+# ----- #
+# RSeQC #
+# ----- #
+rule gene_body_coverage:
+    input:
+        bam="star/{sample}/Aligned.sortedByCoord.out.bam",
+        bai="star/{sample}/Aligned.sortedByCoord.out.bam.bai",
+        housekeeping_genes=GENCODE_DIR+"/rseqc.HouseKeepingGenes.bed.gz"
+    output:
+        text="rseqc/{sample}.geneBodyCoverage.txt",
+        rscript="rseqc/{sample}.geneBodyCoverage.r"
+    params:
+        docker_data_dir=config["DOCKER_DATA_DIR"],
+        scratch_dir=config["TMPDIR"]
+    shell:
+        "mkdir -p `dirname {output.text}`; "
+        "docker run -u `id -u`:`id -g` --rm "
+        "-v {params.docker_data_dir}:{params.docker_data_dir} "
+        "-v {params.scratch_dir}:{params.scratch_dir} "
+        "quay.io/biocontainers/rseqc:4.0.0--py38h0213d0e_0  "
+        "bash -c \"cd `echo $PWD`; "
+        "geneBody_coverage.py -i {input.bam} -r <(zcat {input.housekeeping_genes}) -o rseqc/{wildcards.sample}\"; "
+        "sed -i 's|Aligned.sortedByCoord.out|{wildcards.sample}|' {output.text}"
+
+rule plot_gene_body_coverage_summary:
+    input:
+        all_gene_body_cov=expand(
+            "rseqc/{sample}.geneBodyCoverage.txt",
+            sample=FASTQ_SAMPLES
+        ),
+        rscript="../../local/src/plotGeneBodyCovSummary.R"
+    output:
+        plt_all="rseqc/geneBodyCoverage.all.pdf",
+        plt_summary="rseqc/geneBodyCoverage.summary.pdf"
+    shell:
+        "{CONDA_ACTIVATE} rstudio_Rv4.0.3; "
+        "Rscript --vanilla {input.rscript} rseqc"
+
+rule read_distribution:
+    input:
+        bam="star/{sample}/Aligned.sortedByCoord.out.bam",
+        rseqc_ref_bed=GENCODE_ANNOTATION_BED
+    output:
+        text="rseqc/{sample}.read_distribution.txt"
+    params:
+        docker_data_dir=config["DOCKER_DATA_DIR"],
+        scratch_dir=config["TMPDIR"]
+    shell:
+        "mkdir -p `dirname {output}`; "
+        "docker run -u `id -u`:`id -g` --rm "
+        "-v {params.docker_data_dir}:{params.docker_data_dir} "
+        "-v {params.scratch_dir}:{params.scratch_dir} "
+        "quay.io/biocontainers/rseqc:4.0.0--py38h0213d0e_0  "
+        "bash -c \"cd `echo $PWD`; "
+        "read_distribution.py -i {input.bam} -r {input.rseqc_ref_bed} > {output.text}\" "
+
+rule plot_read_distribution:
+    input:
+        all_gene_body_cov=expand(
+            "rseqc/{sample}.read_distribution.txt",
+            sample=FASTQ_SAMPLES
+        ),
+        rscript="../../local/src/plotReadDistributionSummary.R"
+    output:
+        "rseqc/reads_distribution_summary.pdf",
+    shell:
+        "{CONDA_ACTIVATE} rstudio_Rv4.0.3; "
+        "Rscript --vanilla {input.rscript} rseqc"
+
+
+# -------------- #
+# Feature counts #
+# -------------- #
+def featurecounts_input(wildcards):
+	#retval=[]
+	for sample in SAMPLES:
+		yield("STAR/{w.fastq_filtering}/{s}/Aligned.sortedByCoord.out.bam".format(s=sample, w=wildcards))
+	#return(retval)
+
+
+rule featurecounts:
+	input: 
+		featurecounts_input
+	output: 
+		counts="{fastq_filtering}.featurecounts",
+		summary="{fastq_filtering}.featurecounts.summary"
+	params: 
+		gtf = REFERENCE_COUNT_GTF,
+		params = FEATURECOUNTS_PARAM,
+		TMPDIR = TMPDIR
+	threads: 12
+	shell:"""
+		featureCounts -o {output.counts} -a {params.gtf} {params.params} --tmpDir {params.TMPDIR} -T {threads} {input}
+	"""
+
+rule featurecounts_human:
+	input: "{fastq_filtering}.featurecounts"
+	output: "{fastq_filtering}.featurecounts.human"
+	shell:"""
+		perl -lne 'print if $.==1 || s/^H_//' {input} > {output}
+	"""
+
+rule featurecounts_mouse:
+	input: "{fastq_filtering}.featurecounts"
+	output: "{fastq_filtering}.featurecounts.mouse"
+	shell:"""
+		perl -lne 'print if $.==2 || s/^M_//' {input} > {output}
+	"""
+	#thre are 2 header row in the input file, we discard the first
+

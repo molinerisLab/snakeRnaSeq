@@ -34,8 +34,8 @@ rule linl_unmapped:
 
 rule all_fastq_unmapped:
     input:
-        expand("fastq_unmapped/{sample}_R1.fastq.gz", sample=config['samples']),
-        expand("fastq_unmapped/{sample}_R2.fastq.gz", sample=config['samples'])
+        expand("fastq_unmapped/{sample}_R1.fastq.gz", sample=FASTQ_SAMPLES),
+        expand("fastq_unmapped/{sample}_R2.fastq.gz", sample=FASTQ_SAMPLES)
 
 rule generate_unmapped_R1:
     input:

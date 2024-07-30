@@ -4,6 +4,11 @@ CORES: 8
 CONDA_ROOT: /opt/conda/miniconda3
 DOCKER_DATA_DIR: /home
 
+LAYOUT: SINGLE
+#LAYOUT: PAIRED
+
+FASTQ_FILTERING: fastq
+
 # GENCODE ---
 GENCODE:
     SPECIES: hsapiens
@@ -31,3 +36,6 @@ STAR:
     INDEX:
         GRCh: /home/reference_data/bioinfotree/task/gencode/dataset/hsapiens/45/GRCh38.p14.star_index/2.7.11a/
         CHM: /home/reference_data/bioinfotree/task/gencode/dataset/hsapiens/T2T-CHM13v2.0/GCF_009914755.1_T2T-CHM13v2.0.star_index/2.7.11a/ 
+
+
+DGE_CONDITION: A  

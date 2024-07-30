@@ -96,9 +96,9 @@ rule bam2cram:
 # 	done;
 rule ALL_cram:
     input:
-        expand("STAR/{filter}/{samples}.STAR/Aligned.sortedByCoord.out.cram", filter = FASTQ_FILTERING, samples = FASTQ_SAMPLES)
+        expand("STAR/{filter}/{samples}.STAR/Aligned.sortedByCoord.out.cram", filter=config["FASTQ_FILTERING"], samples = FASTQ_SAMPLES)
     params:
-        filter = FASTQ_FILTERING
+        filter=config["FASTQ_FILTERING"]
     shell:
         """
         mkdir -p {params.filter}; cd {params.filter};\
@@ -157,7 +157,7 @@ rule get_bw:
         "{file}.bw"
     params:
         threads = config["CORES"],
-        bin_size = config["BIGWIG_BIN_SIZE"]
+        bin_size = "BIGWIG_BIN_SIZE"
     shell: 
         "bamCoverage --binSize={params.bin_size} -b {input.bam} -o {output} --numberOfProcessors={params.threads}"
 
@@ -171,13 +171,12 @@ rule get_norm_bw:
         "{file}.norm.bw"
     params:
         threads = config["CORES"],
-        bin_size = config["BIGWIG_BIN_SIZE"]
+        bin_size = "BIGWIG_BIN_SIZE"
     shell: 
         "bamCoverage --binSize={params.bin_size}  --normalizeUsing=CPM -b {input.bam} -o {output} --numberOfProcessors={params.threads}"
 
 
 #Le due regole sotto sono uguali a quelle sopra solo che aggiungono nell'output la bin_size
-bin_size = config["BIGWIG_BIN_SIZE"] #L'unica soluzione che sono riuscita a trovare e' definire bin_size fuori per poterlo usare poi nell'output
 
 #%.$(BIGWIG_BIN_SIZE).bw: %.bam %.bam.bai
 #	bamCoverage --binSize=$(BIGWIG_BIN_SIZE) -b $< -o $@ --numberOfProcessors=$(CORES)
@@ -189,7 +188,7 @@ rule get_bw_binsize:
         "{file}.{bin_size}.bw"
     params:
         threads = config["CORES"],
-        bin_size = config["BIGWIG_BIN_SIZE"]
+        bin_size = BIGWIG_BIN_SIZE
     shell: 
         "bamCoverage --binSize={params.bin_size} -b {input.bam} -o {output} --numberOfProcessors={params.threads}"
 
@@ -203,7 +202,7 @@ rule get_norm_bw_binsize:
         "{file}.{bin_size}.norm.bw"
     params:
         threads = config["CORES"],
-        bin_size = config["BIGWIG_BIN_SIZE"]
+        bin_size = "BIGWIG_BIN_SIZE"
     shell: 
         "bamCoverage --binSize={params.bin_size}  --normalizeUsing=CPM -b {input.bam} -o {output} --numberOfProcessors={params.threads}"
 

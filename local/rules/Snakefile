@@ -20,13 +20,32 @@ GENCODE_GENOME_FASTA=GENCODE_DIR+"/"+config["GENCODE"]["GENOME"]+".genome.fa"
 GENCODE_ANNOTATION_GTF=GENCODE_DIR+"/"+config["GENCODE"]["ANNOTATION"]+".gtf"
 GENCODE_ANNOTATION_BED=GENCODE_DIR+"/"+config["GENCODE"]["ANNOTATION"]+".bed"
 
+
+# visualization param ---
+GFF3_MIN_WINDOW_READS = "100"
+BIGWIG_BIN_SIZE = "50"
+BEDGRAPH_FILTER = "100"
+#REPEAT_FAMILY_RAND_REPETITION=10 
+
+
+# featurecounts param ---
+#FEATURECOUNTS_PARAM ?= -t exon -g gene_id -s $(STRANDED)
+#ifeq ($(PAIRED),Y)
+#FEATURECOUNTS_PARAM = -t exon -g gene_id -s $(STRANDED) -p -C 
+#endif
+# -O allowMultiOverlap
+LCPM_PRIOR_COUNT = 0.25           # *standard of edgeR*
+LTPM_PRIOR_COUNT = 0.0001
+
+#Queste regole non ci sono, per ora le commento e vediamo se servono
+
 # LAYOUT ---
-if config["LAYOUT"] == "SINGLE":
-	ruleorder: umitools_extract_se > umitools_extract_pe
-	ruleorder: trimgalore_se > trimgalore_pe
-elif config["LAYOUT"] == "PAIRED":
-	ruleorder: umitools_extract_pe > umitools_extract_se
-	ruleorder: trimgalore_pe > trimgalore_se
+# if config["LAYOUT"] == "SINGLE":
+# 	ruleorder: umitools_extract_se > umitools_extract_pe
+# 	ruleorder: trimgalore_se > trimgalore_pe
+# elif config["LAYOUT"] == "PAIRED":
+# 	ruleorder: umitools_extract_pe > umitools_extract_se
+# 	ruleorder: trimgalore_pe > trimgalore_se
 
 # STAR ---
 #if config["STAR"]["INDEX"] is None:
@@ -43,12 +62,17 @@ include: "../../local/rules/generic_rules.smk"
 include: "../../local/rules/trim.smk"
 include: "../../local/rules/star_alignment.smk"
 include: "../../local/rules/ribo_read_count.smk"
+include: "../../local/rules/GEP_count.smk"
 
 if os.path.exists("Snakefile_versioned.sk"):
     include: "Snakefile_versioned.sk"
 
 
 # Rule ALL ---
+
+rule all:
+    input:
+        "GEP.count.exp_filter.ltmm.gz" 
 
 # -------------- #
 # Multiqc report #
@@ -75,16 +99,16 @@ rule multiqc_fastq:
         "multiqc -f -n {output} fastq"
 
 rule multiqc_alignment:
-	input:
-		fastqc_html=expand("fastq/{fastq}_fastqc.html", fastq=FASTQ_FILES),
-                fastqc_zip=expand("fastq/{fastq}_fastqc.zip", fastq=FASTQ_FILES),
-		bam=expand("bam/{sample}.bam", sample=FASTQ_SAMPLES),
-		bai=expand("bam/{sample}.bam.bai", sample=FASTQ_SAMPLES),
-	output:
-		report="multiqc_report.alignment.html",
-		star="multiqc_report.alignment_data/multiqc_star.txt"
-	shell:
-		"multiqc -f -n {output} ."
+    input:
+        fastqc_html=expand("fastq/{fastq}_fastqc.html", fastq=FASTQ_FILES),
+        fastqc_zip=expand("fastq/{fastq}_fastqc.zip", fastq=FASTQ_FILES),
+        bam=expand("bam/{sample}.bam", sample=FASTQ_SAMPLES),
+        bai=expand("bam/{sample}.bam.bai", sample=FASTQ_SAMPLES)
+    output:
+        report="multiqc_report.alignment.html",
+        star="multiqc_report.alignment_data/multiqc_star.txt"
+    shell:
+        "multiqc -f -n {output} ."
 
 # ----- #
 # RSeQC #
@@ -165,21 +189,22 @@ def featurecounts_input(wildcards):
 		yield("STAR/{w.fastq_filtering}/{s}/Aligned.sortedByCoord.out.bam".format(s=sample, w=wildcards))
 	#return(retval)
 
+# featurecouts già gestito da ribo_read_counts
 
-rule featurecounts:
-	input: 
-		featurecounts_input
-	output: 
-		counts="{fastq_filtering}.featurecounts",
-		summary="{fastq_filtering}.featurecounts.summary"
-	params: 
-		gtf = REFERENCE_COUNT_GTF,
-		params = FEATURECOUNTS_PARAM,
-		TMPDIR = TMPDIR
-	threads: 12
-	shell:"""
-		featureCounts -o {output.counts} -a {params.gtf} {params.params} --tmpDir {params.TMPDIR} -T {threads} {input}
-	"""
+# rule featurecounts:
+# 	input: 
+# 		featurecounts_input
+# 	output: 
+# 		counts="{fastq_filtering}.featurecounts",
+# 		summary="{fastq_filtering}.featurecounts.summary"
+# 	params: 
+# 		gtf = REFERENCE_COUNT_GTF,
+# 		params = FEATURECOUNTS_PARAM,
+# 		TMPDIR = TMPDIR
+# 	threads: 12
+# 	shell:"""
+# 		featureCounts -o {output.counts} -a {params.gtf} {params.params} --tmpDir {params.TMPDIR} -T {threads} {input}
+# 	"""
 
 rule featurecounts_human:
 	input: "{fastq_filtering}.featurecounts"

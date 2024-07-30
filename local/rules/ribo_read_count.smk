@@ -21,7 +21,7 @@ ruleorder: featurecounts > split_bam_ribo
 rule featurecounts:
 	input:
 		bam="{path}.bam",
-		annotation_gtf=GENCODE_GTF
+		annotation_gtf=GENCODE_ANNOTATION_GTF
 	output:
 		counts="{path}.bam.featurecounts.count",
 		summary="{path}.bam.featurecounts.count.summary"
@@ -35,9 +35,9 @@ rule featurecounts:
 		"{input.bam} "
 		"-o {output.counts} "
 		"-a {input.annotation_gtf} "
-		"-t exon "
-		"-g gene_name "
-		"-s 2 "
+		#"-t exon "
+		#"-g gene_name "
+		#"-s 2 "
 		#"-p -C " ==> paired-end layout
 		"--tmpDir {params.tmpdir} "
 		"-T {params.cores} "

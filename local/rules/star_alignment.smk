@@ -1,26 +1,27 @@
 def choose_fastq_according_to_genome(wildcards, mate):
     sample = wildcards['sample']  # Definisce 'sample' usando 'wildcards'
-    if wildcards['genome'] == "GRCh":
-        return f"fastq_trimmed/{sample}_R{mate}.fastq.gz"
-    elif wildcards['genome'] == "CHM":
-        return f"star_GRCh/{sample}_unmapped_R{mate}.fastq.gz"
+    if config['GENCODE']['ASSEMBLY'] == "GRCh":
+        return f"fastq/{sample}_R{mate}_001.fastq.gz"
+    # elif wildcards['genome'] == "CHM":
+    #     return f"star_GRCh/{sample}_unmapped_R{mate}.fastq.gz"
     else:
-        raise Exception(f"Genome not valid: {wildcards['genome']}")
+        raise Exception(f"Genome not valid: {config['GENOME']}")
 
+#gestire single vs pair ends
 rule star_pe_multi:
     input:
         fq1=lambda wildcards: choose_fastq_according_to_genome(wildcards, 1),
-        fq2=lambda wildcards: choose_fastq_according_to_genome(wildcards, 2),
-        idx=lambda wildcards: config['STAR']['INDEX'][wildcards['genome']],
+        #fq2=lambda wildcards: choose_fastq_according_to_genome(wildcards, 2),
+        idx=lambda wildcards: config['STAR']['INDEX']['GRCh'],
     output:
-        aln="star_{genome}/{sample}.bam",
-        log="star_{genome}/{sample}.Log.out",
-        sj="star_{genome}/{sample}.SJ.out.tab",
+        aln="star/{sample}.bam",
+        log="star/{sample}.Log.out",
+        sj="star/{sample}.SJ.out.tab",
         # Uncomment the next line if you want to handle unmapped reads
-        # unmapped=["star_{genome}/unmapped/{sample}_R1.fastq.gz", "star_{genome}/unmapped/{sample}_R2.fastq.gz"],
+        # unmapped=["star/unmapped/{sample}_R1.fastq.gz", "star/unmapped/{sample}_R2.fastq.gz"],
         #unmapped read filtered after, sice by default STAR report as unmapped partially mapped (i.e. mapped only one mate of a paired end read)
     log:
-        "star_{genome}/{sample}.log",
+        "star/{sample}.log",
     params:
         extra=lambda wildcards: f"--outSAMtype BAM SortedByCoordinate --outSAMunmapped Within --chimOutType WithinBAM {config['STAR']['OPTIONS']}",
     threads: 16,
@@ -56,4 +57,9 @@ rule generate_unmapped_R2:
         samtools view -f 140 {input} | bawk '{{print "@"$1; print $10; print "+"; print $11}}' | gzip > {output}
     """
     # 140=4+8+128 = read unmapped AND mate unmapped AND second in pair, i.e., discard reads that are unmapped but that have mate mapped
+
+# rule :
+#     input: 
+#     output: 
+#     shell: 
 

@@ -12,10 +12,10 @@ rule split_bam_ribo:
 		ribo_in="{path}.ribo.in.bam",
 		ribo_log="{path}.summary"
 	conda:
-		"../../local/env/rseqc_v5.0.1.yaml"
+		"../../local/env/bit_rnaseq_3.yaml"
 	shell:
 		"mkdir -p `dirname {output}`; "
-		"split_bam.py -i {input.bam} -r {input.ribosome_bed} -o {wildcards.path}.ribo > {wildcards.path}.summary"
+		"python split_bam.py -i {input.bam} -r {input.ribosome_bed} -o {wildcards.path}.ribo > {wildcards.path}.summary"
 
 ruleorder: featurecounts > split_bam_ribo
 rule featurecounts:
@@ -25,11 +25,12 @@ rule featurecounts:
 	output:
 		counts="{path}.bam.featurecounts.count",
 		summary="{path}.bam.featurecounts.count.summary"
-	conda:
-		"../../local/env/subread_v2.0.3.yaml"
+	# conda:
+	# 	"../../local/env/subread_v2.0.3.yaml"
 	params:
 		cores=config["CORES"],
-		tmpdir=config["TMPDIR"]
+		tmpdir=config["TMPDIR"],
+		params=FEATURECOUNTS_PARAM
 	shell:
 		"featureCounts "
 		"{input.bam} "
@@ -39,29 +40,30 @@ rule featurecounts:
 		#"-g gene_name "
 		#"-s 2 "
 		#"-p -C " ==> paired-end layout
+		"{params.params} "
 		"--tmpDir {params.tmpdir} "
 		"-T {params.cores} "
 
 rule featurecounts_ribo_ex:
 	input:
-		file_all=expand("bam/{sample}.srt2.dedup.ribo.ex.bam.featurecounts.count", sample=FASTQ_SAMPLES),
-		file_translate=expand("bam/{sample}.srt2.dedup.ribo.ex.bam.featurecounts.count", sample=FASTQ_SAMPLES[0])
+		file_all=expand("star/{sample}.ribo.ex.bam.featurecounts.count", sample=FASTQ_SAMPLES),
+		file_translate=expand("star/{sample}.ribo.ex.bam.featurecounts.count", sample=FASTQ_SAMPLES[0])
 	output:
 		"fastq.featurecounts.ribo.ex.count.gz"
-	#container:
-	#	"../../local/images/bit.wip-rnaseq.0.8.sif"
+	# conda:
+	# 	"../../local/env/bit_rnaseq_3.yaml"
 	shell:
-		"matrix_reduce 'bam/*.srt2.dedup.ribo.ex.bam.featurecounts.count' -l '{input.file_all}' "
-		"| grep -v '^#|^Geneid' "
+		"matrix_reduce '*.ribo.ex.bam.featurecounts.count' -l '{input.file_all}' "
+		"| grep -v '^#' "
 		"| fasta2tab "
 		"| bawk '{{print $2,$1,$8}}' "
-		"| tab2matrix -r Geneid "
+		"| python tab2matrix -r Geneid "
 		"| translate -a <(cut -f -6 {input.file_translate} | unhead) 1 "
 		"| gzip > {output}"
 
 rule featurecounts_ribo_ex_summary:
 	input:
-		expand("bam/{sample}.srt2.dedup.ribo.ex.bam.featurecounts.count.summary", sample=FASTQ_SAMPLES)
+		expand("star/{sample}.ribo.ex.bam.featurecounts.count.summary", sample=FASTQ_SAMPLES)
 	output:
 		"fastq.featurecounts.ribo.ex.count.gz.summary_matrix"
 	#container:
@@ -69,7 +71,7 @@ rule featurecounts_ribo_ex_summary:
 	#conda:
 	#	"../../local/bioinfotree.yaml"
 	shell:
-		"matrix_reduce -t 'bam/*.srt2.dedup.ribo.ex.bam.featurecounts.count.summary' "
+		"python matrix_reduce -t '*.ribo.ex.bam.featurecounts.count.summary' "
 		"| grep -v Status "
 		"| tab2matrix -r Sample > {output}"
 
@@ -142,10 +144,10 @@ rule usable_reads:
 rule usable_reads_all:
 	input:
 		ribo_ex_matrix="fastq.featurecounts.ribo.ex.count.gz.summary_matrix.reduced",
-		usable_reads=expand("bam/{sample}.srt2.dedup.usable_reads", sample=FASTQ_SAMPLES)
+		usable_reads=expand("star/{sample}.usable_reads", sample=FASTQ_SAMPLES)
 	output:
 		"usable_reads.txt"
 	shell:
-		"matrix_reduce -t 'bam/*.srt2.dedup.usable_reads' "
+		"matrix_reduce -t '*.usable_reads' "
 		"| translate -a -r {input.ribo_ex_matrix} 1"
 		"| bawk 'BEGIN{{print \"sample\",\"tot\",\"unmap\",\"ribo\",\"non_ribo_multi_map\",\"non_ribo_uniq_map\",\"Assigned\",\"Unassigned_Ambiguity\",\"Unassigned_NoFeatures\"}} {{print}}' > {output}"

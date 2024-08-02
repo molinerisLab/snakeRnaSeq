@@ -1,0 +1,1 @@
+/home/opt/conda/miniconda2/envs/bit_rnaseq_3/lib/python2.7/site-packages/qcmodule/PSL.py

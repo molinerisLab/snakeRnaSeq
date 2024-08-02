@@ -7,11 +7,11 @@ filtering=config['FASTQ_FILTERING']
 
 rule get_Gep:
     input: 
-        count=filtering + ".featurecounts.ribo.ex.count.gz"
+        featurecounts=filtering + ".featurecounts.ribo.ex.count.gz"
     output: 
         "GEP.count.gz"
     shell: """
-        zgrep -v '^#' {input.count} | cut -f 1,7- \
+        zgrep -v '^#' {input.featurecounts} | cut -f 1,7- \
         | perl -pe 'if($.==1){{s|STAR/fastq/||g; s|.STAR[^\s]+.bam||g; s|_S\d+(\s)|\1|g}}' \
         | gzip > {output}  
     """  
@@ -38,9 +38,9 @@ rule GEP_metadata:
     output: 
         "GEP.count{filter}.metadata.max_exp_in_condition.gz"
     params: 
-        DGE=config["DGE_CONDITION"]
+        DGE=config["DGE"]["DGE_CONDITION"]
     shell:""" 
-        bawk 'NR>1 {print $GeneID";"${params.DGE},$exp}' {input} | bsort -k1,1 | stat_base -g -a | tr ";" "\t" | find_best 1 3 | gzip > {output}
+        bawk 'NR>1 {{print $GeneID";"${params.DGE},$exp}}' {input} | bsort -k1,1 | stat_base -g -a | tr ";" "\t" | find_best 1 3 | gzip > {output}
     """
 
 #tolto e non tradotto
@@ -49,19 +49,34 @@ rule GEP_metadata:
 # 	2	best_condition
 # 	3	exp
 
-	
+# GEP.count.cpm.expressed_genes: GEP.count.cpm.gz
+
+# 	zcat $< | matrix2tab | bawk '$$3>$(EXPRESSED_GENES_MIN_CPM)  {print $$1}' | symbol_count |bawk '$$2>=$(MIN_NUM_OF_EXPRESSED_SAMPLE)'> $@
+
+rule expressed_genes:
+    input: 
+        "GEP.count.cpm.gz"
+    output: 
+        "GEP.count.cpm.expressed_genes"
+    params: 
+        expressed=config["DGE"]["EXPRESSED_GENES_MIN_CPM"],
+        min_sample=config["DGE"]["MIN_NUM_OF_EXPRESSED_SAMPLE"]
+    shell: """
+        zcat {input} | matrix2tab | bawk '$3>{params.expressed}  {{print $1}}' | python symbol_count |bawk '$2>={params.min_sample}'> {output}
+    """
+
 # gene_len: $(FASTQ_FILTERING).featurecounts.ribo.ex.count.gz
 # 	echo -e "Geneid\tlength" > $@
 # 	zgrep -v '^#' $< | cut -f 1,6 | unhead -n 1 >> $@
 
 rule gene_length:
     input: 
-        count=filtering + ".featurecounts.ribo.ex.count.gz"
+        featurecounts=filtering + ".featurecounts.ribo.ex.count.gz"
     output: 
         "gene_len"
     shell: """
         echo -e "Geneid\tlength" > {output}
-        zgrep -v '^#' {input.count} | cut -f 1,6 | unhead -n 1 >> {output}
+        zgrep -v '^#' {input.featurecounts} | cut -f 1,6 | unhead -n 1 >> {output}
     """
 
 
@@ -95,9 +110,10 @@ rule cpm:
     output: 
         "GEP.count{filter}cpm.gz"
     shell: """
-        r -e 'library(edgeR); x<-read.table("{input}", header=T,check.names=FALSE,row.names=1); write.table(cpm(x, normalized.lib.sizes=FALSE), "{output}.tmp", append=T, sep="\t", quote=F, col.names=NA, row.names = T)';
+        zcat {input} | grep -v "Geneid"  > {input}.fixed;
+        r -e 'library(edgeR); x<-read.table("{input}.fixed", header=T,check.names=FALSE,row.names=1); write.table(cpm(x, normalized.lib.sizes=FALSE), "{output}.tmp", append=T, sep="\t", quote=F, col.names=NA, row.names = T)';
         (echo -n "Geneid"; cat {output}.tmp) | gzip > {output}
-        rm {output}.tmp
+        rm {input}.fixed {output}.tmp
     """
 
 # GEP.count.rpk.cpm.gz: GEP.count.rpk.gz
@@ -176,11 +192,11 @@ rule GEP_exp_filter:
         # "GEP.count.exp_filter.tmm.gz",
         "GEP.{filter}.tmm.gz"
     shell: """
-        r -e 'library(edgeR);\\
-        x <- read.table("{input}", header=T,check.names=FALSE,row.names=1);\\
-        y <- DGEList(counts=x);\\
-        y <- calcNormFactors(y,method="TMM");\\
-        write.table(y$samples,"{output}.factors", sep="\t", quote=F, col.names=NA, row.names=T);\\
+        r -e 'library(edgeR);\
+        x <- read.table("{input}", header=T,check.names=FALSE,row.names=1);\
+        y <- DGEList(counts=x);\
+        y <- calcNormFactors(y,method="TMM");\
+        write.table(y$samples,"{output}.factors", sep="\t", quote=F, col.names=NA, row.names=T);\
         write.table(cpm(y, normalized.lib.sizes=TRUE), "{output}.tmp", sep="\t", quote=F, col.names=NA, row.names = T)'
         (echo -n "Geneid"; cat {output}.tmp) | gzip > {output}
         rm {output}.tmp
@@ -230,11 +246,11 @@ rule GEP_exp_filter_ltmm:
     output: 
         "GEP.count.exp_filter.ltmm.gz"    
     shell: """
-        r -e 'library(edgeR);\\
-        x <- read.table("{input}", header=T,check.names=FALSE,row.names=1);\\
-        y <- DGEList(counts=x);\\
-        y <- calcNormFactors(y,method="TMM");\\
-        write.table(y$samples,"{output}.factors", sep="\t", quote=F, col.names=NA, row.names=T);\\
+        r -e 'library(edgeR);\
+        x <- read.table("{input}", header=T,check.names=FALSE,row.names=1);\
+        y <- DGEList(counts=x);\
+        y <- calcNormFactors(y,method="TMM");\
+        write.table(y$samples,"{output}.factors", sep="\t", quote=F, col.names=NA, row.names=T);\
         write.table(cpm(y, normalized.lib.sizes=TRUE, log=TRUE), "{output}.tmp", sep="\t", quote=F, col.names=NA, row.names = T)'
         (echo -n "Geneid"; cat {output}.tmp) | gzip > {output}
         rm {output}.tmp

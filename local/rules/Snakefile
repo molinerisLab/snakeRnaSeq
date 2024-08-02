@@ -29,10 +29,9 @@ BEDGRAPH_FILTER = "100"
 
 
 # featurecounts param ---
-#FEATURECOUNTS_PARAM ?= -t exon -g gene_id -s $(STRANDED)
-#ifeq ($(PAIRED),Y)
-#FEATURECOUNTS_PARAM = -t exon -g gene_id -s $(STRANDED) -p -C 
-#endif
+FEATURECOUNTS_PARAM = "-t exon -g gene_id -s" + config["STRANDED"]
+if config["LAYOUT"] == "PAIRED":
+    FEATURECOUNTS_PARAM = "-t exon -g gene_id -s" + config["STRANDED"] + "-p -C" 
 # -O allowMultiOverlap
 LCPM_PRIOR_COUNT = 0.25           # *standard of edgeR*
 LTPM_PRIOR_COUNT = 0.0001
@@ -63,6 +62,7 @@ include: "../../local/rules/trim.smk"
 include: "../../local/rules/star_alignment.smk"
 include: "../../local/rules/ribo_read_count.smk"
 include: "../../local/rules/GEP_count.smk"
+include: "../../local/rules/rseqc.smk"
 
 if os.path.exists("Snakefile_versioned.sk"):
     include: "Snakefile_versioned.sk"
@@ -73,6 +73,19 @@ if os.path.exists("Snakefile_versioned.sk"):
 rule all:
     input:
         "GEP.count.exp_filter.ltmm.gz" 
+        # "GEP.count.exp_filter.ltmm.xlsx" 
+        #da vedere perché non funzioni excel
+
+# ALL_infer_experiment: $(addprefix rseqc/$(FASTQ_FILTERING)/,$(addsuffix .infer_experiment.txt, $(SAMPLES)))
+# 	matrix_reduce 'rseqc/fastq/*.infer_experiment.txt' -l '$^' | grep . | perl -lne 'if(m/^>/){print; next} print "$$1\t$$2" if m/("[^:]+|failed to determine):\s+(.*)/' | fasta2tab | tab2matrix -r sample > $@
+rule ALL_infer_experiment:
+    input: 
+        expand("rseqc/{samples}.infer_experiment.txt", samples= FASTQ_SAMPLES)
+    output: 
+        "ALL_infer_experiment"
+    shell:"""  
+        matrix_reduce 'rseqc/*.infer_experiment.txt' -l '{input}' | grep . | perl -lne 'if(m/^>/){{print; next}} print "$1\t$2" if m/("[^:]+|failed to determine):\s+(.*)/' | fasta2tab | tab2matrix -r sample > {output}
+    """ 
 
 # -------------- #
 # Multiqc report #
@@ -220,4 +233,3 @@ rule featurecounts_mouse:
 		perl -lne 'print if $.==2 || s/^M_//' {input} > {output}
 	"""
 	#thre are 2 header row in the input file, we discard the first
-

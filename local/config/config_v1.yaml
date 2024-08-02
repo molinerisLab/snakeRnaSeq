@@ -1,3 +1,5 @@
+#da implementare la layout Paired
+
 # GENERAL SETUP ---
 TMPDIR: /mnt/nvme_raid0/tmp
 CORES: 8
@@ -6,6 +8,12 @@ DOCKER_DATA_DIR: /home
 
 LAYOUT: SINGLE
 #LAYOUT: PAIRED
+
+STRANDED: "2"
+#STRANDED: 0|1|2
+# 0 -> unstranded
+# 1 -> forward
+# 2 -> reverse
 
 FASTQ_FILTERING: fastq
 
@@ -17,7 +25,8 @@ GENCODE:
     # 32 | M23
     GENOME: GRCh38.primary_assembly
     # GRCh38.primary_assembly | GRCm38.primary_assembly
-    ANNOTATION: primary_assembly.annotation
+    ASSEMBLY: GRCh
+    ANNOTATION: basic.annotation
     # primary_assembly.annotation | basic.annotation
 
 # TRIMMING ---
@@ -37,5 +46,8 @@ STAR:
         GRCh: /home/reference_data/bioinfotree/task/gencode/dataset/hsapiens/45/GRCh38.p14.star_index/2.7.11a/
         CHM: /home/reference_data/bioinfotree/task/gencode/dataset/hsapiens/T2T-CHM13v2.0/GCF_009914755.1_T2T-CHM13v2.0.star_index/2.7.11a/ 
 
-
-DGE_CONDITION: A  
+# DGE ---
+DGE:
+    MIN_NUM_OF_EXPRESSED_SAMPLE: 1
+    EXPRESSED_GENES_MIN_CPM: 1
+    DGE_CONDITION: A  

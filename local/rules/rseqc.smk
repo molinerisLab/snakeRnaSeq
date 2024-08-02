@@ -6,7 +6,7 @@ RSEQC_REF_BED=GENCODE_DIR+"/basic.annotation.bed"
 # 	infer_experiment.py -r $^2 -i $< > $@
 rule infer_experiment:
     input:
-        bam = "star_{genome}/{sample}.sortedByCoord.bam",
+        bam = "star/{sample}.bam",
         ref_bed = COUNT_REF_BED
     output:
         "rseqc/{sample}.infer_experiment.txt"
@@ -142,7 +142,7 @@ rule get_inner_distance:
 # 	| fasta2tab | grep -v Percentile | cut -f 1,3- | tab2fasta | tr "\t" "\n" | fasta2tab | stat_base -o -g -k > $@
 rule ALL_skewness:
     input:
-        expand("./rseqc/{filter}/{samples}.geneBodyCoverage.txt", filter = FASTQ_FILTERING, samples = FASTQ_SAMPLES)
+        expand("./rseqc/{filter}/{samples}.geneBodyCoverage.txt", filter = config["FASTQ_FILTERING"], samples = FASTQ_SAMPLES)
     output:
         "ALL.skewness"
     shell:
@@ -170,7 +170,7 @@ rule get_read_distribution:
 # 	matrix_reduce 'rseqc/$(FASTQ_FILTERING)/*.read_distribution.txt' | fasta2tab | perl -ne 's/_S\d+(\s)/\1/; print if !m/===/ and !m/Group/ and !m/Total/' | perl -lpe 's/\s+/\t/g' | cut -f 1,2,5 | tab2matrix > $@
 rule read_distribution_matrix:
     input:
-        expand("rseqc/{filter}/{samples}.read_distribution.txt", filter = FASTQ_FILTERING, samples = FASTQ_SAMPLES)
+        expand("rseqc/{filter}/{samples}.read_distribution.txt", filter = config['FASTQ_FILTERING'], samples = FASTQ_SAMPLES)
     output:
         "rseqc/{FASTQ_FILTERING}/ALL.read_distribution.tagskb_matrix"
     shell:
@@ -183,7 +183,7 @@ rule read_distribution_matrix:
 # 	matrix_reduce 'rseqc/$(FASTQ_FILTERING)/*.read_distribution.txt' | fasta2tab | perl -lne 'BEGIN{$$,="\t"} $$T=$$1 if m/Total Tags\s+(\d+)/; s/_S\d+(\s)/\1/; s/\s+/\t/g; @F=split("\t",$$_); print $$F[0],$$F[1],$$F[4],$$F[4]/$$T if !m/===/ and !m/Group/ and !m/Total/' > $@
 rule norm_read_distribution_matrix:
     input:
-        expand("rseqc/{filter}/{samples}.read_distribution.txt", filter = FASTQ_FILTERING, samples = FASTQ_SAMPLES)
+        expand("rseqc/{filter}/{samples}.read_distribution.txt", filter = config['FASTQ_FILTERING'], samples = FASTQ_SAMPLES)
     output:
         "rseqc/{FASTQ_FILTERING}/ALL.read_distribution.tagskb_tab_norm"
     shell:

@@ -6,7 +6,7 @@ rule tab2xlsx:
     output: 
         "{file}.xlsx"
     shell: 
-        "tab2xlsx < {input} > {output}"
+        "cat < {input} | tab2xlsx > {output}"
 
 
 ##TODO add BIGWIG_BIN_SIZE = config["BIGWIG_BIN_SIZE"] in snakefile or config

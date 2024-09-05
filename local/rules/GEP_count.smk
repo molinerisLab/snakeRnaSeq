@@ -11,7 +11,7 @@ rule get_Gep:
         "GEP.count.gz"
     shell: """
         zgrep -v '^#' {input.featurecounts} | cut -f 1,7- \
-        | perl -pe 'if($.==1){{s|STAR/fastq/i||g; s|.STAR[^\s]+.bam||g;}}' \
+        | perl -pe 'if($.==1){{s|star/||g;}}' \
         | gzip > {output}  
     """  
 

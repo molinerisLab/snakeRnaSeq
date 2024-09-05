@@ -24,7 +24,7 @@ rule star_pe_multi:
         "star/{sample}.log",
     params:
         extra=lambda wildcards: f"--outSAMtype BAM SortedByCoordinate --outSAMunmapped Within --chimOutType WithinBAM {config['STAR']['OPTIONS']}",
-    threads: 16,
+    threads: config["CORES"],
     wrapper:
         "v3.3.6/bio/star/align"
 

@@ -15,8 +15,9 @@ rule split_bam_ribo:
 		"../../local/env/bit_rnaseq_3.yaml"
 	shell:
 		"mkdir -p `dirname {output}`; "
-		"python split_bam.py -i {input.bam} -r {input.ribosome_bed} -o {wildcards.path}.ribo > {wildcards.path}.summary"
+		"python ../../local/src/split_bam.py -i {input.bam} -r {input.ribosome_bed} -o {wildcards.path}.ribo > {wildcards.path}.summary"
 
+#TODO move to generic_rules.sk
 ruleorder: featurecounts > split_bam_ribo
 rule featurecounts:
 	input:
@@ -49,17 +50,18 @@ rule featurecounts_ribo_ex:
 		file_all=expand("star/{sample}.ribo.ex.bam.featurecounts.count", sample=FASTQ_SAMPLES),
 		file_translate=expand("star/{sample}.ribo.ex.bam.featurecounts.count", sample=FASTQ_SAMPLES[0])
 	output:
-		"fastq.featurecounts.ribo.ex.count.gz"
+		"featurecounts.ribo.ex.count.gz"
 	# conda:
 	# 	"../../local/env/bit_rnaseq_3.yaml"
-	shell:
-		"matrix_reduce '*.ribo.ex.bam.featurecounts.count' -l '{input.file_all}' "
-		"| grep -v '^#' "
-		"| fasta2tab "
-		"| bawk '{{print $2,$1,$8}}' "
-		"| python tab2matrix -r Geneid "
-		"| translate -a <(cut -f -6 {input.file_translate} | unhead) 1 "
-		"| gzip > {output}"
+	shell: """
+		matrix_reduce '*.ribo.ex.bam.featurecounts.count' -l '{input.file_all}' \
+		| grep -v '^#' \
+		| fasta2tab \
+		| bawk '$2!="Geneid" {{print $2,$1,$8}}' \
+		| tab2matrix -r Geneid \
+		| translate -a <(cut -f -6 {input.file_translate} | unhead) 1 \
+		| gzip > {output}
+		"""
 
 rule featurecounts_ribo_ex_summary:
 	input:

@@ -8,6 +8,8 @@ import os
 
 configfile: "config.yaml"
 
+CANCELLAMI=1
+
 REFERENCE_ROOT=os.environ.get("REFERENCE_ROOT")
 
 # GENERAL SETUP ---
@@ -54,7 +56,7 @@ LTPM_PRIOR_COUNT = 0.0001
 
 # Samples ---
 FASTQ_FILES, = glob_wildcards("fastq/{sample}.fastq.gz")
-FASTQ_SAMPLES, = glob_wildcards("fastq/{sample}_R1_001.fastq.gz")
+FASTQ_SAMPLES, = glob_wildcards("fastq/{sample}_R1.fastq.gz")
 
 # Include modules ---
 include: "../../local/rules/generic_rules.smk"
@@ -219,17 +221,3 @@ def featurecounts_input(wildcards):
 # 		featureCounts -o {output.counts} -a {params.gtf} {params.params} --tmpDir {params.TMPDIR} -T {threads} {input}
 # 	"""
 
-rule featurecounts_human:
-	input: "{fastq_filtering}.featurecounts"
-	output: "{fastq_filtering}.featurecounts.human"
-	shell:"""
-		perl -lne 'print if $.==1 || s/^H_//' {input} > {output}
-	"""
-
-rule featurecounts_mouse:
-	input: "{fastq_filtering}.featurecounts"
-	output: "{fastq_filtering}.featurecounts.mouse"
-	shell:"""
-		perl -lne 'print if $.==2 || s/^M_//' {input} > {output}
-	"""
-	#thre are 2 header row in the input file, we discard the first

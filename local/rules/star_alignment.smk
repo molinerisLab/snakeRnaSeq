@@ -10,8 +10,8 @@ def choose_fastq_according_to_genome(wildcards, mate):
 #gestire single vs pair ends
 rule star_pe_multi:
     input:
-        fq1=lambda wildcards: choose_fastq_according_to_genome(wildcards, 1),
-        #fq2=lambda wildcards: choose_fastq_according_to_genome(wildcards, 2),
+        fq1=config['FASTQ_FILTERING']+"/{sample}_R1.fastq.gz",
+        fq2=config['FASTQ_FILTERING']+"/{sample}_R2.fastq.gz",
         idx=lambda wildcards: config['STAR']['INDEX']['GRCh'],
     output:
         aln="star/{sample}.bam",

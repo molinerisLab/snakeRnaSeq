@@ -6,15 +6,15 @@ rule fastp_pe:
     input:
         sample=["fastq/{sample}_R1.fastq.gz", "fastq/{sample}_R2.fastq.gz"]
     output:
-        trimmed=["fastq_trimmed/{sample}_R1.fastq.gz", "fastq_trimmed/{sample}_R2.fastq.gz"],
-        #unpaired1="trimmed/pe/{sample}.u1.fastq",
-        #unpaired2="trimmed/pe/{sample}.u2.fastq",
-        #merged="trimmed/pe/{sample}.merged.fastq",
-        #failed="trimmed/pe/{sample}.failed.fastq",
-        html="fastq_trimmed/{sample}.html",
-        json="fastq_trimmed/{sample}.json"
+        trimmed=["fastp/{sample}_R1.fastq.gz", "fastp/{sample}_R2.fastq.gz"],
+        #unpaired1="fastp/pe/{sample}.u1.fastq",
+        #unpaired2="fastp/pe/{sample}.u2.fastq",
+        #merged="fastp/pe/{sample}.merged.fastq",
+        #failed="fastp/pe/{sample}.failed.fastq",
+        html="fastp/{sample}.html",
+        json="fastp/{sample}.json"
     log:
-        "fastq_trimmed/{sample}.log"
+        "fastp/{sample}.log"
     params:
         adapters="--adapter_sequence=AGATCGGAAGAGCACACGTCTGAACTCCAGTCA --adapter_sequence_r2=AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT",
         #extra="--merge"

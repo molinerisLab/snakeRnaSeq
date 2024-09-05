@@ -3,16 +3,15 @@
 # 	| perl -pe 'if($$.==1){s|STAR/fastq/||g; s|.STAR[^\s]+.bam||g; s|_S\d+(\s)|\1|g}' \
 # 	| gzip > $@
 
-filtering=config['FASTQ_FILTERING']
 
 rule get_Gep:
     input: 
-        featurecounts=filtering + ".featurecounts.ribo.ex.count.gz"
+        featurecounts="featurecounts.ribo.ex.count.gz"
     output: 
         "GEP.count.gz"
     shell: """
         zgrep -v '^#' {input.featurecounts} | cut -f 1,7- \
-        | perl -pe 'if($.==1){{s|STAR/fastq/||g; s|.STAR[^\s]+.bam||g; s|_S\d+(\s)|\1|g}}' \
+        | perl -pe 'if($.==1){{s|STAR/fastq/i||g; s|.STAR[^\s]+.bam||g;}}' \
         | gzip > {output}  
     """  
 
@@ -62,7 +61,7 @@ rule expressed_genes:
         expressed=config["DGE"]["EXPRESSED_GENES_MIN_CPM"],
         min_sample=config["DGE"]["MIN_NUM_OF_EXPRESSED_SAMPLE"]
     shell: """
-        zcat {input} | matrix2tab | bawk '$3>{params.expressed}  {{print $1}}' | python symbol_count |bawk '$2>={params.min_sample}'> {output}
+        zcat {input} | matrix2tab | bawk '$3>{params.expressed}  {{print $1}}' | symbol_count |bawk '$2>={params.min_sample}'> {output}
     """
 
 # gene_len: $(FASTQ_FILTERING).featurecounts.ribo.ex.count.gz
@@ -71,7 +70,7 @@ rule expressed_genes:
 
 rule gene_length:
     input: 
-        featurecounts=filtering + ".featurecounts.ribo.ex.count.gz"
+        featurecounts="featurecounts.ribo.ex.count.gz"
     output: 
         "gene_len"
     shell: """

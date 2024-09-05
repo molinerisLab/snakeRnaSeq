@@ -1,8 +1,10 @@
 #da implementare la layout Paired
 
+CANCELLAMI: 1
+
 # GENERAL SETUP ---
 TMPDIR: /mnt/nvme_raid0/tmp
-CORES: 8
+CORES: 6
 CONDA_ROOT: /opt/conda/miniconda3
 DOCKER_DATA_DIR: /home
 

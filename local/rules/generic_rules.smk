@@ -94,18 +94,18 @@ rule bam2cram:
 # 	for s in $(SAMPLES); do\
 # 		 ln ../STAR/$(FASTQ_FILTERING)/$$s.STAR/Aligned.sortedByCoord.out.cram $$s.cram;\
 # 	done;
-rule ALL_cram:
-    input:
-        expand("STAR/{filter}/{samples}.STAR/Aligned.sortedByCoord.out.cram", filter=config["FASTQ_FILTERING"], samples = FASTQ_SAMPLES)
-    params:
-        filter=config["FASTQ_FILTERING"]
-    shell:
-        """
-        mkdir -p {params.filter}; cd {params.filter};\
-        for s in {params.filter}; do\
-            ln -s ../STAR/{params.filter}/$s.STAR/Aligned.sortedByCoord.out.cram $s.cram;\
-        done;
-        """
+#rule ALL_cram:
+#    input:
+#        expand("STAR/{filter}/{samples}.STAR/Aligned.sortedByCoord.out.cram", filter=config["FASTQ_FILTERING"], samples = FASTQ_SAMPLES)
+#    params:
+#        filter=config["FASTQ_FILTERING"]
+#    shell:
+#        """
+#        mkdir -p {params.filter}; cd {params.filter};\
+#        for s in {params.filter}; do\
+#            ln -s ../STAR/{params.filter}/$s.STAR/Aligned.sortedByCoord.out.cram $s.cram;\
+#        done;
+#        """
 
 #%.header_added.gz: %.gz
 #	(bawk -M $< | cut -f 2 | transpose; zcat $< ) | gzip > $@

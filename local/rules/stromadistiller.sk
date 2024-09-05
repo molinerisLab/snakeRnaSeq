@@ -1,0 +1,14 @@
+rule featurecounts_human:
+	input: "{fastq_filtering}.featurecounts"
+	output: "{fastq_filtering}.featurecounts.human"
+	shell:"""
+		perl -lne 'print if $.==1 || s/^H_//' {input} > {output}
+	"""
+
+rule featurecounts_mouse:
+	input: "{fastq_filtering}.featurecounts"
+	output: "{fastq_filtering}.featurecounts.mouse"
+	shell:"""
+		perl -lne 'print if $.==2 || s/^M_//' {input} > {output}
+	"""
+	#thre are 2 header row in the input file, we discard the first

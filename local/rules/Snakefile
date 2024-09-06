@@ -33,7 +33,7 @@ BEDGRAPH_FILTER = "100"
 # featurecounts param ---
 FEATURECOUNTS_PARAM = "-t exon -g gene_id -s" + config["STRANDED"]
 if config["LAYOUT"] == "PAIRED":
-    FEATURECOUNTS_PARAM = "-t exon -g gene_id -s" + config["STRANDED"] + "-p -C" 
+    FEATURECOUNTS_PARAM = "-t exon -g gene_id -s" + config["STRANDED"] + " -p -C" 
 # -O allowMultiOverlap
 LCPM_PRIOR_COUNT = 0.25           # *standard of edgeR*
 LTPM_PRIOR_COUNT = 0.0001

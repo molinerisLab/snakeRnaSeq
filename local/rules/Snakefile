@@ -8,13 +8,12 @@ import os
 
 configfile: "config.yaml"
 
-CANCELLAMI=1
-
 REFERENCE_ROOT=os.environ.get("REFERENCE_ROOT")
 
 # GENERAL SETUP ---
 CONDA_ROOT=config["CONDA_ROOT"]
 CONDA_ACTIVATE="set +u; source %s/etc/profile.d/conda.sh ; conda activate ; conda activate" % config["CONDA_ROOT"]
+RAW_DATA_DIR= ["."]
 
 # GENCODE ---
 GENCODE_DIR=REFERENCE_ROOT+"/bioinfotree/task/gencode/dataset/"+config["GENCODE"]["SPECIES"]+"/"+config["GENCODE"]["VERSION"]
@@ -38,8 +37,7 @@ if config["LAYOUT"] == "PAIRED":
 LCPM_PRIOR_COUNT = 0.25           # *standard of edgeR*
 LTPM_PRIOR_COUNT = 0.0001
 
-#Queste regole non ci sono, per ora le commento e vediamo se servono
-
+#TODO implement automatic handling of single/paired end layout  
 # LAYOUT ---
 # if config["LAYOUT"] == "SINGLE":
 # 	ruleorder: umitools_extract_se > umitools_extract_pe
@@ -55,8 +53,7 @@ LTPM_PRIOR_COUNT = 0.0001
 #        STAR_INDEX=config["STAR"]["INDEX"]
 
 # Samples ---
-FASTQ_FILES, = glob_wildcards("fastq/{sample}.fastq.gz")
-FASTQ_SAMPLES, = glob_wildcards("fastq/{sample}_R1.fastq.gz")
+SAMPLES, = glob_wildcards("fastq/{sample}_R1.fastq.gz")
 
 # Include modules ---
 include: "../../local/rules/generic_rules.smk"
@@ -65,6 +62,7 @@ include: "../../local/rules/star_alignment.smk"
 include: "../../local/rules/ribo_read_count.smk"
 include: "../../local/rules/GEP_count.smk"
 include: "../../local/rules/rseqc.smk"
+include: "../../local/rules/DGE.smk"
 
 if os.path.exists("Snakefile_versioned.sk"):
     include: "Snakefile_versioned.sk"
@@ -82,7 +80,7 @@ rule all:
 # 	matrix_reduce 'rseqc/fastq/*.infer_experiment.txt' -l '$^' | grep . | perl -lne 'if(m/^>/){print; next} print "$$1\t$$2" if m/("[^:]+|failed to determine):\s+(.*)/' | fasta2tab | tab2matrix -r sample > $@
 rule ALL_infer_experiment:
     input: 
-        expand("rseqc/{samples}.infer_experiment.txt", samples= FASTQ_SAMPLES)
+        expand("rseqc/{samples}.infer_experiment.txt", samples= SAMPLES)
     output: 
         "ALL_infer_experiment"
     shell:"""  
@@ -92,46 +90,52 @@ rule ALL_infer_experiment:
 # -------------- #
 # Multiqc report #
 # -------------- #
-rule fastqc:
-	input:
-		"{sample}.fastq.gz"
-	output:
-		fastqc_html="{sample}_fastqc.html",
-		fastqc_zip="{sample}_fastqc.zip"
-	params:
-		fastqc_threads=config["CORES"]
-	shell:
-		"fastqc -t {params.fastqc_threads} -o `dirname {input}` {input}"
 
 rule multiqc_fastq:
     input:
-        fastqc_html=expand("fastq/{fastq}_fastqc.html", fastq=FASTQ_FILES),
-        fastqc_zip=expand("fastq/{fastq}_fastqc.zip", fastq=FASTQ_FILES)
+        fastqc_html=expand("fastqc/fastq/{s}_{p}_fastqc.html", s=SAMPLES, p=("R1","R2")),
+        fastqc_zip =expand("fastqc/fastq/{s}_{p}_fastqc.zip",  s=SAMPLES, p=("R1","R2"))
     output:
-        "fastq/multiqc_report.html"
+        "multiqc_report.html"
     shell:
-        "{CONDA_ACTIVATE} multiqc_v1.19; "
         "multiqc -f -n {output} fastq"
 
-rule multiqc_alignment:
+rule multiqc_report_rseqc:
     input:
-        fastqc_html=expand("fastq/{fastq}_fastqc.html", fastq=FASTQ_FILES),
-        fastqc_zip=expand("fastq/{fastq}_fastqc.zip", fastq=FASTQ_FILES),
-        bam=expand("bam/{sample}.bam", sample=FASTQ_SAMPLES),
-        bai=expand("bam/{sample}.bam.bai", sample=FASTQ_SAMPLES)
+        expand("rseqc/{sample}.geneBodyCoverage.txt", sample=SAMPLES),
+        expand("rseqc/{sample}.infer_experiment.txt", sample=SAMPLES),
+        expand("rseqc/{sample}.junctionSaturation_plot.r", sample=SAMPLES),
+        expand("rseqc/{sample}.pos.DupRate.xls", sample=SAMPLES),
+        expand("rseqc/{sample}.read_distribution.txt", sample=SAMPLES),
+        expand("rseqc/{sample}.bam_stat.txt", sample=SAMPLES),
+        expand("fastqc/{fastq_filtering}/{sample}_R1_fastqc.html", sample=SAMPLES, fastq_filtering=config["FASTQ_FILTERING"])
     output:
-        report="multiqc_report.alignment.html",
-        star="multiqc_report.alignment_data/multiqc_star.txt"
-    shell:
-        "multiqc -f -n {output} ."
+        "multiqc_report.rseqc.html"
+    params:
+        data_dir = RAW_DATA_DIR
+    shell:"""
+        multiqc -f -n {output} {params.data_dir}
+    """
+
+# rule multiqc_alignment:
+#     input:
+#         fastqc_html=expand("fastq/{fastq}_fastqc.html", fastq=FASTQ_FILES),
+#         fastqc_zip=expand("fastq/{fastq}_fastqc.zip", fastq=FASTQ_FILES),
+#         bam=expand("bam/{sample}.bam", sample=SAMPLES),
+#         bai=expand("bam/{sample}.bam.bai", sample=SAMPLES)
+#     output:
+#         report="multiqc_report.alignment.html",
+#         star="multiqc_report.alignment_data/multiqc_star.txt"
+#     shell:
+#         "multiqc -f -n {output} ."
 
 # ----- #
 # RSeQC #
 # ----- #
 rule gene_body_coverage:
     input:
-        bam="star/{sample}/Aligned.sortedByCoord.out.bam",
-        bai="star/{sample}/Aligned.sortedByCoord.out.bam.bai",
+        bam="star/{sample}.bam",
+        bai="star/{sample}.bam.bai",
         housekeeping_genes=GENCODE_DIR+"/rseqc.HouseKeepingGenes.bed.gz"
     output:
         text="rseqc/{sample}.geneBodyCoverage.txt",
@@ -139,21 +143,21 @@ rule gene_body_coverage:
     params:
         docker_data_dir=config["DOCKER_DATA_DIR"],
         scratch_dir=config["TMPDIR"]
-    shell:
-        "mkdir -p `dirname {output.text}`; "
-        "docker run -u `id -u`:`id -g` --rm "
-        "-v {params.docker_data_dir}:{params.docker_data_dir} "
-        "-v {params.scratch_dir}:{params.scratch_dir} "
-        "quay.io/biocontainers/rseqc:4.0.0--py38h0213d0e_0  "
-        "bash -c \"cd `echo $PWD`; "
-        "geneBody_coverage.py -i {input.bam} -r <(zcat {input.housekeeping_genes}) -o rseqc/{wildcards.sample}\"; "
-        "sed -i 's|Aligned.sortedByCoord.out|{wildcards.sample}|' {output.text}"
+    shell: """
+        mkdir -p `dirname {output.text}`; 
+        docker run -u `id -u`:`id -g` --rm \
+            -v {params.docker_data_dir}:{params.docker_data_dir} \
+            -v {params.scratch_dir}:{params.scratch_dir} \
+            quay.io/biocontainers/rseqc:4.0.0--py38h0213d0e_0  \
+            bash -c "cd `echo $PWD`; geneBody_coverage.py -i {input.bam} -r <(zcat {input.housekeeping_genes}) -o rseqc/{wildcards.sample}"; 
+        sed -i 's|Aligned.sortedByCoord.out|{wildcards.sample}|' {output.text}
+    """
 
 rule plot_gene_body_coverage_summary:
     input:
         all_gene_body_cov=expand(
             "rseqc/{sample}.geneBodyCoverage.txt",
-            sample=FASTQ_SAMPLES
+            sample=SAMPLES
         ),
         rscript="../../local/src/plotGeneBodyCovSummary.R"
     output:
@@ -173,19 +177,21 @@ rule read_distribution:
         docker_data_dir=config["DOCKER_DATA_DIR"],
         scratch_dir=config["TMPDIR"]
     shell:
-        "mkdir -p `dirname {output}`; "
-        "docker run -u `id -u`:`id -g` --rm "
-        "-v {params.docker_data_dir}:{params.docker_data_dir} "
-        "-v {params.scratch_dir}:{params.scratch_dir} "
-        "quay.io/biocontainers/rseqc:4.0.0--py38h0213d0e_0  "
-        "bash -c \"cd `echo $PWD`; "
-        "read_distribution.py -i {input.bam} -r {input.rseqc_ref_bed} > {output.text}\" "
+        """
+        mkdir -p `dirname {output}`; 
+        docker run -u `id -u`:`id -g` --rm \
+        -v {params.docker_data_dir}:{params.docker_data_dir} \
+        -v {params.scratch_dir}:{params.scratch_dir} \
+        quay.io/biocontainers/rseqc:4.0.0--py38h0213d0e_0  \
+        bash -c "cd `echo $PWD`; \
+        read_distribution.py -i {input.bam} -r {input.rseqc_ref_bed} > {output.text}"
+        """
 
 rule plot_read_distribution:
     input:
         all_gene_body_cov=expand(
             "rseqc/{sample}.read_distribution.txt",
-            sample=FASTQ_SAMPLES
+            sample=SAMPLES
         ),
         rscript="../../local/src/plotReadDistributionSummary.R"
     output:
@@ -221,3 +227,35 @@ def featurecounts_input(wildcards):
 # 		featureCounts -o {output.counts} -a {params.gtf} {params.params} --tmpDir {params.TMPDIR} -T {threads} {input}
 # 	"""
 
+
+#TODO move in correct .mk after https://www.pivotaltracker.com/story/show/188249716
+"""
+.META: *.toptable_clean.ALL_contrast.*mark_seqc.*gz 
+	1	contrast
+	2	GeneID
+	3	logFC
+	4	Pvalue
+	5	Pvalue_adj
+	6	significance
+
+.META: *.toptable_clean.ALL_contrast.*gz 
+	1	contrast
+	2	GeneID
+	3	logFC
+	4	Pvalue
+	5	Pvalue_adj
+
+.META: *.toptable_clean*.gz
+	1	GeneID
+	2	logFC
+	3	Pvalue
+	4	Pvalue_adj
+
+.META: GEP.count.*.metadata.exp_genes_condition.gz
+	1	condition
+	2	gene
+	3	avg_exp
+	4	median_exp
+	5	min_exp
+
+"""

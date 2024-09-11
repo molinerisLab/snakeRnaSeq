@@ -47,8 +47,8 @@ rule featurecounts:
 
 rule featurecounts_ribo_ex:
 	input:
-		file_all=expand("star/{sample}.ribo.ex.bam.featurecounts.count", sample=FASTQ_SAMPLES),
-		file_translate=expand("star/{sample}.ribo.ex.bam.featurecounts.count", sample=FASTQ_SAMPLES[0])
+		file_all=expand("star/{sample}.ribo.ex.bam.featurecounts.count", sample=SAMPLES),
+		file_translate=expand("star/{sample}.ribo.ex.bam.featurecounts.count", sample=SAMPLES[0])
 	output:
 		"featurecounts.ribo.ex.count.gz"
 	# conda:
@@ -65,7 +65,7 @@ rule featurecounts_ribo_ex:
 
 rule featurecounts_ribo_ex_summary:
 	input:
-		expand("star/{sample}.ribo.ex.bam.featurecounts.count.summary", sample=FASTQ_SAMPLES)
+		expand("star/{sample}.ribo.ex.bam.featurecounts.count.summary", sample=SAMPLES)
 	output:
 		"fastq.featurecounts.ribo.ex.count.gz.summary_matrix"
 	#container:
@@ -73,7 +73,7 @@ rule featurecounts_ribo_ex_summary:
 	#conda:
 	#	"../../local/bioinfotree.yaml"
 	shell:
-		"python matrix_reduce -t '*.ribo.ex.bam.featurecounts.count.summary' "
+		"matrix_reduce -t 'star/*.ribo.ex.bam.featurecounts.count.summary' "
 		"| grep -v Status "
 		"| tab2matrix -r Sample > {output}"
 
@@ -146,10 +146,10 @@ rule usable_reads:
 rule usable_reads_all:
 	input:
 		ribo_ex_matrix="fastq.featurecounts.ribo.ex.count.gz.summary_matrix.reduced",
-		usable_reads=expand("star/{sample}.usable_reads", sample=FASTQ_SAMPLES)
+		usable_reads=expand("star/{sample}.usable_reads", sample=SAMPLES)
 	output:
 		"usable_reads.txt"
 	shell:
-		"matrix_reduce -t '*.usable_reads' "
+		"matrix_reduce -t 'star/*.usable_reads' "
 		"| translate -a -r {input.ribo_ex_matrix} 1"
 		"| bawk 'BEGIN{{print \"sample\",\"tot\",\"unmap\",\"ribo\",\"non_ribo_multi_map\",\"non_ribo_uniq_map\",\"Assigned\",\"Unassigned_Ambiguity\",\"Unassigned_NoFeatures\"}} {{print}}' > {output}"

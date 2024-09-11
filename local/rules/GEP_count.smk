@@ -522,3 +522,33 @@ rule GEP_genome_plot:
         "GEP.count.{filter}.genome_plot.gz"
     shell:
         "zcat {input.GEP} | matrix2tab | translate -a -d -j <(bawk '{print $4,$1,$3-(($3-$2)/2)}' {input.GenePositions} | uniq) 1 | bawk '{print $4,$2,$3,$5}' | uniq | bsort -k2,2V -k3,3n -S5% | gzip > {output}"
+
+rule get_lfpkm:
+    input:
+        gep = "GEP.count.exp_filter.{normalization}.gz", 
+        gene_len= "gene_len"
+    output:
+        "GEP.count.exp_filter.{normalization}.lfpkm.gz"
+    shell:"""
+        zcat {input.gep} | translate -a {input.gene_len} 1 \
+	    | perl -wlane 'BEGIN{{$,="\t"}} {{$g=shift(@F); $l=shift(@F); if($.==1){{print $g,@F}}else{{@F=map {{$_=$_ - log($l/1000)/log(2)}} @F; print $g,@F}}}}' \
+	    | gzip > {output}
+    """
+
+rule expression_add:
+    input:
+        "GEP.count.{normalization}.metadata.gz"
+    output:
+        "GEP.count.{normalization}.metadata.exp_genes_condition.gz"
+    shell:"""
+        bawk '{{print $condition ";" $GeneID, $exp}}' {input} | unhead | bsort -k1,1 | stat_base -g -a -m -l | tr ";" "\t" | gzip > {output}
+    """
+
+rule matrix_exp_condition:
+    input:
+        "GEP.{normalization}.metadata.exp_genes_condition.gz"
+    output:
+        "GEP.{normalization}.metadata.exp_genes_condition.matrix.gz"
+    shell:"""
+        bawk '{{print $gene,$condition,$avg_exp}}' {input} | tab2matrix -r GeneID | gzip > {output}
+    """

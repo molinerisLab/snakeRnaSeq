@@ -1,0 +1,3 @@
+#!/bin/bash
+if [ -z "$CORES" ]; then CORES=6; fi;
+bsort -S3% --parallel $CORES | uniq | wc -l

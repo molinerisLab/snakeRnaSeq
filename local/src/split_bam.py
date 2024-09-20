@@ -1,4 +1,3 @@
-#!/opt/conda/miniconda3/envs/bit_rnaseq_3_backup/bin/python
 '''-------------------------------------------------------------------------------------------------
 Split bam file according to input gene list (bed).
 -------------------------------------------------------------------------------------------------'''
@@ -39,6 +38,13 @@ __maintainer__ = "Liguo Wang"
 __email__ = "wang.liguo@mayo.edu"
 __status__ = "Production"
 
+import os
+import sys
+from optparse import OptionParser
+import pysam
+from qcmodule import BED
+from qcmodule import bam_cigar
+
 def searchit(exon_range, exon_list):
     '''return 1 if find, return 0 if cannot find'''
     for chrom, st, end in exon_list:
@@ -61,6 +67,7 @@ def build_bitsets(list):
     return ranges
 
 def main():
+    docstring = __doc__ if __doc__ else ""
     usage = "%prog [options]" + '\n' + __doc__ + "\n"
     parser = OptionParser(usage, version="%prog " + __version__)
     parser.add_option("-i", "--input-file", action="store", type="string", dest="input_file", 
@@ -76,18 +83,18 @@ def main():
         sys.exit(0)
 
     if not os.path.exists(options.gene_list):
-        print('\n\n' + options.gene_list + " does NOT exist\n", file=sys.stderr)
+        print >> sys.stderr, '\n\n' + options.gene_list + " does NOT exist\n"
         sys.exit(0)
 
     if not os.path.exists(options.input_file):
-        print('\n\n' + options.input_file + " does NOT exist\n", file=sys.stderr)
+        print >> sys.stderr, '\n\n' + options.input_file + " does NOT exist\n"
         sys.exit(0)
 
-    print('reading ' + options.gene_list + ' ... ', file=sys.stderr)
+    print >> sys.stderr, 'reading ' + options.gene_list + ' ... '
     obj = BED.ParseBED(options.gene_list)
     exons = obj.getExon()
     exon_ranges = build_bitsets(exons)
-    print('Done', file=sys.stderr)
+    print >> sys.stderr, 'Done'
 
     samfile = pysam.Samfile(options.input_file, 'rb')
     out1 = pysam.Samfile(options.output_prefix + '.in.bam', 'wb', template=samfile)   # bam file for reads hitting exon region
@@ -98,7 +105,7 @@ def main():
     in_alignment = 0
     ex_alignment = 0
     bad_alignment = 0
-    print("splitting " + options.input_file + " ...", file=sys.stderr)
+    print >> sys.stderr, "splitting " + options.input_file + " ..."
     
     try:
         for aligned_read in samfile:
@@ -143,13 +150,14 @@ def main():
                 else:
                     out2.write(aligned_read)
                     ex_alignment += 1
+                
     except StopIteration:
-        print("Done", file=sys.stderr)
+        print >> sys.stderr, "Done"
 
-    print("%-55s%d" % ("Total records:", total_alignment))
-    print("%-55s%d" % (options.output_prefix + '.in.bam (Reads consumed by input gene list):', in_alignment))
-    print("%-55s%d" % (options.output_prefix + '.ex.bam (Reads not consumed by input gene list):', ex_alignment))
-    print("%-55s%d" % (options.output_prefix + '.junk.bam (qcfailed, unmapped reads):', bad_alignment))
+    print "%-55s%d" % ("Total records:", total_alignment)
+    print "%-55s%d" % (options.output_prefix + '.in.bam (Reads consumed by input gene list):', in_alignment)
+    print "%-55s%d" % (options.output_prefix + '.ex.bam (Reads not consumed by input gene list):', ex_alignment)
+    print "%-55s%d" % (options.output_prefix + '.junk.bam (qcfailed, unmapped reads):', bad_alignment)
 
 if __name__ == '__main__':
     main()

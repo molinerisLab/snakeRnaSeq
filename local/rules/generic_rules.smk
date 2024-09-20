@@ -155,6 +155,8 @@ rule get_bai:
         "{file}.bam"
     output: 
         "{file}.bam.bai"
+    conda:
+        "../../local/env/bit_rnaseq_3.yaml"
     shell: 
         "samtools index {input}"
 
@@ -165,6 +167,8 @@ rule get_bam_id:
         "{file}.bam"
     output: 
         "{file}.bam.id"
+    conda:
+        "../../local/env/bit_rnaseq_3.yaml"
     shell: 
         "samtools view {input} | cut -f 1 | bsort -S8% | uniq > {output}"
 

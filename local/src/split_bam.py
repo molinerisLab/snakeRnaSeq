@@ -73,11 +73,13 @@ def main():
 		parser.print_help()
 		sys.exit(0)
 	if not os.path.exists(options.gene_list):
-		print >>sys.stderr, '\n\n' + options.gene_list + " does NOT exists" + '\n'
+		#print >>sys.stderr, '\n\n' + options.gene_list + " does NOT exists" + '\n'
+		print('\n\n' + options.gene_list + " does NOT exist\n", file=sys.stderr)
 		#parser.print_help()
 		sys.exit(0)
 	if not os.path.exists(options.input_file):
-		print >>sys.stderr, '\n\n' + options.input_file + " does NOT exists" + '\n'
+		#print >>sys.stderr, '\n\n' + options.input_file + " does NOT exists" + '\n'
+		print('\n\n' + options.input_file + " does NOT exist\n", file=sys.stderr)
 		sys.exit(0)		
 	
 	#build bitset for gene list

@@ -98,7 +98,7 @@ rule multiqc_fastq:
     output:
         "multiqc_report.html"
     shell:
-        "multiqc -f -n {output} fastq"
+        "multiqc -f -n {output} fastqc/fastq"
 
 rule multiqc_report_rseqc:
     input:

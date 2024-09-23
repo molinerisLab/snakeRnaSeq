@@ -13,6 +13,11 @@ STRANDED: "2"
 # 1 -> forward
 # 2 -> reverse
 
+FEATURECOUNTS_PARAM: -t exon -g gene_name
+#default count on exons and summarize on gene names, consider -g gene_id
+#strandnes and paired-end handled in config.smk
+# -O allowMultiOverlap
+
 FASTQ_FILTERING: fastq
 
 # GENCODE ---

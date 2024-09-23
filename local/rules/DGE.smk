@@ -138,3 +138,13 @@ rule filter_genes:
     shell:"""
         zcat {input.deg_out} | translate -a -r <(zcat {input.gep} | sed s/Geneid/GeneID/) 2 | gzip > {output}
     """
+
+rule filter_significant_genes:
+    input:
+        deg_out = "{path}.toptable_clean.ALL_contrast.mark_seqc.exp_in_condition.header_added.gz",
+        significance = "{path}.toptable_clean.ALL_contrast.mark_seqc.gz"
+    output:
+        "{path}.toptable_clean.ALL_contrast.mark_seqc.exp_in_condition.header_added.signif.gz"
+    shell:"""
+        zcat {input.deg_out} | filter_1col --header 1 2 <(bawk '$significance!=0 {{print $2}}' {input.significance}) | gzip > {output}
+    """

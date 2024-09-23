@@ -11,11 +11,9 @@ rule split_bam_ribo:
 		ribo_ex="{path}.ribo.ex.bam",
 		ribo_in="{path}.ribo.in.bam",
 		ribo_log="{path}.summary"
-	conda:
-		"../../local/env/bit_rnaseq_3.yaml"
 	shell:
 		"mkdir -p `dirname {output}`; "
-		"python ../../local/src/split_bam.py -i {input.bam} -r {input.ribosome_bed} -o {wildcards.path}.ribo > {wildcards.path}.summary"
+		"split_bam.py -i {input.bam} -r {input.ribosome_bed} -o {wildcards.path}.ribo > {wildcards.path}.summary"
 
 #TODO move to generic_rules.sk
 ruleorder: featurecounts > split_bam_ribo
@@ -51,8 +49,6 @@ rule featurecounts_ribo_ex:
 		file_translate=expand("star/{sample}.ribo.ex.bam.featurecounts.count", sample=SAMPLES[0])
 	output:
 		"featurecounts.ribo.ex.count.gz"
-	# conda:
-	# 	"../../local/env/bit_rnaseq_3.yaml"
 	shell: """
 		matrix_reduce '*.ribo.ex.bam.featurecounts.count' -l '{input.file_all}' \
 		| grep -v '^#' \

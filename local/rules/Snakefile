@@ -30,9 +30,9 @@ BEDGRAPH_FILTER = "100"
 
 
 # featurecounts param ---
-FEATURECOUNTS_PARAM = "-t exon -g gene_id -s" + config["STRANDED"]
+FEATURECOUNTS_PARAM = config["FEATURECOUNTS_PARAM"] + " -s" + config["STRANDED"]
 if config["LAYOUT"] == "PAIRED":
-    FEATURECOUNTS_PARAM = "-t exon -g gene_id -s" + config["STRANDED"] + " -p -C" 
+    FEATURECOUNTS_PARAM += " -p -C --countReadPairs" 
 # -O allowMultiOverlap
 LCPM_PRIOR_COUNT = 0.25           # *standard of edgeR*
 LTPM_PRIOR_COUNT = 0.0001
@@ -59,8 +59,7 @@ SAMPLES, = glob_wildcards("fastq/{sample}_R1.fastq.gz")
 include: "../../local/rules/generic_rules.smk"
 include: "../../local/rules/trim.smk"
 include: "../../local/rules/star_alignment.smk"
-include: "../../local/rules/ribo_read_count.smk"
-include: "../../local/rules/GEP_count.smk"
+include: "../../local/rules/count.smk"
 include: "../../local/rules/rseqc.smk"
 include: "../../local/rules/DGE.smk"
 

@@ -258,3 +258,12 @@ def featurecounts_input(wildcards):
 	5	min_exp
 
 """
+rule count_significance:
+    input:
+        "edger.toptable_clean.ALL_contrast.mark_seqc.gz"
+    output:
+        "edger.toptable_clean.ALL_contrast.mark_seqc.count"
+    shell:
+        """
+        bawk '{{print $1, $6}}' {input} | symbol_count | tab2matrix -r contrast > {output}
+        """

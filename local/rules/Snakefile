@@ -71,9 +71,12 @@ if os.path.exists("Snakefile_versioned.sk"):
 
 rule all:
     input:
-        "GEP.count.exp_filter.ltmm.gz" 
-        # "GEP.count.exp_filter.ltmm.xlsx" 
-        #da vedere perché non funzioni excel
+        #"GEP.count.exp_filter.ltmm.gz" 
+        "GEP.count.exp_filter.ltmm.xlsx",
+        "multiqc_report.html",
+        "multiqc_report.rseqc.html",
+        "usable_reads.xlsx" 
+
 
 # ALL_infer_experiment: $(addprefix rseqc/$(FASTQ_FILTERING)/,$(addsuffix .infer_experiment.txt, $(SAMPLES)))
 # 	matrix_reduce 'rseqc/fastq/*.infer_experiment.txt' -l '$^' | grep . | perl -lne 'if(m/^>/){print; next} print "$$1\t$$2" if m/("[^:]+|failed to determine):\s+(.*)/' | fasta2tab | tab2matrix -r sample > $@

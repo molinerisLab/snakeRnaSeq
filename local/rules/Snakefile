@@ -72,9 +72,12 @@ if os.path.exists("Snakefile_versioned.sk"):
 
 rule all:
     input:
-        "GEP.count.exp_filter.ltmm.gz" 
-        # "GEP.count.exp_filter.ltmm.xlsx" 
-        #da vedere perché non funzioni excel
+        #"GEP.count.exp_filter.ltmm.gz" 
+        "GEP.count.exp_filter.ltmm.xlsx",
+        "multiqc_report.html",
+        "multiqc_report.rseqc.html",
+        "usable_reads.txt.xlsx" 
+
 
 # ALL_infer_experiment: $(addprefix rseqc/$(FASTQ_FILTERING)/,$(addsuffix .infer_experiment.txt, $(SAMPLES)))
 # 	matrix_reduce 'rseqc/fastq/*.infer_experiment.txt' -l '$^' | grep . | perl -lne 'if(m/^>/){print; next} print "$$1\t$$2" if m/("[^:]+|failed to determine):\s+(.*)/' | fasta2tab | tab2matrix -r sample > $@
@@ -93,12 +96,15 @@ rule ALL_infer_experiment:
 
 rule multiqc_fastq:
     input:
-        fastqc_html=expand("fastqc/fastq/{s}_{p}_fastqc.html", s=SAMPLES, p=("R1","R2")),
-        fastqc_zip =expand("fastqc/fastq/{s}_{p}_fastqc.zip",  s=SAMPLES, p=("R1","R2"))
+        fastqc_html=expand("fastqc/{fastq_filtering}/{s}_{p}_fastqc.html", s=SAMPLES, p=("R1","R2"), fastq_filtering=config["FASTQ_FILTERING"]),
+        fastqc_zip=expand("fastqc/{fastq_filtering}/{s}_{p}_fastqc.zip",  s=SAMPLES, p=("R1","R2"), fastq_filtering=config["FASTQ_FILTERING"])
     output:
         "multiqc_report.html"
-    shell:
-        "multiqc -f -n {output} fastq"
+    params:
+        data_dir = RAW_DATA_DIR
+    shell:"""
+        multiqc -f -n {output} {params.data_dir}
+    """
 
 rule multiqc_report_rseqc:
     input:
@@ -113,7 +119,7 @@ rule multiqc_report_rseqc:
         "multiqc_report.rseqc.html"
     params:
         data_dir = RAW_DATA_DIR
-    shell:"""
+    shell: """
         multiqc -f -n {output} {params.data_dir}
     """
 

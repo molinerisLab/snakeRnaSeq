@@ -62,6 +62,7 @@ include: "../../local/rules/star_alignment.smk"
 include: "../../local/rules/count.smk"
 include: "../../local/rules/rseqc.smk"
 include: "../../local/rules/DGE.smk"
+include: "../../local/rules/venn_heatmap.smk"
 
 if os.path.exists("Snakefile_versioned.sk"):
     include: "Snakefile_versioned.sk"

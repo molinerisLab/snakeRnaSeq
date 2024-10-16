@@ -1,0 +1,6 @@
+#original fastq files were renames with rename 's/_001(?=\.fastq\.gz)//' *.fastq.gz 
+
+rule correct_fastq_names:
+    input: "{file}_001.fastq.gz"
+    output: "{file}.fastq.gz"
+    shell: "echo 'run rename 's/_001(?=\.fastq\.gz)//' *.fastq.gz inside fastq/'"

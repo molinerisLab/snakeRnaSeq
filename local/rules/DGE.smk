@@ -152,3 +152,12 @@ rule filter_significant_genes:
     shell:"""
         zcat {input.deg_out} | filter_1col --header 1 2 <(bawk '$significance!=0 {{print $2}}' {input.significance}) | gzip > {output}
     """
+
+rule DEG_count_matrix:
+    input:
+        "{path}.toptable_clean.ALL_contrast.mark_seqc.gz"
+    output:
+        "{path}.toptable_clean.ALL_contrast.mark_seqc.DEG_count_matrix"
+    shell:"""
+        bawk '{{print $contrast,$significance}}' {input} | symbol_count | tab2matrix -r contrast > {output}
+    """

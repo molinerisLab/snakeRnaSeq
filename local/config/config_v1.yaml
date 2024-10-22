@@ -71,6 +71,11 @@ DGE:
         - "ctrl_res_02-ctrl_untreated" 
         - "ctrl_res_08-ctrl_untreated" 
         - "ctrl_res_16-ctrl_untreated"
+        - "sh_4h-ctrl_untreated" 
+        - "sh_24h-ctrl_untreated" 
+        - "sh_res_02-ctrl_untreated" 
+        - "sh_res_08-ctrl_untreated" 
+        - "sh_res_16-ctrl_untreated"
     #e.g. LIMMA_CONTRASTS: 
         #- "(KO.ND+KO.HFD)-(WT.ND+WT.HFD)"
         #- "(WT.HFD+KO.HFD)-(WT.ND+KO.ND)" 
@@ -91,10 +96,15 @@ DGE:
         - sh-res_0.8_vs_untreated 
         - sh-res_1.6_vs_untreated
         - ctrl-4h_vs_untreated 
-        - ctrl_24h_vs_untreated 
+        - ctrl-24h_vs_untreated 
         - ctrl-res_0.2_vs_untreated 
         - ctrl-res_0.8_vs_untreated
         - ctrl-res_1.6_vs_untreated
+        - sh_4h_vs_ctrl_untreated 
+        - sh_24h_vs_ctrl_untreated
+        - sh_res_0.2_vs_ctrl_untreated 
+        - sh_res_0.8_vs_ctrl_untreated
+        - sh_res_1.6_vs_ctrl_untreated
   # NB they must follow the same order used in LIMMA_CONTRASTS / LIMMA_DESIGN_FORMULA
   #e.g. LIMMA_CONTRASTS_NAMES:
         #- genotype 
@@ -117,3 +127,9 @@ MARK_SEQC:
     LOGFC: 1
     PVALUE: 1
     PVALUE_ADJ: 0.05
+
+
+# DGE VENN DIAGRAM ---
+VENN_CONTRASTS:
+  - untreated
+  - res_vem_1.6

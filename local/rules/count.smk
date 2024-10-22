@@ -609,7 +609,7 @@ rule GEP_count_metadata:
     output: 
         "GEP.count{filter}metadata.gz"
     shell:"""
-        (echo -e "GeneID\tsample\texp"; zcat {input.GEP} | matrix2tab ) | translate -a {input.metadata} 2 | gzip > {output}
+        (echo -e "GeneID\\tsample\\texp"; zcat {input.GEP} | matrix2tab ) | translate -a {input.metadata} 2 | gzip > {output}
     """
 
 ###ACHTUNG un solo input

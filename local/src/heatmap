@@ -1,0 +1,218 @@
+#!/usr/bin/env Rscript
+#!/usr/bin/env conda run -n pheatmap_1 Rscript
+
+################# HEATMAP #################
+# In input:
+# - !un tab.delimited contenente i dati (sample sulle colonne, geni sulle righe)
+# - !un tab.delimited contenente le covariate da usare per le colorbar.
+#   la prima colonna deve contenere i nomi dei sample, IDENTICI  a quelli contenuti in
+#   input dataset!! le colonne successive contengono le covariate
+#   NO informazioni ridondanti!! (ad es: no sample_name, file_name, sample_num)
+#   oppure si ma non le inserisco nell'elenco di covariate
+# - un elenco di covariate da usare (magari non le voglio tutte) default = tutte
+# - opzione per richiedere dendrogramma su righe e/o colonne
+#   1 righe, 2 colonne, 12 both, default = nessuno
+# - !percorso del file di output (deve essere un PNG! /home/chebellacartella/heat.png)
+# - weight largehzza del file, default = 8.5
+# - heigth altezza del file, default = 18.5
+
+
+# heatmap covariate cluster width heigth !input_data !input_info !output
+
+suppressMessages(library("optparse"))
+suppressMessages(library(RColorBrewer))
+
+option_list <- list(
+  make_option(c("-a", "--annotation"), action="store", type="character", default=NA, help="is the path of a delimited file (.txt) containing informations about samples classification. The first column must contain sample names, the following ones must represent covariates. header is required. There should be a perfect matching between sample names in dataset (column names) and in informations file (first column)."),
+  make_option(c("-R","--saveRds"),     action="store", type="character", default=NA, help="path of file in which will be saved the pheatmap obkject in rds format [default do not save a rds file]"),
+  make_option(c("-C", "--covariate"), action="store", type="character", default="all", help="Which variables in the input_info table have to be used as classification factors. If more than one, variable names have to be separated by a comma and NO blank spaces."),
+  make_option(c("-c", "--cluster"), action="store", type="integer", default=0, help="Whether to perform clustering (dendrogram) on rows (1), on columns (2) or both (12)."),
+  make_option(c("-w", "--width"), action="store", type="numeric", default=1600, help="Width of the heatmap in pixels."),
+  make_option(c("-e", "--height"), action="store", type="numeric", default=1000, help="Height of the heatmap in pixels."),
+  make_option(c("-s", "--scale_row"), action="store_true", default=FALSE, help="Whether to scale the data in order to get the same sum on each row. If it is used together with the transpose option, scaling is performed on columns. [default \"%default\"] "),
+  make_option(c("-t","--transpose"), action="store_true", default=FALSE, help="Whether to transpose the data in order to plot different samples on different rows insead of columns. [default \"%default\"] "),
+  make_option(c("-p","--pal_colors"), action="store_true", default=FALSE, help="Use more distinct colors in annotation palette. [default \"%default\"] "),
+  make_option(c("--pal_set"), action="store", default="Set1", help="Specify a custom colorbrewer set. [default \"%default\"] "),
+  make_option(c("-d","--distance"), action="store", default="euclidean", help="Distance to use to compute dendrogram and clustering, possible values are: correlation, euclidean, maximum, manhattan, canberra, binary, minkowski, spearman. [default \"%default\"]"),
+  make_option(c("-m","--clustering_method"), action="store", default="complete", help="Method to use to perform clustering, possible values are: ward.D, ward.D2, single, complete, average (= UPGMA), mcquitty (= WPGMA), median (= WPGMC) or centroid (= UPGMC). [default \"%default\"]"),
+  make_option(c("-n","--show_rownames"), action="store_true", default=FALSE, help="Show row names. [default \"%default\"]"),
+  make_option(c("-N","--ntop"),        action="store", type="integer", default=NA, help="Consider only this numnber of genes, selecting the most variant. [default use all genes]"),
+  make_option(c("-r","--cutree_rows"), action="store", type="integer", default=NA, help="number of clusters the rows are divided into, based on the hierarchical clustering (using cutree), if rows are not clustered, the argument is ignored. [default \"%default\"]"),
+  make_option(c("-z","--cutree_cols"), action="store", type="integer", default=NA, help="similar to cutree_rows, but for columns. [default \"%default\"]"),
+  make_option(c("-O","--row_order"), action="store", default=NA, help="A file with the row order. [default \"%default\"]"),
+  make_option(c("--breaks_min"), action="store", type="numeric", default=NA, help="Minimum value of the colorscale, usefull to have same colorscale in different heatmaps. [default min observed value]"),
+  make_option(c("--breaks_max"), action="store", type="numeric", default=NA, help="Maximum value of the colorscale, usefull to have same colorscale in different heatmaps. [default max observed value]"),
+  make_option(c("--breaks_num"), action="store", type="integer", default=100, help="Maximum value of the colorscale, usefull to have same colorscale in different heatmaps. [default max observed value]"),
+  make_option(c("--pdf"), action="store_true", default=FALSE, help="PDF output. [default \"%default\" => png]")
+)
+
+
+parser<-OptionParser(usage = "%prog [options] input_data output.png",
+                     option_list = option_list, 
+                     prog = "heatmap", 
+                     description = "Plotting heatmaps. 
+                     'input_data' is the path of a delimited file (.txt) containing numeric values to be plotted. Each column must represent a different sample, each row must correspond to a gene. Header is required.
+                     There should be a perfect matching between sample names in dataset (column names) and in informations file (first column of -a argument, if given).
+                     'output' is the path on where to save the produced heatmap. It must be a .png file."
+                     )
+
+
+#args <- commandArgs(trailingOnly=TRUE) forse devo sostituire questo dentro arguments!
+#se non dovesse funzionare ci provo
+#problemi con shortcut??
+#arguments <- parse_args(parser, args = c("input_data", "input_info", "output"), positional_arguments = 3)
+arguments <- parse_args(parser, args <- commandArgs(trailingOnly=TRUE), positional_arguments = TRUE)
+opt <- arguments$options
+
+if (length(arguments$args)!=2) {
+  stop("Two arguments must be supplied (input_data and output files)", call.=FALSE)
+}
+
+input_data = arguments$args[1]
+input_info = opt$annotation
+output = arguments$args[2]
+
+
+#######################
+
+# Import data
+# matrix = read.delim(input_data)
+# se fosse un rda: matrix = load("file.rda")
+#loadRData <- function(fileName){
+#  load(fileName)
+#  get(ls()[ls() != "fileName"])
+#}
+#rpkm <- loadRData("/home/gscotti/ctgb_cluster_sshfs/scratch/bioinfotree/common/bioinfotree/prj/dellaTorre_403_RNASeqLite/dataset/20170421/log.norm.rpkm_unfiltered.rda")
+# se fosse un csv: matrix = read.csv("file.csv", row.names = 1)
+
+
+#matrix = read.csv(input_data, row.names = 1)
+matrix = read.delim(input_data, header=TRUE, row.names=1, check.names=FALSE)
+
+if(!is.na(opt$row_order)){
+	o<-read.table("opt$row_order", header = F, as.is=T, sep = "\t")
+	match(o$V1, row.names(matrix))
+	matrix[match(o$V1, row.names(matrix))]
+}
+
+if(!is.na(opt$ntop)){
+	suppressMessages(library(DESeq2))
+	rv <- rowVars(as.matrix(matrix))
+	select <- order(rv, decreasing = TRUE)[seq_len(min(opt$ntop, length(rv)))]
+	matrix <- matrix[select,]
+}
+
+annotation=NA
+if(!is.na(input_info)){
+	info = read.delim(input_info, header=TRUE)
+	# Sorting informations table
+	#info = info[match(info[,1], colnames(matrix)), ]
+
+	#sorting matrix columns according to samples names
+	matrix <- matrix[,as.vector(info$sample)]
+
+	# Check sample names matching
+	if (sum(as.character(info[,1])%in%colnames(matrix))<dim(matrix)[2]) {
+	  stop("There have to be a perfect matching between sample names in dataset and in informations file.")
+	}
+
+
+
+	# Choosing the covariates
+	if (opt$covariate == "all") {
+	  annotation = as.data.frame(info)[,-1, drop = FALSE]
+	  cov = colnames(annotation) 
+	} else {
+	  cov = strsplit(opt$covariate, split=",")
+	  n = nrow(as.data.frame(cov))
+	  cov = matrix(unlist(cov), ncol=n)
+	  annotation = as.data.frame(info[,c(cov)])
+	}
+
+	rownames(annotation) = info$sample
+	colnames(annotation) = cov
+
+	annotation_colors=list()
+	if (opt$pal_colors) {
+	  for(c in colnames(annotation)){
+	    annotation_colors[[c]]=brewer.pal(length(unique(annotation[,c])),opt$pal_set)
+	    names(annotation_colors[[c]])=unique(annotation[,c])
+	  }
+	}
+}
+
+
+
+# Choosing dendrogram and scaling
+cl_row = FALSE; cl_col = FALSE; rown = FALSE; scl = "none"; #default
+main_title = "Heatmap"
+if (opt$cluster == 1) {cl_row = TRUE; cl_col = FALSE; rown = TRUE}
+if (opt$cluster == 2) {cl_row = FALSE; cl_col = TRUE; rown = FALSE}
+if (opt$cluster == 12) {cl_row = TRUE; cl_col = TRUE; rown = TRUE}
+if (opt$scale_row) {if (opt$transpose){scl = "column"} else {scl = "row"}; main_title = "Heatmap on scaled data"}
+
+
+# heatmap
+if (!grepl("png", output) && ! opt$pdf) {
+  warning("The heatmap is returned in .png format. Make sure the output file name is consistent.")
+}
+
+# if opt$transpose pheatmap(t(matrix), annotation_row=annotation)
+if (opt$transpose){
+	matrix<-t(matrix)
+
+}
+
+distance_cols <- opt$distance
+distance_rows <- opt$distance
+
+if(opt$distance=="spearman"){
+	distance_cols <- as.dist(1-cor(matrix, method=opt$distance))
+	distance_rows <- as.dist(1-cor(t(matrix), method=opt$distance))
+}
+
+
+if(!opt$pdf){
+        grDevices::png(output, width = opt$width, height = opt$height, units="px")
+}else{
+        pdf(output, width = opt$width, height = opt$height)
+}
+
+breaks=NA
+if(!is.na(opt$breaks_min)){
+	breaks=seq(opt$breaks_min, opt$breaks_max, length.out = opt$breaks_num)
+}
+
+p<-pheatmap::pheatmap(
+	matrix,
+	cluster_rows = cl_row,
+	cluster_cols = cl_col,
+	clustering_distance_rows=distance_rows,
+	clustering_distance_cols=distance_cols,
+	clustering_method=opt$clustering_method,
+	display_numbers = FALSE,
+	show_rownames = opt$show_rownames,
+	show_colnames = TRUE,
+	annotation_col = annotation,
+	annotation_colors = annotation_colors,
+	scale = scl,
+	main = main_title,
+	cutree_rows = opt$cutree_rows,
+	cutree_cols = opt$cutree_cols,
+	breaks=breaks
+)
+p
+dev.off()
+
+if(!is.na(opt$saveRds)){
+	saveRDS(p, opt$saveRds)
+}
+
+########################
+
+w=warnings()
+sink(stderr())
+if(!is.null(w)){
+  print(w)
+}
+sink()

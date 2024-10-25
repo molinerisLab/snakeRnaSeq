@@ -132,4 +132,27 @@ MARK_SEQC:
 # DGE VENN DIAGRAM ---
 VENN_CONTRASTS:
   - untreated
+  - vem_4h
+  - vem_24h
+  - res_vem_0.2
+  - res_vem_0.8
   - res_vem_1.6
+
+# DGE HEATMAP ---
+HEATMAP:
+  COLUMNS: "condition,sh,vem"
+  # columns of metadata.txt to add to the heatmap, separated by ,
+
+  N_TOP: 100
+  # number of the top most variant genes to consider for the heatmap
+
+  COLORS: "--pal_set Set3"
+  # leave empty if you wish to use the standard colors or specify the custom colorbrewer set to use (default is Set1)
+
+  CLUSTERS: "-r 3 -z 3"
+  # indicate the number of clusters the rows (-r) and the columns (-z) will be divided into. 
+  # leave empty to have no clusters
+
+
+
+

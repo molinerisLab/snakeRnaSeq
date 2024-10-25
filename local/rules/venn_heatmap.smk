@@ -48,17 +48,34 @@ rule venn_input:
 
 rule venn_genes_prep:
     input:
-        "DGE/edger.toptable_clean.ALL_contrast.mark_seqc.header_added.gz"
+        "DGE/edger.toptable_clean.ALL_contrast.mark_seqc.gz"
     output:
-        "DGE/{contrast}.gene_significance.gz"
+        "DGE/edger.toptable_clean.ALL_contrast.mark_seqc.matrix.gz"
     shell:"""
-        bawk -v contrast={wildcards.contrast} '{{if ($contrast == contrast) print $GeneID, $contrast, $significance}}' {input} | gzip > {output}
+        bawk '{{print $GeneID, $contrast, $significance}}' {input} | tab2matrix | gzip > {output}
     """
-# $(DGE_TOOL).toptable_clean.ALL_contrast.mark_seqc.venn_in.gz: $(DGE_TOOL).toptable_clean.ALL_contrast.mark_seqc.gz
-# 	bawk '{print $$GeneID,$$contrast,$$significance}' $< | tab2matrix | gzip > $@
+
 
 # ####################### HEATMAP CONTRASTI ######################
 # ##################### heatmap_DGE_deseq2/ #####################
+
+rule heatmap:
+    input:
+        gep = "GEP.count.exp_filter.ltmm.gz",
+        metadata = "metadata.txt"
+    output:
+        pdf = "heatmap.top100.pdf",
+        rds = "heatmap-top100.Rds"
+    params:
+        sets = config["HEATMAP"]["COLUMNS"],
+        n_top = config["HEATMAP"]["N_TOP"],
+        color_set = config["HEATMAP"]["COLORS"],
+        clusters = config["HEATMAP"]["CLUSTERS"]
+    shell:"""
+        heatmap {input.gep} -a {input.metadata} -C {params.sets} -c 12 -s -d correlation {params.color_set} --pdf -e 16 -w 12 {params.clusters} -N {params.n_top} -n -R {output.rds} {output.pdf}
+    """
+
+
 
 #/home/reference_data/bioinfotree/local/bin//heatmap
 

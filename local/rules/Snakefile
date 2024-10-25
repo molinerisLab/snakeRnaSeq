@@ -11,8 +11,6 @@ configfile: "config.yaml"
 REFERENCE_ROOT=os.environ.get("REFERENCE_ROOT")
 
 # GENERAL SETUP ---
-CONDA_ROOT=config["CONDA_ROOT"]
-CONDA_ACTIVATE="set +u; source %s/etc/profile.d/conda.sh ; conda activate ; conda activate" % config["CONDA_ROOT"]
 RAW_DATA_DIR= ["."]
 
 # GENCODE ---
@@ -159,20 +157,6 @@ rule gene_body_coverage:
         sed -i 's|Aligned.sortedByCoord.out|{wildcards.sample}|' {output.text}
     """
 
-rule plot_gene_body_coverage_summary:
-    input:
-        all_gene_body_cov=expand(
-            "rseqc/{sample}.geneBodyCoverage.txt",
-            sample=SAMPLES
-        ),
-        rscript="../../local/src/plotGeneBodyCovSummary.R"
-    output:
-        plt_all="rseqc/geneBodyCoverage.all.pdf",
-        plt_summary="rseqc/geneBodyCoverage.summary.pdf"
-    shell:
-        "{CONDA_ACTIVATE} rstudio_Rv4.0.3; "
-        "Rscript --vanilla {input.rscript} rseqc"
-
 rule read_distribution:
     input:
         bam="star/{sample}/Aligned.sortedByCoord.out.bam",
@@ -192,19 +176,6 @@ rule read_distribution:
         bash -c "cd `echo $PWD`; \
         read_distribution.py -i {input.bam} -r {input.rseqc_ref_bed} > {output.text}"
         """
-
-rule plot_read_distribution:
-    input:
-        all_gene_body_cov=expand(
-            "rseqc/{sample}.read_distribution.txt",
-            sample=SAMPLES
-        ),
-        rscript="../../local/src/plotReadDistributionSummary.R"
-    output:
-        "rseqc/reads_distribution_summary.pdf",
-    shell:
-        "{CONDA_ACTIVATE} rstudio_Rv4.0.3; "
-        "Rscript --vanilla {input.rscript} rseqc"
 
 
 # -------------- #

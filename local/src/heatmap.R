@@ -201,6 +201,31 @@ p<-pheatmap::pheatmap(
 	cutree_cols = opt$cutree_cols,
 	breaks=breaks
 )
+
+if(!is.na(opt$cutree_rows)){
+    clusters <- cutree(p$tree_row, k=opt$cutree_rows)[p$tree_row[["order"]]]
+    annot_row <- data.frame(row.names = names(clusters), cluster = as.factor(clusters))
+    
+    p<-pheatmap::pheatmap(
+        matrix,
+        cluster_rows = cl_row,
+        cluster_cols = cl_col,
+        clustering_distance_rows=distance_rows,
+        clustering_distance_cols=distance_cols,
+        clustering_method=opt$clustering_method,
+        display_numbers = FALSE,
+        show_rownames = opt$show_rownames,
+        show_colnames = TRUE,
+        annotation_col = annotation,
+        annotation_row = annot_row,
+        annotation_colors = annotation_colors,
+        scale = scl,
+        main = main_title,
+        cutree_rows = opt$cutree_rows,
+        cutree_cols = opt$cutree_cols,
+        breaks=breaks
+    )   
+}
 p
 dev.off()
 

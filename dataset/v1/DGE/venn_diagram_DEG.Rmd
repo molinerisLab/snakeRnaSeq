@@ -1,0 +1,172 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r, fig.width=10, fig.height=8}
+# Load the library
+library(VennDiagram)
+library(grid)
+
+# Function to draw a Venn diagram for upregulated and downregulated genes
+plot_venn_contrasts <- function(df, contrast_1, contrast_2) {
+  # Filter for upregulated and downregulated genes for each contrast
+  contrast_1_down_genes <- rownames(df)[df[[paste0(contrast_1, "_down")]] == -1]
+  contrast_1_up_genes <- rownames(df)[df[[paste0(contrast_1, "_up")]] == 1]
+  contrast_2_down_genes <- rownames(df)[df[[paste0(contrast_2, "_down")]] == -1]
+  contrast_2_up_genes <- rownames(df)[df[[paste0(contrast_2, "_up")]] == 1]
+  
+  # Create a list of gene sets for the Venn diagram
+  # Create a list of gene sets
+  gene_sets <- list(
+    contrast_1_down_genes,
+    contrast_1_up_genes,
+    contrast_2_down_genes,
+    contrast_2_up_genes
+  )
+  
+  # Set names for the gene sets dynamically
+  names(gene_sets) <- c(
+    paste0(contrast_1, "_down"),
+    paste0(contrast_1, "_up"),
+    paste0(contrast_2, "_down"),
+    paste0(contrast_2, "_up")
+  )
+  
+  # Generate the Venn diagram
+  venn.plot <- venn.diagram(
+    x = gene_sets,
+    category.names = names(gene_sets),
+    filename = NULL,  # Do not save as a file, render in R
+    output = TRUE,
+    
+    # Customizing appearance
+    fill = c("#F8766D", "#00BFC4", "#A3A500", "#E76BF3"),
+    alpha = 0.5,              # Transparency of the colors
+    cex = 1.5,                 # Size of category labels
+    fontface = "bold",         # Make the labels bold
+    cat.cex = 1.5,             # Size of set labels
+  )
+  
+  # Draw the diagram on the plot device
+  grid.newpage()  # Ensure a new page is created for the plot
+  grid.draw(venn.plot)
+  grid.text(paste ("Differentially explressed genes -", contrast_1, "and", contrast_2, sep = " "), x = 0.5, y = 0.95, gp = gpar(fontsize = 16, fontface = "bold"))
+}
+```
+
+```{r}
+library(UpSetR)
+library(grid)
+
+# Function to plot an UpSet plot with dynamic contrasts and a title
+plot_upset_contrasts <- function(df, contrast_1, contrast_2, plot_title = "UpSet Plot") {
+  # Convert your data into a binary matrix for the UpSet plot
+  data_binary <- df
+  data_binary[data_binary == -1] <- 1  # Convert -1 to 1 for downregulated genes
+  data_binary[data_binary == 0] <- 0   # Keep 0 as it is
+  data_binary[data_binary == 1] <- 1   # Keep 1 for upregulated genes
+  
+  # Dynamically generate column names for the selected contrasts
+  sets <- c(
+    paste0(contrast_1, "_down"),
+    paste0(contrast_1, "_up"),
+    paste0(contrast_2, "_down"),
+    paste0(contrast_2, "_up")
+  )
+  
+  # Plot the UpSet plot with the specified settings
+  upset(
+    data_binary, 
+    sets = sets, 
+    order.by = "freq", 
+    main.bar.color = "steelblue", 
+    sets.bar.color = "purple",
+    mainbar.y.label = "Number of Genes", 
+    sets.x.label = "Gene Sets",
+    keep.order = TRUE
+  )
+  
+  #grid.text(paste("UpSet Plot -", contrast_1, "and", contrast_2), x = 0.5, y = 0.95, gp = gpar(fontsize = 20, fontface = "bold"))
+}
+
+
+```
+
+
+```{r, fig.width=12, fig.height=8}
+setwd("/home/molinerislab/Calautti_RICTOR/dataset/v1/DGE/")
+file="gene_comparison.venn_in.gz"
+df <- read.table(file, header=T, sep="\t", row.names=1)
+
+pdf("DGE_contrasts.Venn_diagram.pdf", width = 12, height = 8) 
+plot_venn_contrasts(df, "vem_4h", "untreated")
+plot_venn_contrasts(df, "vem_24h", "untreated")
+plot_venn_contrasts(df, "res_vem_0.2", "untreated")
+plot_venn_contrasts(df, "res_vem_0.8", "untreated")
+plot_venn_contrasts(df, "res_vem_1.6", "untreated")
+dev.off()
+```
+
+```{r}
+pdf("DGE_contrasts.UpSet_plot.pdf", width = 8, height = 6) 
+plot_upset_contrasts(df, "vem_4h", "untreated")
+plot_upset_contrasts(df, "vem_24h", "untreated")
+plot_upset_contrasts(df, "res_vem_0.2", "untreated")
+plot_upset_contrasts(df, "res_vem_0.8", "untreated")
+plot_upset_contrasts(df, "res_vem_1.6", "untreated")
+dev.off()
+```
+
+
+```{r}
+# Load the library
+library(UpSetR)
+
+# Convert your data into a binary matrix for the UpSet plot
+data_binary <- df
+data_binary[data_binary == -1] <- 1  # Convert -1 to 1 for downregulated genes
+data_binary[data_binary == 0] <- 0   # Keep 0 as it is
+data_binary[data_binary == 1] <- 1   # Keep 1 for upregulated genes
+
+# Plot an UpSet plot
+upset(data_binary, sets = c("res_vem_1.6_down", "res_vem_1.6_up", "untreated_down", "untreated_up"), 
+      order.by = "freq", 
+      main.bar.color = "steelblue", 
+      sets.bar.color = "purple",
+      mainbar.y.label = "Number of Genes", sets.x.label = "Gene Sets")
+
+```
+
+#altri possibili plot, più bruttini
+```{r}
+library(ggvenn)
+library(dplyr)
+
+
+
+# Filter for upregulated and downregulated genes for each condition
+res_vem_1.6_down_genes <- rownames(df)[df$res_vem_1.6_down == -1]
+res_vem_1.6_up_genes <- rownames(df)[df$res_vem_1.6_up == 1]
+untreated_down_genes <- rownames(df)[df$untreated_down == -1]
+untreated_up_genes <- rownames(df)[df$untreated_up == 1]
+
+# Create a list of gene sets for the Venn diagram
+gene_sets <- list(
+  "res_vem_1.6_down" = res_vem_1.6_down_genes,
+  "res_vem_1.6_up" = res_vem_1.6_up_genes,
+  "untreated_down" = untreated_down_genes,
+  "untreated_up" = untreated_up_genes
+)
+
+# Plot Venn diagram using ggvenn
+ggvenn(gene_sets, fill_color = c("#F8766D", "#00BFC4", "#A3A500", "#E76BF3")) +
+  ggtitle("Venn Diagram of Gene Regulation")
+```
+
+```{r}
+contrast1 = "untreated"
+contrast2 = "res_vem_1.6"
+
+venn(contrast1, contrast2)
+```

@@ -62,7 +62,7 @@ rule venn_genes_prep:
 rule heatmap:
     input:
         gep = "GEP.count.exp_filter.ltmm.gz",
-        metadata = "metadata.txt"
+        metadata = "metadata_heatmap.txt"
     output:
         pdf = "heatmap.top100.pdf",
         rds = "heatmap-top100.Rds"

@@ -64,15 +64,15 @@ rule heatmap:
         gep = "GEP.count.exp_filter.ltmm.gz",
         metadata = "metadata_heatmap.txt"
     output:
-        pdf = "heatmap.top100.pdf",
-        rds = "heatmap-top100.Rds"
+        pdf = "heatmap.pdf",
+        rds = "heatmap.Rds"
     params:
         sets = config["HEATMAP"]["COLUMNS"],
         n_top = config["HEATMAP"]["N_TOP"],
         color_set = config["HEATMAP"]["COLORS"],
         clusters = config["HEATMAP"]["CLUSTERS"]
     shell:"""
-        heatmap {input.gep} -a {input.metadata} -C {params.sets} -c 12 -s -d correlation {params.color_set} --pdf -e 16 -w 12 {params.clusters} -N {params.n_top} -n -R {output.rds} {output.pdf}
+        heatmap {input.gep} -a {input.metadata} -C {params.sets} -c 12 -s -d correlation {params.color_set} --pdf -e 16 -w 12 {params.clusters} -N {params.n_top} -R {output.rds} {output.pdf}
     """
 
 

@@ -1,0 +1,99 @@
+# GENERAL SETUP ---
+TMPDIR: /mnt/nvme_raid0/tmp
+CORES: 6
+CONDA_ROOT: /opt/conda/miniconda3
+DOCKER_DATA_DIR: /home
+
+LAYOUT: PAIRED
+#LAYOUT: PAIRED
+
+STRANDED: "2"
+#STRANDED: 0|1|2
+# 0 -> unstranded
+# 1 -> forward
+# 2 -> reverse
+
+FEATURECOUNTS_PARAM: -t exon -g gene_name
+#default count on exons and summarize on gene names, consider -g gene_id
+#strandnes and paired-end handled in config.smk
+# -O allowMultiOverlap
+
+FASTQ_FILTERING: fastp
+
+# GENCODE ---
+GENCODE:
+    SPECIES: hsapiens
+    # hsapiens | mmusculus | mmusculus_hsapiens_combined
+    VERSION: "37"
+    # 32 | M23
+    GENOME: GRCh38.primary_assembly
+    # GRCh38.primary_assembly | GRCm38.primary_assembly
+    ASSEMBLY: GRCh
+    ANNOTATION: basic.annotation
+    # primary_assembly.annotation | basic.annotation
+
+# TRIMMING ---
+FASTP:
+    adapter_r1: AGATCGGAAGAGCACACGTCTGAACTCCAGTCA
+    adapter_r2: AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT
+TRIM_GALORE:
+    PARAM:
+# https://support-docs.illumina.com/SHARE/AdapterSequences/Content/SHARE/AdapterSeq/TruSeq/SingleIndexes.htm
+
+# STAR ---
+STAR:
+    VERSION: 2.7.11a
+    OPTIONS: --outFilterType BySJout --outFilterMultimapNmax 200 --alignSJoverhangMin 8 --alignSJDBoverhangMin 1 --outFilterMismatchNmax 999 --outFilterMismatchNoverReadLmax 0.04 --alignIntronMin 20 --alignIntronMax 1000000 --alignMatesGapMax 1000000
+    # similar to ENCODE standard options, see STAR manual
+    INDEX:
+        GRCh: /home/reference_data/bioinfotree/task/gencode/dataset/hsapiens/45/GRCh38.p14.star_index/2.7.11a/
+        CHM: /home/reference_data/bioinfotree/task/gencode/dataset/hsapiens/T2T-CHM13v2.0/GCF_009914755.1_T2T-CHM13v2.0.star_index/2.7.11a/ 
+
+# DGE ---
+DGE:
+    DGE_TOOL: edger
+  #e.g. DGE_TOOL:=limma|edger|deseq2
+
+    LIMMA_CONTRASTS: 
+        - "het_mutant-wt" 
+        - "PRPF31-wt" 
+        - "SINEUP1-wt" 
+        - "undetermined-wt" 
+        - "PRPF31-het_mutant"
+        - "SINEUP1-het_mutant"
+    #e.g. LIMMA_CONTRASTS: 
+        #- "(KO.ND+KO.HFD)-(WT.ND+WT.HFD)"
+        #- "(WT.HFD+KO.HFD)-(WT.ND+KO.ND)" 
+        #- "(WT.HFD-WT.ND)" 
+        #- "(KO.HFD-KO.ND)" 
+    #e.g. LIMMA_CONTRASTS: "KO-WT"
+
+    LIMMA_CONTRASTS_NAMES: 
+        - het_mutantwt 
+        - PRPF31-wt 
+        - SINEUP1-wt
+        - undetermined-wt 
+        - PRPF31-het_mutant
+        - SINEUP1-het_mutant
+  # NB they must follow the same order used in LIMMA_CONTRASTS / LIMMA_DESIGN_FORMULA
+  #e.g. LIMMA_CONTRASTS_NAMES:
+        #- genotype 
+        #- diet 
+        #- interaction
+
+    LIMMA_DESIGN_FORMULA: "~0+condition"
+  #e.g. LIMMA_DESIGN_FORMULA:="~0+condition"
+
+    LIMMA_FACTORS: " "
+  #NB: do not comment LIMMA_FACTORS but leave empty if not required
+  #e.g. LIMMA_FACTORS:=-f "genotype treatment"
+
+    MIN_NUM_OF_EXPRESSED_SAMPLE: 3
+    EXPRESSED_GENES_MIN_CPM: 1
+    DGE_CONDITION: "condition" 
+
+# MARK_SEQC ---
+MARK_SEQC:
+    LOGFC: 1
+    PVALUE: 1
+    PVALUE_ADJ: 0.05

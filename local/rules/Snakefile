@@ -72,7 +72,7 @@ if os.path.exists("Snakefile_versioned.sk"):
 rule all:
     input:
         #"GEP.count.exp_filter.ltmm.gz" 
-        "GEP.count.exp_filter.ltmm.xlsx",
+        "GEP.count.exp_filter.ltmm.gz.xlsx",
         "multiqc_report.html",
         "multiqc_report.rseqc.html",
         "usable_reads.txt.xlsx" 

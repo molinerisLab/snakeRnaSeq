@@ -142,6 +142,46 @@ rule generate_unmapped_R2:
     """
     # 140=4+8+128 = read unmapped AND mate unmapped AND second in pair, i.e., discard reads that are unmapped but that have mate mapped
 
+#TODO decide files to remove
+# ------------------ #
+# downstream cleanup #
+# ------------------ #
+
+	# for s in $(SAMPLES); do\
+	# 	[ -e STAR/$(FASTQ_FILTERING)/$${s}.STAR/Aligned.sortedByCoord.out.bam ] && echo rm STAR/$(FASTQ_FILTERING)/$${s}.STAR/Aligned.out.bam;\
+	# 	[ -e STAR/$(FASTQ_FILTERING)/$${s}.STAR/Aligned.sortedByCoord.out.bam ] && [ -e STAR/$(FASTQ_FILTERING)/$${s}.STAR/Aligned.sortedByCoord.out.ribo.ex.bam ] && echo rm STAR/$(FASTQ_FILTERING)/$${s}.STAR/Aligned.sortedByCoord.out.ribo.ex.bam;\
+	# 	[ -e STAR/$(FASTQ_FILTERING)/$${s}.STAR/Aligned.sortedByCoord.out.ribo.in.bam ] && rm STAR/$(FASTQ_FILTERING)/$${s}.STAR/Aligned.sortedByCoord.out.ribo.in.bam;\
+	# 	[ -e STAR/$(FASTQ_FILTERING)/$${s}.STAR/Aligned.sortedByCoord.out.ribo.junk.bam ] && rm STAR/$(FASTQ_FILTERING)/$${s}.STAR/Aligned.sortedByCoord.out.ribo.junk.bam;\
+	# done;
+
+rule clean_bam_downstream:
+    shell:
+        """
+        if [[ $(ls star/*.srt.mapq.*bam) ]]; then
+            echo ""
+            echo "clean downstream processed bam"
+            echo ""
+            for i in $(ls bam/*.srt.mapq.*bam); do
+                echo rm $i
+                rm $i
+            done
+        else
+            echo "no downstream processed bam files found"
+        fi
+
+        if [[ $(ls bam/*.srt.mapq.*bam.bai) ]]; then
+            echo ""
+            echo "clean downstream processed bai"
+            echo ""
+            for i in $(ls bam/*.srt.mapq.*bam.bai); do
+                echo rm $i
+                rm $i
+            done
+        else
+            echo "no downstream processed bai files found"
+        fi
+    """
+
 # ----- #
 # Fastp #
 # ----- #
@@ -1011,6 +1051,7 @@ rule bam2cram:
     shell: 
         "samtools view -@ {params.threads} -T {params.genome} -C -o {output} {input}"
 
+rule add_header:
     input: 
         "{path}.gz"
     output: 

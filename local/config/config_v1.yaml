@@ -42,12 +42,18 @@ TRIM_GALORE:
 
 # STAR ---
 STAR:
-    VERSION: 2.7.11a
-    OPTIONS: --outFilterType BySJout --outFilterMultimapNmax 200 --alignSJoverhangMin 8 --alignSJDBoverhangMin 1 --outFilterMismatchNmax 999 --outFilterMismatchNoverReadLmax 0.04 --alignIntronMin 20 --alignIntronMax 1000000 --alignMatesGapMax 1000000
-    # similar to ENCODE standard options, see STAR manual
-    INDEX:
-        GRCh: /home/reference_data/bioinfotree/task/gencode/dataset/hsapiens/45/GRCh38.p14.star_index/2.7.11a/
-        CHM: /home/reference_data/bioinfotree/task/gencode/dataset/hsapiens/T2T-CHM13v2.0/GCF_009914755.1_T2T-CHM13v2.0.star_index/2.7.11a/ 
+    STAR_ADDITIONAL_OUTPUT: "--outFilterType BySJout --alignSJoverhangMin 8 --alignSJDBoverhangMin 1 --alignIntronMin 20 --alignIntronMax 1000000 --alignMatesGapMax 1000000"
+    #--outWigType wiggle --outWigNorm RPM --quantMode TranscriptomeSAM
+    STAR_MULTIMAP_SCORE_RANGE: 1       *default = 1*
+    STAR_outFilterMultimapNmax: 20     *deafult = 10*
+    STAR_FILTER_MISMATCH: "--outFilterMismatchNmax 999 --outFilterMismatchNoverLmax 0.04"     #*default, as used by ENCODE: ammetto il 4% di mismatch sulla lunghezza allineata*
+    #STAR_FILTER_MISMATCH: "--outFilterMismatchNmax 14"                                        #*lexogen*
+    STAR_OUT_SAM_TYPE: "--outSAMtype BAM SortedByCoordinate "                   #*Unsorted \*
+    STAR_SHARED_MEMORY: LoadAndKeep
+  #OPTIONS: --outFilterType BySJout --outFilterMultimapNmax 200 --alignSJoverhangMin 8 --alignSJDBoverhangMin 1 --outFilterMismatchNmax 999 --outFilterMismatchNoverReadLmax 0.04 --alignIntronMin 20 --alignIntronMax 1000000 --alignMatesGapMax 1000000
+  #Questa non so se serve:
+  #--chimOutType WithinBAM {config['STAR']['OPTIONS']}"
+
 
 # DGE ---
 DGE:

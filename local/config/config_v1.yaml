@@ -24,7 +24,7 @@ FASTQ_FILTERING: fastq
 GENCODE:
     SPECIES: hsapiens
     # hsapiens | mmusculus | mmusculus_hsapiens_combined
-    VERSION: "37"
+    VERSION: "42"
     # 32 | M23
     GENOME: GRCh38.primary_assembly
     # GRCh38.primary_assembly | GRCm38.primary_assembly
@@ -42,14 +42,14 @@ TRIM_GALORE:
 
 # STAR ---
 STAR:
-    STAR_ADDITIONAL_OUTPUT: "--outFilterType BySJout --alignSJoverhangMin 8 --alignSJDBoverhangMin 1 --alignIntronMin 20 --alignIntronMax 1000000 --alignMatesGapMax 1000000"
+    ADDITIONAL_OUTPUT: "--outFilterType BySJout --alignSJoverhangMin 8 --alignSJDBoverhangMin 1 --alignIntronMin 20 --alignIntronMax 1000000 --alignMatesGapMax 1000000"
     #--outWigType wiggle --outWigNorm RPM --quantMode TranscriptomeSAM
-    STAR_MULTIMAP_SCORE_RANGE: 1       *default = 1*
-    STAR_outFilterMultimapNmax: 20     *deafult = 10*
-    STAR_FILTER_MISMATCH: "--outFilterMismatchNmax 999 --outFilterMismatchNoverLmax 0.04"     #*default, as used by ENCODE: ammetto il 4% di mismatch sulla lunghezza allineata*
+    MULTIMAP_SCORE_RANGE: 1       *default = 1*
+    OUT_FILTER_MULTIMAP_NMAX: 20     *deafult = 10*
+    FILTER_MISMATCH: "--outFilterMismatchNmax 999 --outFilterMismatchNoverLmax 0.04"     #*default, as used by ENCODE: ammetto il 4% di mismatch sulla lunghezza allineata*
     #STAR_FILTER_MISMATCH: "--outFilterMismatchNmax 14"                                        #*lexogen*
-    STAR_OUT_SAM_TYPE: "--outSAMtype BAM SortedByCoordinate "                   #*Unsorted \*
-    STAR_SHARED_MEMORY: LoadAndKeep
+    OUT_SAM_TYPE: "BAM SortedByCoordinate "                   #*Unsorted \*
+    SHARED_MEMORY: LoadAndKeep
   #OPTIONS: --outFilterType BySJout --outFilterMultimapNmax 200 --alignSJoverhangMin 8 --alignSJDBoverhangMin 1 --outFilterMismatchNmax 999 --outFilterMismatchNoverReadLmax 0.04 --alignIntronMin 20 --alignIntronMax 1000000 --alignMatesGapMax 1000000
   #Questa non so se serve:
   #--chimOutType WithinBAM {config['STAR']['OPTIONS']}"
@@ -58,37 +58,26 @@ STAR:
 # DGE ---
 DGE:
     DGE_TOOL: edger
-  #e.g. DGE_TOOL:=limma|edger|deseq2
+    #e.g. DGE_TOOL:=limma|edger|deseq2
 
-    LIMMA_CONTRASTS: 
-        - "het_mutant-wt" 
-        - "PRPF31-wt" 
-        - "SINEUP1-wt" 
-        - "undetermined-wt" 
-    #e.g. LIMMA_CONTRASTS: 
-        #- "(KO.ND+KO.HFD)-(WT.ND+WT.HFD)"
-        #- "(WT.HFD+KO.HFD)-(WT.ND+KO.ND)" 
-        #- "(WT.HFD-WT.ND)" 
-        #- "(KO.HFD-KO.ND)" 
-    #e.g. LIMMA_CONTRASTS: "KO-WT"
-
-    LIMMA_CONTRASTS_NAMES: 
-        - het_vs_wt
-        - PRPF31_rescue_vs_wt 
-        - SINEUP1_rescue_vs_wt
-        - undeter_vs_wt
-  # NB they must follow the same order used in LIMMA_CONTRASTS / LIMMA_DESIGN_FORMULA
-  #e.g. LIMMA_CONTRASTS_NAMES:
-        #- genotype 
-        #- diet 
-        #- interaction
+    LIMMA_CONTRASTS:
+        het_vs_wt: "het_mutant-wt"
+        PRPF31_rescue_vs_wt: "PRPF31-wt"
+        SINEUP1_rescue_vs_wt: "SINEUP1-wt"
+        undeter_vs_wt: "undetermined-wt"
+    #e.g. LIMMA_CONTRASTS:
+        # contrast_name: "contrast"
+        # KO_vs_WT: "(KO.ND+KO.HFD)-(WT.ND+WT.HFD)"
+        # HFD_vs_ND: "(WT.HFD+KO.HFD)-(WT.ND+KO.ND)"
+        # WT_HFD_vs_WT_ND: "(WT.HFD-WT.ND)"
+        # KO_HFD_vs_KO_ND: "(KO.HFD-KO.ND)"
 
     LIMMA_DESIGN_FORMULA: "~0+condition"
-  #e.g. LIMMA_DESIGN_FORMULA:="~0+condition"
+    #e.g. LIMMA_DESIGN_FORMULA:="~0+condition"
 
     LIMMA_FACTORS: " "
-  #NB: do not comment LIMMA_FACTORS but leave empty if not required
-  #e.g. LIMMA_FACTORS:=-f "genotype treatment"
+    #NB: do not comment LIMMA_FACTORS but leave empty if not required
+    #e.g. LIMMA_FACTORS:=-f "genotype treatment"
 
     MIN_NUM_OF_EXPRESSED_SAMPLE: 4
     EXPRESSED_GENES_MIN_CPM: 1

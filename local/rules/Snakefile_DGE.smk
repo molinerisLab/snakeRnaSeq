@@ -16,6 +16,11 @@ CONDA_ACTIVATE="set +u; source %s/etc/profile.d/conda.sh ; conda activate ; cond
 RAW_DATA_DIR= ["."]
 
 #TODO aggiungere counts_table2eset e append_each_row -> ora hanno env, ma in teoria non serve per forza
+
+rule all:
+    input:
+        "edger.toptable_clean.ALL_contrast.mark_seqc.exp_in_condition.header_added.gz"
+
 rule get_eset:
     input:
         gep = "../GEP.count.gz",
@@ -39,12 +44,22 @@ rule get_rdata:
         min_samples = config["DGE"]["MIN_NUM_OF_EXPRESSED_SAMPLE"],
         factors = config["DGE"]["LIMMA_FACTORS"],
         formula = config["DGE"]["LIMMA_DESIGN_FORMULA"],
-        contrasts = config["DGE"]["LIMMA_CONTRASTS"]
+        contrasts = list(config["DGE"]["LIMMA_CONTRASTS"].values())
     conda:
         "../../../local/env/bit_rnaseq_3.yaml"
     shell:"""
         eset2toptable -t {params.dge_tool} -l {params.min_cpm} -n {params.min_samples} {params.factors} {input} {params.formula} {params.contrasts} > {output}
     """
+
+rule test:
+    output:
+        "test.txt"
+    params:
+        contrasts = config["DGE"]["LIMMA_CONTRASTS"].values()
+    shell:"""
+        echo {params.contrasts} > {output}
+    """
+
 
 #this code allows to call the target with a value used in LIMMA_CONTRASTS_NAMES and find data in $(DGE_TOOL).RData that are stored under a label given by LIMMA_CONTRASTS
 #$(addprefix $(DGE_TOOL).top.ALL.contrast., $(addsuffix .gz, $(LIMMA_CONTRASTS_NAMES))): $(DGE_TOOL).top.ALL.contrast.%.gz: $(DGE_TOOL).RData
@@ -54,8 +69,8 @@ rule run_DGE:
     output:
         config["DGE"]["DGE_TOOL"] + ".toptable_clean.contrast_{contrast}.gz"
     params:
-        contrast_names = config["DGE"]["LIMMA_CONTRASTS_NAMES"],
-        contrasts = config["DGE"]["LIMMA_CONTRASTS"],
+        contrast_names = list(config["DGE"]["LIMMA_CONTRASTS"].keys()),
+        contrasts = list(config["DGE"]["LIMMA_CONTRASTS"].values()),
         dge_tool = config["DGE"]["DGE_TOOL"] 
     conda:    
         "../../../local/env/bit_rnaseq_3.yaml"
@@ -84,11 +99,11 @@ rule all_contrasts:
         #expand("{path}.toptable_clean.contrast_{contrast}.gz", contrast=config["DGE"]["LIMMA_CONTRASTS_NAMES"])
         lambda wildcards: expand("{path}.toptable_clean.contrast_{contrast}.gz", 
             path=wildcards.path, 
-            contrast=config["DGE"]["LIMMA_CONTRASTS_NAMES"])
+            contrast=list(config["DGE"]["LIMMA_CONTRASTS"].keys()))
     output:
         "{path}.toptable_clean.ALL_contrast.gz"
     params:
-        contrast=config["DGE"]["LIMMA_CONTRASTS_NAMES"]
+        contrast=list(config["DGE"]["LIMMA_CONTRASTS"].keys())
     conda:
         "../../../local/env/bit_rnaseq_3.yaml"
     shell:"""

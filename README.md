@@ -24,7 +24,7 @@ The first column must be named `sample` and contain the `<sample_name>` of the f
 
 Most rules work in a common conda environment defined in `local/env/env.yaml`.
 You should create the corresponding env with 
-`conda create --prefix=local/env/conda --file=local/env/env.yaml`
+`conda env create --prefix=local/env/conda --file=local/env/env.yaml`
 
 The environment is directly activated running `direnv allow` when prompted.
 

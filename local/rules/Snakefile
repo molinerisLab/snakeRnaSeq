@@ -1029,6 +1029,26 @@ rule featurecounts_mouse:
 	"""
 	#there are 2 header rows in the input file, we discard the first
 
+# ---------#
+# Heatmap  #
+# ---------#
+
+rule heatmap:
+    input:
+        gep = "GEP.count.exp_filter.ltmm.no_undeter.gz",
+        metadata = "metadata.no_undeter.txt"
+    output:
+        pdf = "heatmap."+config['HEATMAP']['N_TOP']+"_top_genes.pdf",
+        rds = "heatmap."+config['HEATMAP']['N_TOP']+"_top_genes.Rds"
+    params:
+        sets = config["HEATMAP"]["COLUMNS"],
+        n_top = config["HEATMAP"]["N_TOP"],
+        color_set = config["HEATMAP"]["COLORS"],
+        clusters = config["HEATMAP"]["CLUSTERS"]
+    shell:"""
+        heatmap {input.gep} -a {input.metadata} -C {params.sets} -c 12 -s -d correlation {params.color_set} --pdf -e 16 -w 12 {params.clusters} -N {params.n_top} -R {output.rds} {output.pdf}
+    """
+
 # -------------- #
 # Generic rules  #
 # -------------- #

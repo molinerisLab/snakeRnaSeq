@@ -28,42 +28,35 @@ args <- arguments$args
 stdin = file(args[2])
 pData=read.table(stdin,h=T,sep="\t",quote="",stringsAsFactors = F)
 
+
 if (!"sample"%in%colnames(pData)){
 	stop("There is no column named 'sample' in your 'metadata.txt' file")
 }
 
+
 pData$sample = make.names(pData$sample)
 
-if (opt$medip && nchar(opt$labels)==0){
-  stop("You need to state the labels of your counts_peak table")
+
+
+counts = read.delim(file=file(args[1]),header=T,row.names=1);
+
+if(!all(pData$sample%in%colnames(counts))){
+  stop("Not all the samples in the metadata are in the counts, check the sample names")
 }
-
-if (!opt$medip && nchar(opt$labels) >0){
-  stop("LABELS option only for MEDIP")
-}
-
-if (opt$medip){
-  labels=c()
-  if(nchar(opt$labels) > 0) {
-        labels=opt$labels
-        labels=strsplit(labels,split=" ",perl=T)[[1]]
-          if(length(labels)!=length(pData$sample)){
-                stop(c("ERROR: inconsistent labels number (-l)\n",labels,"\n",pData$sample))
-          }
-  }
-  counts = read.delim(args[1],h=F)
-  colnames(counts)=c("chr","start","end",labels)
-} else {counts = read.delim(file=file(args[1]),header=T,row.names=1);counts = counts[,pData$sample]}
-
-
 
 if(any(duplicated(pData$sample))){
-stop("There are duplicated samples in the metadata file")}
+  stop("There are duplicated samples in the metadata file")
+}
+
+counts = counts[,pData$sample]
+
 metadata <- data.frame(labelDescription= colnames(pData),row.names=colnames(pData))
+
 phenoData <- new("AnnotatedDataFrame", data=pData[which(pData$sample%in%colnames(counts)),], varMetadata=metadata) # In this way the pData is reduced to what you have in counts.
 # The metadata.txt should have 'samples' unique and hopefully as the first column. Only if 'samples' is unique I can apply the row.names. 
 # I have to apply the row.names otherwise the cols of counts and the rows of pData(phenoData) are not equivalent
 row.names(pData(phenoData))=pData(phenoData)$sample
+
 
 
 experimentData <- new("MIAME",

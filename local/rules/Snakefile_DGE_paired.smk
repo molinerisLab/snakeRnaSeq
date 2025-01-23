@@ -3,7 +3,7 @@
 # --------------#
 import os
 
-configfile: "../config.yaml"
+configfile: "config.yaml"
 if os.path.exists("Snakefile_versioned.sk"):
     include: "Snakefile_versioned.sk"
 

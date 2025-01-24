@@ -109,39 +109,60 @@ rule unload_genome:
         STAR --genomeLoad Remove --genomeDir {params.genome_dir}
         rm genome_loaded
     """
-
-rule star_align_pe:
+rule star_pe_multi:
     input:
-        fq1 = "fastq/{sample}_R1.fastq.gz",
-        fq2 = "fastq/{sample}_R2.fastq.gz"
+        fq1=config['FASTQ_FILTERING']+"/{sample}_R1.fastq.gz",
+        fq2=config['FASTQ_FILTERING']+"/{sample}_R2.fastq.gz",
+        idx=lambda wildcards: config['STAR']['INDEX']['GRCh'],
     output:
-        bam = "star/{sample}.bam"
+        aln="star/{sample}.bam",
+        log="star/{sample}.Log.out",
+        sj="star/{sample}.SJ.out.tab",
+        # Uncomment the next line if you want to handle unmapped reads
+        # unmapped=["star/unmapped/{sample}_R1.fastq.gz", "star/unmapped/{sample}_R2.fastq.gz"],
+        #unmapped read filtered after, sice by default STAR report as unmapped partially mapped (i.e. mapped only one mate of a paired end read)
+    log:
+        "star/{sample}.log",
     params:
-        genome_dir = STAR_GENOME_DIR,
-        threads = config["CORES"],
-        out_sam_type = config["STAR"]["OUT_SAM_TYPE"],
-        out_filter_multimap_nmax = config["STAR"]["OUT_FILTER_MULTIMAP_NMAX"],
-        out_filter_multimap_score_range = config["STAR"]["MULTIMAP_SCORE_RANGE"],
-        filter_mismatch = config["STAR"]["FILTER_MISMATCH"],
-        additional_output = config["STAR"]["ADDITIONAL_OUTPUT"]
-    shell:
-        """
-        mkdir -p $(dirname {output.bam})
-        STAR \
-            --genomeDir {params.genome_dir} \
-            --genomeLoad LoadAndKeep \
-            --runThreadN {params.threads} \
-            --readFilesIn {input.fq1} {input.fq2} \
-            --readFilesCommand zcat \
-            --outFileNamePrefix $(dirname {output.bam})/ \
-            --outSAMtype {params.out_sam_type} \
-            --limitBAMsortRAM 10000000000 \
-            --outSAMunmapped Within \
-            --outFilterMultimapNmax {params.out_filter_multimap_nmax} \
-            --outFilterMultimapScoreRange {params.out_filter_multimap_score_range} \
-            {params.filter_mismatch} \
-            {params.additional_output}
-        """
+        extra=lambda wildcards: f"--outSAMtype BAM SortedByCoordinate --outSAMunmapped Within --chimOutType WithinBAM {config['STAR']['OPTIONS']}",
+    threads: config["CORES"],
+    wrapper:
+        "v3.3.6/bio/star/align"
+
+
+#not working at the moment
+# rule star_align_pe:
+#     input:
+#         fq1 = "fastq/{sample}_R1.fastq.gz",
+#         fq2 = "fastq/{sample}_R2.fastq.gz"
+#     output:
+#         bam = "star/{sample}.bam"
+#     params:
+#         genome_dir = STAR_GENOME_DIR,
+#         threads = config["CORES"],
+#         out_sam_type = config["STAR"]["OUT_SAM_TYPE"],
+#         out_filter_multimap_nmax = config["STAR"]["OUT_FILTER_MULTIMAP_NMAX"],
+#         out_filter_multimap_score_range = config["STAR"]["MULTIMAP_SCORE_RANGE"],
+#         filter_mismatch = config["STAR"]["FILTER_MISMATCH"],
+#         additional_output = config["STAR"]["ADDITIONAL_OUTPUT"]
+#     shell:
+#         """
+#         mkdir -p $(dirname {output.bam})
+#         STAR \
+#             --genomeDir {params.genome_dir} \
+#             --genomeLoad LoadAndKeep \
+#             --runThreadN {params.threads} \
+#             --readFilesIn {input.fq1} {input.fq2} \
+#             --readFilesCommand zcat \
+#             --outFileNamePrefix $(dirname {output.bam})/ \
+#             --outSAMtype {params.out_sam_type} \
+#             --limitBAMsortRAM 10000000000 \
+#             --outSAMunmapped Within \
+#             --outFilterMultimapNmax {params.out_filter_multimap_nmax} \
+#             --outFilterMultimapScoreRange {params.out_filter_multimap_score_range} \
+#             {params.filter_mismatch} \
+#             {params.additional_output}
+#         """
 
 rule linl_unmapped:
     input: "star_CHM/{sample}_unmapped_R{mate}.fastq.gz"

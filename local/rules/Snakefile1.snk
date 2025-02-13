@@ -134,6 +134,10 @@ rule star_align:
     threads: config["CORES"]
     shell:
         """
+        if [ -d {params.tmpdir} ]; then
+            rm -rf {params.tmpdir};
+        fi
+
         mkdir -p {params.tmpdir};
         STAR --runThreadN {threads} \
              --genomeDir {input.idx} \

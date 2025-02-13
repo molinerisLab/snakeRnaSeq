@@ -736,8 +736,8 @@ rule gene_body_coverage:
         text="rseqc/{sample}.geneBodyCoverage.txt",
         rscript="rseqc/{sample}.geneBodyCoverage.r"
     shell: """
-        geneBody_coverage.py -i {input.bam} -r <(zcat {input.housekeeping_genes}) -o rseqc/{wildcards.sample}; 
-        sed -i 's|Aligned.sortedByCoord.out|{wildcards.sample}|' {output.text}
+        geneBody_coverage.py -i {input.bam} -r {input.housekeeping_genes} -o rseqc/{wildcards.sample}; 
+        sed -i 's|Aligned.sortedByCoord.out|{wildcards.sample}|' {output.text} # probably dispensable
     """
 
 rule get_inner_distance:

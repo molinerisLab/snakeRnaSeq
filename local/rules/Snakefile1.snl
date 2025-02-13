@@ -1,0 +1,1096 @@
+#
+# RNA-seq analysis pipeline
+#
+# --------------#
+# Configuration #
+# --------------#
+import os
+
+configfile: "config.yaml"
+
+REFERENCE_ROOT=os.environ.get("REFERENCE_ROOT")
+
+# GENERAL SETUP ---
+RAW_DATA_DIR= ["."]
+
+# GENCODE ---
+GENCODE_DIR=REFERENCE_ROOT+"/bioinfotree/task/gencode/dataset/"+config["GENCODE"]["SPECIES"]+"/"+config["GENCODE"]["VERSION"]
+GENCODE_GENOME_FASTA=GENCODE_DIR+"/"+config["GENCODE"]["GENOME"]+".genome.fa"
+GENCODE_ANNOTATION_GTF=GENCODE_DIR+"/"+config["GENCODE"]["ANNOTATION"]+".gtf"
+GENCODE_ANNOTATION_BED=GENCODE_DIR+"/"+config["GENCODE"]["ANNOTATION"]+".bed"
+
+
+# visualization param ---
+GFF3_MIN_WINDOW_READS = "100"
+BIGWIG_BIN_SIZE = "50"
+BEDGRAPH_FILTER = "100"
+#REPEAT_FAMILY_RAND_REPETITION=10 
+
+
+# featurecounts param ---
+FEATURECOUNTS_PARAM = config["FEATURECOUNTS_PARAM"] + " -s" + config["STRANDED"]
+if config["LAYOUT"] == "PAIRED":
+    FEATURECOUNTS_PARAM += " -p -C --countReadPairs" 
+# -O allowMultiOverlap
+LCPM_PRIOR_COUNT = 0.25           # *standard of edgeR*
+LTPM_PRIOR_COUNT = 0.0001
+
+# Samples ---
+if config["LAYOUT"] == "PAIRED":
+    SAMPLES, = glob_wildcards("fastq/{sample}_R1.fastq.gz")
+else:
+    SAMPLES, = glob_wildcards("fastq/{sample}.fastq.gz")
+
+BAM_TYPES = ["ribo.ex", "ribo.in"]
+
+# Function ---#
+def get_fastq(wildcards):
+    if config["LAYOUT"] == "PAIRED":
+        return [
+            f"fastq/{wildcards.sample}_R1.fastq.gz",
+            f"fastq/{wildcards.sample}_R2.fastq.gz"
+        ]
+    else:
+        return f"fastq/{wildcards.sample}.fastq.gz"
+
+def get_trimmed(wildcards):
+    if config["FASTQ_FILTERING"] == "fastp":
+        if config["LAYOUT"] == "PAIRED":
+            return [
+                f"fastp/{wildcards.sample}_R1.fastq.gz",
+                f"fastp/{wildcards.sample}_R2.fastq.gz"
+            ]
+        else:
+            return f"fastp/{wildcards.sample}.fastq.gz"
+    else:
+        return get_fastq(wildcards)      
+# ---------------#
+# QC #
+
+rule fastqc:
+    input:
+        fq=lambda wildcards: (
+            [f"{config["FASTQ_FILTERING"]}/{wildcards.sample}_R1.fastq.gz", f"{config["FASTQ_FILTERING"]}/{wildcards.sample}_R2.fastq.gz"]
+            if config["LAYOUT"] == "PAIRED"
+            else [f"{config["FASTQ_FILTERING"]}/{wildcards.sample}.fastq.gz"]
+        )
+    output:
+        html=expand("fastqc/{sample}_{suffix}_fastqc.html", sample="{sample}", suffix=["R1", "R2"])
+        if config["LAYOUT"] == "PAIRED"
+        else "fastqc/{sample}_fastqc.html",
+        zip=expand("fastqc/{sample}_{suffix}_fastqc.zip", sample="{sample}", suffix=["R1", "R2"])
+        if config["LAYOUT"] == "PAIRED"
+        else "fastqc/{sample}_fastqc.zip",
+    threads: config["CORES"]
+    shell:
+        """
+        mkdir -p fastqc;
+        fastqc -t {threads} -o fastqc {input};
+        """
+
+
+rule fastp:
+    input:
+        get_fastq
+    output:
+        fq=expand("fastp/{sample}_{suffix}.fastq.gz",sample={sample},suffix=["R1", "R2"])
+            if config["LAYOUT"] == "PAIRED"
+            else "fastp/{sample}.fastq.gz",
+        #fq1  = "fastp/{sample}_R1.fastq.gz",
+        #fq2  = "fastp/{sample}_R2.fastq.gz",
+        html = "fastp/{sample}.html",
+        json="fastp/{sample}.json"
+    message: "trimming {wildcards.sample} reads"
+    threads: 10
+    log:
+        "fastp/{sample}.log.txt"
+    params:
+        sampleName=lambda wildcards: wildcards.sample,
+        adapters_r1="--adapter_sequence=AGATCGGAAGAGCACACGTCTGAACTCCAGTCA" 
+    run:
+        if config["LAYOUT"] == "PAIRED":
+            shell("fastp --thread {threads}  --html {output.html} \
+            --detect_adapter_for_pe --json {output.json} \
+            --in1 {input[0]} --in2 {input[1]} --out1 {output.fq[0]} --out2 {output.fq[1]}; \
+            2> {log}")
+        else:
+            shell("fastp --thread {threads}  --html {output.html} \
+            {params.adapters_r1} \
+            --in1 {input} --out1 {output.fq} --json {output.json} \
+            2> {log}; \
+            touch {output.fq}")
+
+rule star_align:
+    input:
+        fq=get_trimmed,
+        idx=config['STAR']['INDEX']['GRCh']
+    output:
+        aln="star/{sample}.bam",
+        log="star/{sample}.Log.out",
+        sj="star/{sample}.SJ.out.tab"
+    params:
+        extra=lambda wildcards: f"--outSAMtype BAM SortedByCoordinate --outSAMunmapped Within --chimOutType WithinBAM {config['STAR']['OPTIONS']}",
+        tmpdir="star/{sample}"
+    threads: config["CORES"]
+    shell:
+        """
+        mkdir -p {params.tmpdir};
+        STAR --runThreadN {threads} \
+             --genomeDir {input.idx} \
+             --readFilesIn {input.fq} \
+             --readFilesCommand gunzip -c \
+             --outTmpDir {params.tmpdir}/STARtmp \
+             --outFileNamePrefix star/{wildcards.sample}. \
+             --outStd BAM_SortedByCoordinate \
+             {params.extra} > {output.aln}; 
+        rm -r {params.tmpdir};
+        """
+
+rule generate_unmapped_R1:
+    input:
+        "star/{sample}.bam"
+    output:
+        "star/{sample}_unmapped_R1.fastq.gz"
+    shell:"""
+        samtools view -f 76 {input} | bawk '{{print "@"$1; print $10; print "+"; print $11}}' | gzip > {output}
+    """
+    # 76=4+8+64 = read unmapped AND mate unmapped AND first in pair, i.e., discard reads that are unmapped but that have mate mapped
+
+rule generate_unmapped_R2:
+    input:
+        "star/{sample}.bam"
+    output:
+        "star/{sample}_unmapped_R2.fastq.gz"
+    shell: """
+        samtools view -f 140 {input} | bawk '{{print "@"$1; print $10; print "+"; print $11}}' | gzip > {output}
+    """
+    # 140=4+8+128 = read unmapped AND mate unmapped AND second in pair, i.e., discard reads that are unmapped but that have mate mapped
+
+rule featurecounts:
+    input:
+        bam="star/{sample}.{bam_type}.bam",
+        annotation_gtf=GENCODE_ANNOTATION_GTF
+    output:
+        counts="star/{sample}.{bam_type}.bam.featurecounts.count",
+        summary="star/{sample}.{bam_type}.bam.featurecounts.count.summary"
+    threads:
+        config["CORES"]
+    params:        
+        params=FEATURECOUNTS_PARAM + (" -p -C --countReadPairs" if config["LAYOUT"] == "PAIRED" else "")
+    shell:
+        """
+        featureCounts -T {threads} -a {input.annotation_gtf} \
+                      -o {output.counts} {params.params} {input.bam};
+        """
+rule all_featurecounts:
+    input:
+        expand("star/{sample}.{bam_type}.bam.featurecounts.count", sample=SAMPLES, bam_type=BAM_TYPES)
+
+rule get_bai:
+    input: 
+        "{file}.bam"
+    output: 
+        "{file}.bam.bai"
+    shell: 
+        "samtools index {input}"
+
+rule split_bam_ribo:
+    input:
+        bam="star/{sample}.bam",
+        bam_idx="star/{sample}.bam.bai",
+        ribosome_bed=GENCODE_DIR+"/primary_assembly.annotation.rRNA_complete.bed",
+    output:
+        ribo_ex="star/{sample}.ribo.ex.bam",
+        ribo_in="star/{sample}.ribo.in.bam",
+        ribo_log="star/{sample}.summary"
+    params:
+        path="star/{sample}"
+    shell:
+        "split_bam.py -i {input.bam} -r {input.ribosome_bed} -o {params.path}.ribo > {params.path}.summary"
+
+rule featurecounts_ribo_ex:
+	input:
+		file_all=expand("star/{sample}.ribo.ex.bam.featurecounts.count", sample=SAMPLES),
+		file_translate=expand("star/{sample}.ribo.ex.bam.featurecounts.count", sample=SAMPLES[0])
+	output:
+		"featurecounts.ribo.ex.count.gz"
+	shell: """
+		matrix_reduce '*.ribo.ex.bam.featurecounts.count' -l '{input.file_all}' \
+		| grep -v '^#' \
+		| fasta2tab \
+		| bawk '$2!="Geneid" {{print $2,$1,$8}}' \
+		| tab2matrix -r Geneid \
+		| translate -a <(cut -f -6 {input.file_translate} | unhead) 1 \
+		| gzip > {output}
+		"""
+
+
+rule featurecounts_ribo_ex_summary:
+	input:
+		expand("star/{sample}.ribo.ex.bam.featurecounts.count.summary", sample=SAMPLES)
+	output:
+		"fastq.featurecounts.ribo.ex.count.gz.summary_matrix"
+	#container:
+	#	"../../local/share/images/bit.wip-rnaseq.0.8.sif"
+	#conda:
+	#	"../../local/bioinfotree.yaml"
+	shell:
+		"matrix_reduce -t 'star/*.ribo.ex.bam.featurecounts.count.summary' "
+		"| grep -v Status "
+		"| tab2matrix -r Sample > {output}"
+
+rule featurecounts_ribo_ex_summary_matrix:
+	input:
+		"fastq.featurecounts.ribo.ex.count.gz.summary_matrix"
+	output:
+		"fastq.featurecounts.ribo.ex.count.gz.summary_matrix.reduced"
+#	conda:
+#		"../../local/env/bioinfotree.yaml"
+	shell:
+		"matrix2tab {input} "
+		"| bawk '$2==\"Unassigned_Ambiguity\" || $2==\"Assigned\" || $2==\"Unassigned_NoFeatures\"' "
+		"| tab2matrix -r Sample > {output}"
+
+rule read_count:
+	input:
+		"{path}.bam"
+	output:
+		"{path}.bam.read_count"
+	shell:
+		"samtools view {input} "
+		"| cut -f -1 "
+		"| count > {output}"
+
+rule read_count_unmap:
+	input:
+		"{path}.bam"
+	output:
+		"{path}.unmap.bam.read_count"
+	shell:
+		"samtools view -f 4 {input} "
+		"| cut -f -1 "
+		"| count > {output}"
+
+rule read_count_multimap:
+	input:
+		"{path}.bam"
+	output:
+		"{path}.multi_map.bam.read_count"
+	shell:
+		"samtools view -F 4 {input} "
+		"| bawk '$1~/^@/ || $12!=\"NH:i:1\"' "
+		"| cut -f -1 "
+		"| count > {output}"
+
+rule read_count_uniq:
+	input:
+		"{path}.bam"
+	output:
+		"{path}.uniq_map.bam.read_count"
+	shell:
+		"samtools view -F 260 {input} "
+		"| bawk '$1~/^@/ || $12==\"NH:i:1\"' "
+		"| cut -f -1 "
+		"| count > {output}"
+
+rule usable_reads:
+	input:
+		read_count="{path}.bam.read_count",
+		read_count_unmap="{path}.unmap.bam.read_count",
+		read_count_ribo_in="{path}.ribo.in.bam.read_count",
+		read_count_ribo_ex_multimap="{path}.ribo.ex.multi_map.bam.read_count",
+		read_count_ribo_ex_uniq="{path}.ribo.ex.uniq_map.bam.read_count"
+	output:
+		"{path}.usable_reads"
+	shell:
+		"cat {input} | transpose > {output}"
+
+rule usable_reads_all:
+	input:
+		ribo_ex_matrix="fastq.featurecounts.ribo.ex.count.gz.summary_matrix.reduced",
+		usable_reads=expand("star/{sample}.usable_reads", sample=SAMPLES)
+	output:
+		"usable_reads.txt"
+	shell:
+		"matrix_reduce -t 'star/*.usable_reads' "
+		"| translate -a -r {input.ribo_ex_matrix} 1"
+		"| bawk 'BEGIN{{print \"sample\",\"tot\",\"unmap\",\"ribo\",\"non_ribo_multi_map\",\"non_ribo_uniq_map\",\"Assigned\",\"Unassigned_Ambiguity\",\"Unassigned_NoFeatures\"}} {{print}}' > {output}"
+
+rule get_Gep:
+    input: 
+        featurecounts="featurecounts.ribo.ex.count.gz"
+    output: 
+        "GEP.count.gz"
+    shell: """
+        zgrep -v '^#' {input.featurecounts} | cut -f 1,7- \
+        | perl -pe 'if($.==1){{s|star/||g;}}' \
+        | gzip > {output}  
+    """ 
+
+rule Gep_filter:
+    input:
+        GEP_count="GEP.count{filter}gz",
+        GEP_cpm="GEP.count.cpm.expressed_genes"
+    output: 
+        "GEP.count{filter}exp_filter.gz"
+    shell: 
+        "zcat {input.GEP_count} | filter_1col --header 1 1 <(cut -f 1 {input.GEP_cpm}) | gzip > {output}"
+
+rule gene_length:
+    input: 
+        featurecounts="featurecounts.ribo.ex.count.gz"
+    output: 
+        "gene_len"
+    shell: """
+        echo -e "Geneid\tlength" > {output}
+        zgrep -v '^#' {input.featurecounts} | cut -f 1,6 | unhead -n 1 >> {output}
+    """
+
+rule rpk:
+    input: 
+        GEP="GEP.count.gz",
+        GenLen="gene_len"
+    output: 
+        "GEP.count.rpk.gz"
+    shell: """
+        zcat {input.GEP} | translate -a {input.GenLen} 1 \
+        | perl -wlane 'BEGIN{{$,="\t"}} {{$g=shift(@F); $l=shift(@F); if($.==1){{print $g,@F}}else{{@F=map {{$_=$_/$l}} @F; print $g,@F}}}}' \
+        | gzip > {output}
+    """
+rule cpm:
+    input: 
+        "GEP.count{filter}gz"
+    output: 
+        "GEP.count{filter}cpm.gz"
+    shell: """
+        zcat {input} | grep -v "Geneid"  > {input}.fixed;
+        r -e 'library(edgeR); x<-read.table("{input}.fixed", header=T,check.names=FALSE,row.names=1); write.table(cpm(x, normalized.lib.sizes=FALSE), "{output}.tmp", append=T, sep="\t", quote=F, col.names=NA, row.names = T)';
+        (echo -n "Geneid"; cat {output}.tmp) | gzip > {output}
+        rm {input}.fixed {output}.tmp
+    """
+
+rule lcpm:
+    input: 
+        "GEP.count{filter}gz"
+    output: 
+        "GEP.count{filter}lcpm.gz"
+    params: 
+        LCPM=LCPM_PRIOR_COUNT
+    shell: """
+        r -e 'library(edgeR); x<-read.table("$<", header=T,check.names=FALSE,row.names=1); write.table(cpm(x, log=T, prior.count=${params.LCPM}), "{output}.tmp", append=T, sep="\t", quote=F, col.names=NA, row.names = T)';
+        (echo -n "Geneid"; cat {output}.tmp) | gzip > {output}
+        rm {output}.tmp
+    """
+rule rpk_ltpm:
+    input:
+        "GEP.count.rpk.gz"
+    output:
+        "GEP.count.rpk.ltpm.gz"
+    params: 
+        LTPM=LTPM_PRIOR_COUNT
+    shell: """
+        echo -n "Geneid" | gzip >{output}
+        r -e 'library(edgeR); x<-read.table("{input}", header=T,check.names=FALSE,row.names=1); write.table(cpm(x, log=T, prior.count=${params.LTPM}), "{output}.tmp", append=T, sep="\t", quote=F, col.names=NA, row.names = T)';
+        (echo -n "Geneid"; cat {output}.tmp) | gzip > {output}
+        rm {output}.tmp
+
+    """
+
+rule rpk_cpm:
+    input: 
+        "GEP.count.rpk.gz"
+    output: 
+        "GEP.count.rpk.cpm.gz"
+    shell: """
+        echo -n "Geneid" | gzip >{output}
+        r -e 'library(edgeR); x<-read.table("{input}", header=T,check.names=FALSE,row.names=1); write.table(cpm(x, normalized.lib.sizes=FALSE), "{output}.tmp", append=T, sep="\t", quote=F, col.names=NA, row.names = T)';
+        (echo -n "Geneid"; cat {output}.tmp) | gzip > {output}
+        rm {output}.tmp
+    """
+
+rule expressed_genes:
+    input: 
+        "GEP.count.cpm.gz"
+    output: 
+        "GEP.count.cpm.expressed_genes"
+    params: 
+        expressed=config["DGE"]["EXPRESSED_GENES_MIN_CPM"],
+        min_sample=config["DGE"]["MIN_NUM_OF_EXPRESSED_SAMPLE"]
+    shell: """
+        zcat {input} | matrix2tab | bawk '$3>{params.expressed}  {{print $1}}' | symbol_count |bawk '$2>={params.min_sample}'> {output}
+    """
+
+rule GEP_exp_filter:
+    input:
+        "GEP.{filter}.gz"
+    output: 
+        "GEP.{filter}.tmm.gz"
+    shell: """
+        r -e 'library(edgeR);\
+        x <- read.table("{input}", header=T,check.names=FALSE,row.names=1);\
+        y <- DGEList(counts=x);\
+        y <- calcNormFactors(y,method="TMM");\
+        write.table(y$samples,"{output}.factors", sep="\t", quote=F, col.names=NA, row.names=T);\
+        write.table(cpm(y, normalized.lib.sizes=TRUE), "{output}.tmp", sep="\t", quote=F, col.names=NA, row.names = T)'
+        (echo -n "Geneid"; cat {output}.tmp) | gzip > {output}
+        rm {output}.tmp
+    """
+
+rule GEP_count_ltmm:
+    input: 
+        "GEP.count.gz"
+    output: 
+        "GEP.count.ltmm.gz"
+    shell: """
+        r -e 'library(edgeR);\\
+        x <- read.table("{input}", header=T,check.names=FALSE,row.names=1);\\
+        y <- DGEList(counts=x);\\
+        y <- calcNormFactors(y,method="TMM");\\
+        write.table(y$samples,"{output}.factors", sep="\t", quote=F, col.names=NA, row.names=T);\\
+        write.table(cpm(y, normalized.lib.sizes=TRUE, log=TRUE), "{output}.tmp", sep="\t", quote=F, col.names=NA, row.names = T)'
+        (echo -n "Geneid"; cat {output}.tmp) | gzip > {output}
+        rm {output}.tmp
+    """
+
+rule GEP_exp_filter_ltmm:
+    input: 
+        "GEP.count.exp_filter.gz"
+    output: 
+        "GEP.count.exp_filter.ltmm.gz"    
+    shell: """
+        r -e 'library(edgeR);\
+        x <- read.table("{input}", header=T,check.names=FALSE,row.names=1);\
+        y <- DGEList(counts=x);\
+        y <- calcNormFactors(y,method="TMM");\
+        write.table(y$samples,"{output}.factors", sep="\t", quote=F, col.names=NA, row.names=T);\
+        write.table(cpm(y, normalized.lib.sizes=TRUE, log=TRUE), "{output}.tmp", sep="\t", quote=F, col.names=NA, row.names = T)'
+        (echo -n "Geneid"; cat {output}.tmp) | gzip > {output}
+        rm {output}.tmp
+    """
+
+rule GEP_exp_filter_luq:
+    input: 
+        "GEP.count.exp_filter.gz"
+    output: 
+        "GEP.count.exp_filter.luq.gz"
+    shell: """
+        r -e 'library(edgeR);\\
+        x <- read.table("{input}", header=T,check.names=FALSE,row.names=1);\\
+        y <- DGEList(counts=x);\\
+        y <- calcNormFactors(y,method="upperquartile");\\
+        write.table(y$samples,"{output}.factors", sep="\t", quote=F, col.names=NA, row.names=T);\\
+        write.table(cpm(y, normalized.lib.sizes=TRUE, log=TRUE), "{output}.tmp", sep="\t", quote=F, col.names=NA, row.names = T)'
+        (echo -n "Geneid"; cat {output}.tmp) | gzip > {output}
+        rm {output}.tmp
+    """
+
+rule GEP_exp_filter_lrle:
+    input: 
+        "GEP.count.exp_filter.gz"
+    output: 
+        "GEP.count.exp_filter.lrle.gz"
+    shell: """
+        r -e 'library(edgeR);\\
+        x <- read.table("{input}", header=T,check.names=FALSE,row.names=1);\\
+        y <- DGEList(counts=x);\\
+        y <- calcNormFactors(y,method="RLE");\\
+        write.table(y$samples,"{output}.factors", sep="\t", quote=F, col.names=NA, row.names=T);\\
+        write.table(cpm(y, normalized.lib.sizes=TRUE, log=TRUE), "{output}.tmp", sep="\t", quote=F, col.names=NA, row.names = T)'
+        (echo -n "Geneid"; cat {output}.tmp) | gzip > {output}
+        rm {output}.tmp
+    """
+
+rule GEP_exp_filter_vst:
+    input: 
+        GEP="GEP.count.exp_filter.gz",
+        metadata="metadata.txt"
+    output: 
+        "GEP.count.exp_filter{filter}vst.gz"
+    shell: """
+        r -e 'suppressMessages(library(DESeq2));\\
+        x <- read.table("{input.GEP}",  header=T,check.names=FALSE,row.names=1);\\
+        z <- read.table("{input.metadata}", header=T,check.names=FALSE,row.names=1);\\
+        dds<-DESeqDataSetFromMatrix(as.matrix(x),z,~1);\\
+        vsd <- vst(dds, blind=TRUE);\\
+        write.table(assay(vsd), "{output}.tmp", sep="\t", quote=F, col.names=NA, row.names = T)'
+        (echo -n "Geneid"; cat {output}.tmp) | gzip > {output}
+        rm {output}.tmp
+    """
+
+rule GEP_exp_filter_rlog:
+    input: 
+        GEP="GEP.count.exp_filter.gz",
+        metadata="metadata.txt"
+    output: 
+        "GEP.count.exp_filter{filter}rlog.gz"
+    shell: """
+        r -e 'suppressMessages(library(DESeq2));\\
+        x <- read.table("{input.GEP}",  header=T,check.names=FALSE,row.names=1);\\
+        z <- read.table("{input.metadata}", header=T,check.names=FALSE,row.names=1);\\
+        dds<-DESeqDataSetFromMatrix(as.matrix(x),z,~1);\\
+        rld <- rlog(dds, blind=TRUE);\\
+        write.table(assay(rld), "{output}.tmp", sep="\t", quote=F, col.names=NA, row.names = T)'
+        (echo -n "Geneid"; cat {output}.tmp) | gzip > {output}
+        rm {output}.tmp
+    """
+
+rule GEP_factors:
+    input:
+        "GEP.count.tmm.gz"
+    output:
+        "GEP.count.tmm.gz.facotrs"
+    shell:
+        "echo pass"
+
+rule GEP_count_fpkm:
+    input: 
+        GEP="GEP.count.{filter}.gz",
+        GenLen="gene_len"
+    output: 
+        # "GEP.count.cpm.fpkm.gz",
+        # "GEP.count.tmm.fpkm.gz" 
+        "GEP.count.{filter}.fpkm.gz"
+    shell: """
+        zcat {input.GEP} | translate -a {input.GenLen} 1 \
+        | perl -wlane 'BEGIN{$,="\t"} {$g=shift(@F); $l=shift(@F); if($.==1){print $g,@F}else{@F=map {$_=($_/$l)*1000} @F; print $g,@F}}' \
+        | gzip > {output}
+    """
+rule GEP_count_lfpkm:
+    input: 
+        GEP1="GEP.count.exp_filter.{filter}.gz",
+        GenLen="gene_len"
+    output: 
+    #    " GEP.count.exp_filter.ltmm.lfpkm.gz", 
+    #    "GEP.count.exp_filter.lcpm.lfpkm.gz", 
+    #    "GEP.count.exp_filter.lcpm.lfpkm.gz"
+        " GEP.count.exp_filter.{filter}.lfpkm.gz"
+    shell: """
+        zcat {input.GEP1} | translate -a {input.GenLen} 1 \
+        | perl -wlane 'BEGIN{$,="\t"} {$g=shift(@F); $l=shift(@F); if($.==1){print $g,@F}else{@F=map {$_=$_ - log($l/1000)/log(2)} @F; print $g,@F}}' \
+        | gzip > {output}
+    """
+
+rule GEP_count_log2r:
+    input: 
+        "GEP.count.{filter}.gz"
+    output: 
+        # "GEP.count.ltmm.log2r.gz",
+        # "GEP.count.lcpm.log2r.gz",
+        # "GEP.count.rpk.ltpm.log2r.gz",
+        "GEP.count.{filter}.log2r.gz"
+    shell: """
+        r -e 'x <- read.table("{input}", header=T,check.names=FALSE,row.names=1); write.table(x - rowMeans(x), "{output}.tmp", sep="\t", quote=F, col.names=NA, row.names = T)'
+        (echo -n "Geneid"; cat {output}.tmp) | gzip > {output}
+        rm {output}.tmp
+    """
+
+rule GEP_count_metadata:
+    input: 
+        GEP="GEP.count{filter}gz",
+        metadata="metadata.txt"
+    output: 
+        "GEP.count{filter}metadata.gz"
+    shell:"""
+        (echo -e "GeneID\\tsample\\texp"; zcat {input.GEP} | matrix2tab ) | translate -a {input.metadata} 2 | gzip > {output}
+    """
+
+rule GEP_whaterfall:
+    input: 
+        "{filter}.gz"
+    output: 
+        # "GEP.count.whaterfall.gz",
+        # "GEP.count.frac.whaterfall.gz", 
+        # "GEP.count.cpm.whaterfall.gz", 
+        # "GEP.count.tmm.whaterfall.gz",
+        # "GEP.count.cpm.fpkm.whaterfall.gz",
+        "{filter}.whaterfall.gz"
+    shell: """
+        zcat {input} | matrix2tab | bsort -k2,2 -k3,3gr -S5% | repeat_group_pipe '\
+        enumerate_rows -r \
+        | enumerate_rows -n -r\
+        | bawk '\''BEGIN{T=0} {T+=$$3; print $$0,T}'\'' \
+        ' 2 | gzip > {output}
+    """
+rule whaterfall_matrix:
+    input: 
+        "{filter}.whaterfall.gz"
+    output: 
+        "{filter}.whaterfall.matrix.gz"
+    shell: 
+        "bawk '{print $order,$sample,$cumulat_count}' {input} | tab2matrix -r count_captured_by_top_genes | gzip > {output}"
+
+
+rule GEP_count_frac:
+    input: 
+        "GEP.count.gz"
+    output: 
+        "GEP.count.frac.gz"
+    shell: 
+        "zcat {input} | normalize_columns -H -C | gzip > {output}"
+
+rule get_lfpkm:
+    input:
+        gep = "GEP.count.exp_filter.{normalization}.gz", 
+        gene_len= "gene_len"
+    output:
+        "GEP.count.exp_filter.{normalization}.lfpkm.gz"
+    shell:"""
+        zcat {input.gep} | translate -a {input.gene_len} 1 \
+	    | perl -wlane 'BEGIN{{$,="\t"}} {{$g=shift(@F); $l=shift(@F); if($.==1){{print $g,@F}}else{{@F=map {{$_=$_ - log($l/1000)/log(2)}} @F; print $g,@F}}}}' \
+	    | gzip > {output}
+    """
+rule expression_add:
+    input:
+        "GEP.count.{normalization}.metadata.gz"
+    output:
+        "GEP.count.{normalization}.metadata.exp_genes_condition.gz"
+    shell:"""
+        bawk '{{print $condition ";" $GeneID, $exp}}' {input} | unhead | bsort -k1,1 | stat_base -g -a -m -l | tr ";" "\t" | gzip > {output}
+    """
+
+rule matrix_exp_condition:
+    input:
+        "GEP.{normalization}.metadata.exp_genes_condition.gz"
+    output:
+        "GEP.{normalization}.metadata.exp_genes_condition.matrix.gz"
+    shell:"""
+        bawk '{{print $gene,$condition,$avg_exp}}' {input} | tab2matrix -r GeneID | gzip > {output}
+    """
+
+COUNT_REF_BED=GENCODE_DIR+"/"+config["GENCODE"]["ANNOTATION"]+".bed"
+RSEQC_REF_BED=GENCODE_DIR+"/basic.annotation.bed"
+
+
+rule infer_experiment:
+    input:
+        bam = "star/{file}.bam",
+        ref_bed = COUNT_REF_BED
+    output:
+        "rseqc/{file}.infer_experiment.txt"
+    shell:
+        "mkdir -p `dirname {output}`; "
+        "infer_experiment.py -r {input.ref_bed} -i {input.bam} > {output}"
+
+rule get_bam_stat:
+    input:
+        "star/{file}.bam"
+    output:
+        "rseqc/{file}.bam_stat.txt"
+    shell:
+        """
+        mkdir -p `dirname {output}`;
+        bam_stat.py -i {input} > {output}
+        """
+rule get_junction_saturation:
+    input:
+        bam = "star/{file}.bam",
+        ref_bed = COUNT_REF_BED
+    output:
+        "rseqc/{file}.junctionSaturation_plot.r"
+    shell:
+        """
+        mkdir -p `dirname {output}`;
+        touch {output};
+        junction_saturation.py -i {input.bam} -r {input.ref_bed} -o rseqc/{wildcards.file}
+        """
+
+rule get_saturation:
+    input:
+        bam = "star/{file}.bam",
+        ref_bed = COUNT_REF_BED,
+        infer_exp = "rseqc/{file}.infer_experiment.txt"
+    output:
+        "rseqc/{file}.saturation.r"
+    shell:
+        """
+        mkdir -p `dirname {output}`;
+        touch {output};
+        RPKM_saturation.py -r {input.ref_bed} -i {input.bam} -o rseqc/{wildcards.file}\
+            $(tr ":" "\t" < {input.infer_exp} | bawk '$2'  | bsort -k2,2n | tail -n 1 | perl -lne 'm/([^\s]+)\t/; print "--strand $1" if $1!="determine"')
+        """
+        
+
+rule get_dup_rate:
+    input:
+        "star/{file}.bam"
+    output:
+        "rseqc/{file}.pos.DupRate.xls"
+    shell:
+        """
+        mkdir -p `dirname {output}`;
+        read_duplication.py -i {input} -o rseqc/{wildcards.file}
+        """
+
+rule gene_body_coverage:
+    input:
+        bam="star/{sample}.bam",
+        bai="star/{sample}.bam.bai",
+        #housekeeping_genes=GENCODE_DIR+"/rseqc.HouseKeepingGenes.bed.gz" This does not exist in mouse GRCm30 M29
+        housekeeping_genes=GENCODE_DIR+"/basic.annotation.bed"
+    output:
+        text="rseqc/{sample}.geneBodyCoverage.txt",
+        rscript="rseqc/{sample}.geneBodyCoverage.r"
+    shell: """
+        geneBody_coverage.py -i {input.bam} -r <(zcat {input.housekeeping_genes}) -o rseqc/{wildcards.sample}; 
+        sed -i 's|Aligned.sortedByCoord.out|{wildcards.sample}|' {output.text}
+    """
+
+rule get_inner_distance:
+    input:
+        "star/{file}.bam"
+    output:
+        "rseqc/{file}.inner_distance.txt"
+    params:
+        bed_ref = RSEQC_REF_BED
+    shell:
+        """
+        mkdir -p `dirname {output}`;
+        inner_distance.py -i {input} -o rseqc/{wildcards.file} -r {params.bed_ref}
+        """
+
+rule ALL_skewness:
+    input:
+        expand("./rseqc/{filter}/{samples}.geneBodyCoverage.txt", filter = config["FASTQ_FILTERING"], samples = SAMPLES)
+    output:
+        "ALL.skewness"
+    shell:
+        """
+        matrix_reduce '{input}' \
+        | fasta2tab | grep -v Percentile | cut -f 1,3- | tab2fasta | tr "\t" "\n" | fasta2tab | stat_base -o -g -k > {output}
+        """
+
+rule get_read_distribution:
+    input:
+        bam = "star/{file}.bam",
+        bed_ref = RSEQC_REF_BED
+    output:
+        "rseqc/{file}.read_distribution.txt"
+    shell:
+        """
+        mkdir -p `dirname {output}`;
+        read_distribution.py  -i {input.bam} -r {input.bed_ref} > {output}
+        """
+
+
+rule read_distribution_matrix:
+    input:
+        expand("rseqc/{samples}.read_distribution.txt", filter = config['FASTQ_FILTERING'], samples = SAMPLES)
+    output:
+        "rseqc/{FASTQ_FILTERING}/ALL.read_distribution.tagskb_matrix"
+    shell:
+        """
+        matrix_reduce '{input}' | fasta2tab | perl -ne 's/_S\d+(\s)/\1/; print if !m/===/ and !m/Group/ and !m/Total/' \
+        | perl -lpe 's/\s+/\t/g' | cut -f 1,2,5 | tab2matrix > {output}
+        """
+
+
+rule norm_read_distribution_matrix:
+    input:
+        expand("rseqc/{filter}/{samples}.read_distribution.txt", filter = config['FASTQ_FILTERING'], samples = SAMPLES)
+    output:
+        "rseqc/{FASTQ_FILTERING}/ALL.read_distribution.tagskb_tab_norm"
+    shell:
+        """
+        matrix_reduce '{input}' | fasta2tab | perl -lne 'BEGIN{{$,="\t"}} $T=$1 if m/Total Tags\s+(\d+)/; s/_S\d+(\s)/\1/; s/\\s+/\t/g; @F=split("\t",$_); print $F[0],$F[1],$F[4],$F[4]/$T if !m/===/ and !m/Group/ and !m/Total/' > {output}
+        """
+
+rule ALL_DGE:
+    input:
+        f"DGE/{config['DGE']['DGE_TOOL']}.toptable_clean.ALL_contrast.mark_seqc.header_added.xlsx"
+
+rule get_eset:
+    input:
+        gep = "GEP.count.gz",
+        metadata = "metadata.txt"
+    output:
+        "{path}/eset.rda"
+    conda:
+        "../../local/env/bit_rnaseq_3_backup.yaml"
+    shell:"""
+        counts_table2eset {input.gep} {input.metadata} > {output}
+    """
+
+rule get_rdata:
+    input:
+        "{path}eset.rda"
+    output:
+        "{path}" + config["DGE"]["DGE_TOOL"] + ".RData"
+    params:
+        dge_tool = config["DGE"]["DGE_TOOL"],
+        min_cpm = config["DGE"]["EXPRESSED_GENES_MIN_CPM"],
+        min_samples = config["DGE"]["MIN_NUM_OF_EXPRESSED_SAMPLE"],
+        factors = config["DGE"]["LIMMA_FACTORS"],
+        formula = config["DGE"]["LIMMA_DESIGN_FORMULA"],
+        contrasts = config["DGE"]["LIMMA_CONTRASTS"]
+    conda:
+        "../../local/env/bit_rnaseq_3_backup.yaml"
+    shell:"""
+        eset2toptable -t {params.dge_tool} -l {params.min_cpm} -n {params.min_samples} {params.factors} {input} {params.formula} {params.contrasts} > {output}
+    """
+rule run_DGE:
+    input:
+        "{folder}" + config["DGE"]["DGE_TOOL"] + ".RData"
+    output:
+        "{folder}" + config["DGE"]["DGE_TOOL"] + ".toptable_clean.contrast_{contrast}.gz"
+    params:
+        contrast_names = config["DGE"]["LIMMA_CONTRASTS_NAMES"],
+        contrasts = config["DGE"]["LIMMA_CONTRASTS"],
+        dge_tool = config["DGE"]["DGE_TOOL"] 
+    conda:    
+        "../../local/env/bit_rnaseq_3_backup.yaml"
+    shell:"""
+        C=$(\
+            (\
+                echo {params.contrast_names};\
+                echo {params.contrasts}\
+            ) | tr -d '"'\
+            | perl -lane 'BEGIN{{$i=0}}; if($.==1){{for(@F){{if($_ ne "{wildcards.contrast}"){{$i++}}else{{last}}}}}} if($.==2){{print @F[$i]}}'\
+        );\
+        echo $C;\
+        if [[ {params.dge_tool} == "limma" ]]; then\
+            r -e "load('{input}');write.table(file='{output}.tmp',top.list[['$C']][,c('logFC','P.Value','adj.P.Val')], sep='\t', row.names=TRUE, quote=FALSE)"; \
+        elif [[ {params.dge_tool} == "edger" ]]; then \
+            r -e "load('{input}');write.table(file='{output}.tmp',top.list[['$C']][,c('logFC','PValue','FDR')], sep='\t', row.names=TRUE, quote=FALSE)"; \
+        elif [[ {params.dge_tool} == "deseq2" ]]; then \
+            r -e "load('{input}');write.table(file='{output}.tmp',top.list[['$C']][,c('log2FoldChange','pvalue','padj')], sep='\t', row.names=TRUE, quote=FALSE)"; \
+        fi;
+        cat {output}.tmp | unhead | gzip > {output};
+        rm {output}.tmp
+    """
+
+rule all_contrasts:
+    input:
+        lambda wildcards: expand("{path}.toptable_clean.contrast_{contrast}.gz", 
+            path=wildcards.path, 
+            contrast=config["DGE"]["LIMMA_CONTRASTS_NAMES"])
+    output:
+        "{path}.toptable_clean.ALL_contrast.gz"
+    params:
+        contrast=config["DGE"]["LIMMA_CONTRASTS_NAMES"]
+    conda:
+        "../../local/env/bit_rnaseq_3_backup.yaml"
+    shell:"""
+        for i in {params.contrast}; do
+            zcat {wildcards.path}.toptable_clean.contrast_$i.gz | append_each_row -B $i;
+        done | gzip > {output}
+        """
+
+rule mark_seqc:
+    input:
+        "{path}.toptable_clean.ALL_contrast.gz"
+    output:
+        "{path}.toptable_clean.ALL_contrast.mark_seqc.gz"
+    params:
+        logfc = config["MARK_SEQC"]["LOGFC"],
+        pvalue = config["MARK_SEQC"]["PVALUE"],
+        p_adj = config["MARK_SEQC"]["PVALUE_ADJ"]
+    shell:"""
+        bawk '{{M=0; \
+            if($Pvalue_adj!="NA" && sqrt($logFC*$logFC)>{params.logfc} && $Pvalue+0<{params.pvalue} && $Pvalue_adj+0<{params.p_adj}) \
+            {{ \
+                if($logFC>0) {{M=1}}else{{M=-1}}\
+            }} \
+            print $0,M \
+        }}' {input} | gzip > {output} 
+    """
+
+rule max_exp_in_cond:
+    input:
+        deg_out = "{path}.toptable_clean.ALL_contrast.mark_seqc.header_added.gz", 
+        gep = "GEP.count.exp_filter.ltmm.lfpkm.metadata.max_exp_in_condition.gz"
+    output:
+        "{path}.toptable_clean.ALL_contrast.mark_seqc.max_exp_in_condition.header_added.gz"
+    shell:"""
+        bawk '$Pvalue_adj!="NA"' {input.deg_out} | translate -a -v <(zcat {input.gep}) 2 | gzip > {output}
+    """
+
+rule exp_in_cond:
+    input:
+        deg_out = "{path}.toptable_clean.ALL_contrast.mark_seqc.header_added.gz", 
+        gep = "GEP.count.exp_filter.ltmm.metadata.exp_genes_condition.matrix.gz"
+    output:
+        "{path}.toptable_clean.ALL_contrast.mark_seqc.exp_in_condition.header_added.gz"
+    shell:"""
+        bawk '$Pvalue_adj!="NA"' {input.deg_out}| translate -a <(zcat {input.gep}) 2 | gzip > {output}
+    """
+
+rule filter_genes:
+    input: 
+        deg_out = "{path}.toptable_clean.ALL_contrast.mark_seqc.{expression}.header_added.gz", 
+        gep = "GEP.{analysis}.gz"
+    output: 
+        "{path}.toptable_clean.ALL_contrast.mark_seqc.{expression}.header_added.{analysis}.gz"
+    shell:"""
+        zcat {input.deg_out} | translate -a -r <(zcat {input.gep} | sed s/Geneid/GeneID/) 2 | gzip > {output}
+    """
+
+rule filter_significant_genes:
+    input:
+        deg_out = "{path}.toptable_clean.ALL_contrast.mark_seqc.exp_in_condition.header_added.gz",
+        significance = "{path}.toptable_clean.ALL_contrast.mark_seqc.gz"
+    output:
+        "{path}.toptable_clean.ALL_contrast.mark_seqc.exp_in_condition.header_added.signif.gz"
+    shell:"""
+        zcat {input.deg_out} | filter_1col --header 1 2 <(bawk '$significance!=0 {{print $2}}' {input.significance}) | gzip > {output}
+    """
+
+rule DEG_count_matrix:
+    input:
+        "{path}.toptable_clean.ALL_contrast.mark_seqc.gz"
+    output:
+        "{path}.toptable_clean.ALL_contrast.mark_seqc.DEG_count_matrix"
+    shell:"""
+        bawk '{{print $contrast,$significance}}' {input} | symbol_count | tab2matrix -r contrast > {output}
+    """
+rule ALL_infer_experiment:
+    input: 
+        expand("rseqc/{samples}.infer_experiment.txt", samples= SAMPLES)
+    output: 
+        "ALL_infer_experiment"
+    shell:"""  
+        matrix_reduce 'rseqc/*.infer_experiment.txt' -l '{input}' | grep . | perl -lne 'if(m/^>/){{print; next}} print "$1\t$2" if m/("[^:]+|failed to determine):\s+(.*)/' | fasta2tab | tab2matrix -r sample > {output}
+    """ 
+
+# -------------- #
+# Multiqc report #
+# -------------- #
+
+rule multiqc_fastq:
+    input:
+        fastqc_html=expand("fastqc/{sample}_{suffix}_fastqc.html", sample=SAMPLES, suffix=["R1", "R2"])
+        if config["LAYOUT"] == "PAIRED"
+        else expand("fastqc/{sample}_fastqc.html", sample=SAMPLES),
+        fastqc_zip=expand("fastqc/{sample}_{suffix}_fastqc.zip", sample=SAMPLES, suffix=["R1", "R2"])
+        if config["LAYOUT"] == "PAIRED"
+        else expand("fastqc/{sample}_fastqc.zip", sample=SAMPLES)
+    output:
+        "multiqc_report.html"
+    params:
+        data_dir = RAW_DATA_DIR
+    shell:"""
+        multiqc -f -n {output} {params.data_dir}
+    """
+
+rule multiqc_report_rseqc:
+    input:
+        expand("rseqc/{sample}.geneBodyCoverage.txt", sample=SAMPLES),
+        expand("rseqc/{sample}.infer_experiment.txt", sample=SAMPLES),
+        expand("rseqc/{sample}.junctionSaturation_plot.r", sample=SAMPLES),
+        expand("rseqc/{sample}.pos.DupRate.xls", sample=SAMPLES),
+        expand("rseqc/{sample}.read_distribution.txt", sample=SAMPLES),
+        expand("rseqc/{sample}.bam_stat.txt", sample=SAMPLES),
+        expand("fastqc/{sample}_R1_fastqc.html", sample=SAMPLES)
+        if config["LAYOUT"] == "PAIRED"
+        else  expand("fastqc/{sample}_fastqc.html",sample=SAMPLES)
+    output:
+        "multiqc_report.rseqc.html"
+    params:
+        data_dir = RAW_DATA_DIR
+    shell: """
+        multiqc -f -n {output} {params.data_dir}
+    """
+##check
+
+# -------------------------
+#  Venn comparison - genes
+
+
+rule venn_prep_up:
+    input:
+        lambda wildcards: f"DGE/{config['DGE']['DGE_TOOL']}.toptable_clean.ALL_contrast.mark_seqc.header_added.gz"
+    output:
+        temp("DGE/gene_comparison.{contrast}_up.venn_in.gz")
+    shell:"""
+        bawk -v contrast={wildcards.contrast} '{{if ($contrast == contrast) print $GeneID, $contrast, $significance}}' {input} \
+        | bawk '{{up=($3 == -1 ? 0 : $3); print $0, up}}' | bawk '{{print $1, $2 "_up", $4}}' \
+        | gzip > {output}
+        """
+
+rule venn_prep_down:
+    input:
+        lambda wildcards: f"DGE/{config['DGE']['DGE_TOOL']}.toptable_clean.ALL_contrast.mark_seqc.header_added.gz"
+    output:
+        temp("DGE/gene_comparison.{contrast}_down.venn_in.gz")
+    shell:"""
+        bawk -v contrast={wildcards.contrast} '{{if ($contrast == contrast) print $GeneID, $contrast, $significance}}' {input} \
+        | bawk '{{down=($3 == 1 ? 0 : $3); print $0, down}}' | bawk '{{print $1, $2 "_down", $4}}' \
+        | gzip > {output}
+        """
+
+
+rule venn_input:
+    input:
+        expand("DGE/gene_comparison.{contrast}_{dge}.venn_in.gz", contrast = config["VENN_CONTRASTS"], dge = ["up", "down"])
+    output:
+        "DGE/gene_comparison.venn_in.gz"
+    shell:"""
+        zcat {input} | tab2matrix | gzip > {output}
+        """
+
+rule venn_genes_prep:
+    input:
+        "DGE/edger.toptable_clean.ALL_contrast.mark_seqc.gz"
+    output:
+        "DGE/edger.toptable_clean.ALL_contrast.mark_seqc.matrix.gz"
+    shell:"""
+        bawk '{{print $GeneID, $contrast, $significance}}' {input} | tab2matrix | gzip > {output}
+    """
+
+
+# ####################### HEATMAP CONTRASTI ######################
+# ##################### heatmap_DGE_deseq2/ #####################
+
+rule heatmap:
+    input:
+        gep = "GEP.count.exp_filter.ltmm.gz",
+        metadata = "metadata_heatmap.txt"
+    output:
+        pdf = "heatmap.top100.pdf",
+        rds = "heatmap-top100.Rds"
+    params:
+        sets = config["HEATMAP"]["COLUMNS"],
+        n_top = config["HEATMAP"]["N_TOP"],
+        color_set = config["HEATMAP"]["COLORS"],
+        clusters = config["HEATMAP"]["CLUSTERS"]
+    shell:"""
+        heatmap {input.gep} -a {input.metadata} -C {params.sets} -c 12 -s -d correlation {params.color_set} --pdf -e 16 -w 12 {params.clusters} -N {params.n_top} -n -R {output.rds} {output.pdf}
+    """ 
+
+rule tab2xlsx:
+    input: 
+        "{file}"
+    output: 
+        "{file}.xlsx"
+    shell: 
+        "cat < {input} | tab2xlsx > {output}"
+
+rule gz2xlsx:
+    input: 
+        "{file}.gz"
+    output: 
+        "{file}.xlsx"
+    shell: 
+        "zcat < {input} | tab2xlsx > {output}"
+# ---------------#
+# Outputs #
+def all_input(wildcards):
+    wanted_input = []
+    wanted_input.extend(
+        expand("star/{sample}.{bam_type}.bam.featurecounts.count", sample=SAMPLES, bam_type=BAM_TYPES)
+    )
+    wanted_input.extend(expand([
+                                "GEP.count.rpk.cpm.gz",
+                                "GEP.count.ltmm.gz",
+                                "multiqc_report.html",
+                                "multiqc_report.rseqc.html",
+                                "GEP.count.exp_filter.ltmm.xlsx",
+                                "usable_reads.txt.xlsx" ],
+                                sample=SAMPLES
+                                )
+                            )
+                       
+    return wanted_input
+
+rule all:
+    input:
+        all_input

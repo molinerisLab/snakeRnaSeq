@@ -726,6 +726,7 @@ rule get_dup_rate:
         read_duplication.py -i {input} -o rseqc/{wildcards.file}
         """
 
+# the sed command below is probably dispensable
 rule gene_body_coverage:
     input:
         bam="star/{sample}.bam",
@@ -737,7 +738,7 @@ rule gene_body_coverage:
         rscript="rseqc/{sample}.geneBodyCoverage.r"
     shell: """
         geneBody_coverage.py -i {input.bam} -r {input.housekeeping_genes} -o rseqc/{wildcards.sample}; 
-        sed -i 's|Aligned.sortedByCoord.out|{wildcards.sample}|' {output.text} # probably dispensable
+        sed -i 's|Aligned.sortedByCoord.out|{wildcards.sample}|' {output.text} 
     """
 
 rule get_inner_distance:

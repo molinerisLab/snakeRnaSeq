@@ -70,7 +70,6 @@ rule all:
         "multiqc_report.rseqc.html",
         "usable_reads.txt.xlsx" 
 
-
 rule ALL_infer_experiment:
     input: 
         expand("rseqc/{samples}.infer_experiment.txt", samples= SAMPLES)
@@ -604,7 +603,7 @@ rule GEP_exp_filter:
         rm {output}.tmp
     """
 
-#TODO cna we remove the following 3 rules?
+#TODO can we remove the following 3 rules?
 rule GEP_count_ltmm:
     input: 
         "GEP.count.gz"
@@ -1262,8 +1261,6 @@ rule get_fa:
 # -------------- #
 # META           #
 # -------------- #
-
-#TODO move in correct .mk after https://www.pivotaltracker.com/story/show/188249716
 """
 .META: GEP.count.*.metadata.exp_genes_condition.gz
 	1	condition
@@ -1278,5 +1275,4 @@ rule get_fa:
  	3	exp
 
 """
-
 

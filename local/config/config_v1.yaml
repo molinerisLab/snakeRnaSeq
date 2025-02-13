@@ -55,11 +55,7 @@ DGE:
     #e.g. DGE_TOOL:=limma|edger|deseq2
 
     LIMMA_CONTRASTS:
-        mutant_vs_wt: "het_mutant-wt"
-        PRPF31_rescue_vs_wt: "PRPF31-wt"
-        SINEUP1_rescue_vs_wt: "SINEUP1-wt"
-        PRPF31_rescue_vs_mutant: "PRPF31-het_mutant"
-        SINEUP1_rescue_vs_mutant: "SINEUP1-het_mutant"
+      contrast_name: "contrast"
     #e.g. LIMMA_CONTRASTS:
         # contrast_name: "contrast"
         # KO_vs_WT: "(KO.ND+KO.HFD)-(WT.ND+WT.HFD)"
@@ -74,7 +70,7 @@ DGE:
     #NB: do not comment LIMMA_FACTORS but leave empty if not required
     #e.g. LIMMA_FACTORS:=-f "genotype treatment"
 
-    MIN_NUM_OF_EXPRESSED_SAMPLE: 4
+    MIN_NUM_OF_EXPRESSED_SAMPLE: 3
     EXPRESSED_GENES_MIN_CPM: 1
     DGE_CONDITION: "condition" 
 
@@ -86,16 +82,16 @@ MARK_SEQC:
 
 # DGE HEATMAP ---
 HEATMAP:
-  COLUMNS: "condition,rescue"
+  COLUMNS: "condition"
   # columns of metadata.txt to add to the heatmap, separated by ,
 
-  N_TOP: "100"
+  N_TOP: "500"
   # number of the top most variant genes to consider for the heatmap
 
   COLORS: "--pal_set Set3"
   # leave empty if you wish to use the standard colors or specify the custom colorbrewer set to use (default is Set1)
 
-  CLUSTERS: "-r 3 -z 3 -n"
+  CLUSTERS: " "
   # indicate the number of clusters the rows (-r) and the columns (-z) will be divided into. 
   # leave empty to have no clusters
   # add -n to show row (gene) names

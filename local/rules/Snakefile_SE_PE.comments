@@ -1,0 +1,13 @@
+TO DO LIST:
+
+1) CREATE env yaml file and add conda section to every rule
+2) rule multiqc_fastq multiqc_report_rseqc basically do the same thing. merge the two rules
+3) the pipeline relies on already generated genome annotation file; add rules to create genome anno files if not specificed in the config
+4) comment every rule and remove unnecesaary comments
+5) rule gene_body_coverage assume the existence of housekeeping_genes=GENCODE_DIR+"/rseqc.HouseKeepingGenes.bed.gz" but for some assembly 
+(GRCm30 release M29) does not exist. The rule was modified to read housekeeping_genes=GENCODE_DIR+"/basic.annotation.bed" and removing the zcat command
+in the shell command.
+
+
+
+

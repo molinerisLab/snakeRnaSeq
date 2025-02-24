@@ -61,11 +61,7 @@ DGE:
     #e.g. DGE_TOOL:=limma|edger|deseq2
 
     LIMMA_CONTRASTS:
-        mutant_vs_wt: "het_mutant-wt"
-        PRPF31_rescue_vs_wt: "PRPF31-wt"
-        SINEUP1_rescue_vs_wt: "SINEUP1-wt"
-        PRPF31_rescue_vs_mutant: "PRPF31-het_mutant"
-        SINEUP1_rescue_vs_mutant: "SINEUP1-het_mutant"
+      contrast_name: "contrast"
     #e.g. LIMMA_CONTRASTS:
         # contrast_name: "contrast"
         # KO_vs_WT: "(KO.ND+KO.HFD)-(WT.ND+WT.HFD)"
@@ -73,7 +69,7 @@ DGE:
         # WT_HFD_vs_WT_ND: "(WT.HFD-WT.ND)"
         # KO_HFD_vs_KO_ND: "(KO.HFD-KO.ND)"
 
-    LIMMA_DESIGN_FORMULA: "~0+condition+replicate"
+    LIMMA_DESIGN_FORMULA: "~0+condition"
     #e.g. LIMMA_DESIGN_FORMULA:="~0+condition"
 
     LIMMA_FACTORS: " "
@@ -92,7 +88,7 @@ MARK_SEQC:
 
 # DGE HEATMAP ---
 HEATMAP:
-  COLUMNS: "condition,rescue"
+  COLUMNS: "condition"
   # columns of metadata.txt to add to the heatmap, separated by ,
 
   N_TOP: "100"

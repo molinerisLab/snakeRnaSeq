@@ -10,7 +10,6 @@ configfile: "config.yaml"
 if os.path.exists("Snakefile_versioned.sk"):
     include: "Snakefile_versioned.sk"
 
-
 REFERENCE_ROOT=os.environ.get("REFERENCE_ROOT")
 
 # GENERAL SETUP ---
@@ -39,27 +38,25 @@ if config["LAYOUT"] == "PAIRED":
 # -O allowMultiOverlap
 LCPM_PRIOR_COUNT = 0.25           # *standard of edgeR*
 LTPM_PRIOR_COUNT = 0.0001
-
-#TODO implement automatic handling of single/paired end layout  
-# LAYOUT ---
-# if config["LAYOUT"] == "SINGLE":
-# 	ruleorder: umitools_extract_se > umitools_extract_pe
-# 	ruleorder: trimgalore_se > trimgalore_pe
-# elif config["LAYOUT"] == "PAIRED":
-# 	ruleorder: umitools_extract_pe > umitools_extract_se
-# 	ruleorder: trimgalore_pe > trimgalore_se
+  
+#LAYOUT ---
+if config["LAYOUT"] == "SINGLE":
+	ruleorder: fastp_se > fastp_pe
+	ruleorder: trimgalore_se > trimgalore_pe
+    ruleorder: star_align_se > star_align_pe
+elif config["LAYOUT"] == "PAIRED":
+	ruleorder: fastp_pe > fastp_se
+	ruleorder: trimgalore_pe > trimgalore_se
+    ruleorder: star_align_pe > star_align_se
 
 # STAR ---
 STAR_VERSION = shell("STAR --version", read=True).strip()
 STAR_GENOME_DIR = GENCODE_DIR+"/"+config["GENCODE"]["GENOME"]+".star_index/"+STAR_VERSION
-#if config["STAR"]["INDEX"] is None:
-#        STAR_INDEX=GENCODE_DIR+"/"+config["GENCODE"]["GENOME"]+".star_index/"+config["STAR" ]["INDEX_PREFIX"]
-#else:
-#        STAR_INDEX=config["STAR"]["INDEX"]
 
 # Samples ---
 SAMPLES, = glob_wildcards("fastq/{sample}_R1.fastq.gz")
 
+include: "../../local/rules/generic_rules.smk"
 # ---------------------- #
 # rule all and other all #
 # ---------------------- #
@@ -87,27 +84,30 @@ rule ALL_star:
 # -------------- #
 # STAR Alignment #
 # -------------- #
-rule genome_loaded:
-    output:
-        touch("genome_loaded")
-    params:
-        genome_dir = STAR_GENOME_DIR
-    shell:"""
-        if [ -f genome_unloaded ]; then
-            rm genome_unloaded
-        fi
-        STAR --genomeLoad LoadAndExit --genomeDir {params.genome_dir}
-    """
 
-rule unload_genome:
-    output:
-        touch("genome_unloaded")
-    params:
-        genome_dir = STAR_GENOME_DIR
-    shell:"""
-        STAR --genomeLoad Remove --genomeDir {params.genome_dir}
-        rm genome_loaded
-    """
+# TODO either put the correct genome_dir or remove the rules  
+# rule genome_loaded:
+#     output:
+#         touch("genome_loaded")
+#     params:
+#         genome_dir = STAR_GENOME_DIR
+#     shell:"""
+#         if [ -f genome_unloaded ]; then
+#             rm genome_unloaded
+#         fi
+#         STAR --genomeLoad LoadAndExit --genomeDir {params.genome_dir}
+#     """
+
+# rule unload_genome:
+#     output:
+#         touch("genome_unloaded")
+#     params:
+#         genome_dir = STAR_GENOME_DIR
+#     shell:"""
+#         STAR --genomeLoad Remove --genomeDir {params.genome_dir}
+#         rm genome_loaded
+#     """
+
 rule star_pe_multi:
     input:
         fq1=config['FASTQ_FILTERING']+"/{sample}_R1.fastq.gz",
@@ -129,16 +129,19 @@ rule star_pe_multi:
         "v3.3.6/bio/star/align"
 
 
-#not working at the moment
+#TODO check if this works correctly
 # rule star_align_pe:
 #     input:
 #         fq1 = "fastq/{sample}_R1.fastq.gz",
-#         fq2 = "fastq/{sample}_R2.fastq.gz"
+#         fq2 = "fastq/{sample}_R2.fastq.gz",
 #     output:
-#         bam = "star/{sample}.bam"
+#         aln="star/{sample}.bam",
+#         log="star/{sample}.Log.out",
+#         sj="star/{sample}.SJ.out.tab,
+#     threads: config["CORES"]
 #     params:
 #         genome_dir = STAR_GENOME_DIR,
-#         threads = config["CORES"],
+#         tmpdir="star/{sample}"
 #         out_sam_type = config["STAR"]["OUT_SAM_TYPE"],
 #         out_filter_multimap_nmax = config["STAR"]["OUT_FILTER_MULTIMAP_NMAX"],
 #         out_filter_multimap_score_range = config["STAR"]["MULTIMAP_SCORE_RANGE"],
@@ -146,15 +149,16 @@ rule star_pe_multi:
 #         additional_output = config["STAR"]["ADDITIONAL_OUTPUT"]
 #     shell:
 #         """
-#         mkdir -p $(dirname {output.bam})
+#         mkdir -p {params.tmpdir};
 #         STAR \
 #             --genomeDir {params.genome_dir} \
 #             --genomeLoad LoadAndKeep \
-#             --runThreadN {params.threads} \
+#             --runThreadN {threads} \
 #             --readFilesIn {input.fq1} {input.fq2} \
 #             --readFilesCommand zcat \
-#             --outFileNamePrefix $(dirname {output.bam})/ \
+#             --outFileNamePrefix star/{wildcards.sample}. \
 #             --outSAMtype {params.out_sam_type} \
+#             --outTmpDir {params.tmpdir}/STARtmp \
 #             --limitBAMsortRAM 10000000000 \
 #             --outSAMunmapped Within \
 #             --outFilterMultimapNmax {params.out_filter_multimap_nmax} \
@@ -162,6 +166,42 @@ rule star_pe_multi:
 #             {params.filter_mismatch} \
 #             {params.additional_output}
 #         """
+
+rule star_align_se:
+    input:
+        fq1 = "fastq/{sample}_R1.fastq.gz",
+    output:
+        aln="star/{sample}.bam",
+        log="star/{sample}.Log.out",
+        sj="star/{sample}.SJ.out.tab,
+    threads: config["CORES"]
+    params:
+        genome_dir = STAR_GENOME_DIR,
+        tmpdir="star/{sample}"
+        out_sam_type = config["STAR"]["OUT_SAM_TYPE"],
+        out_filter_multimap_nmax = config["STAR"]["OUT_FILTER_MULTIMAP_NMAX"],
+        out_filter_multimap_score_range = config["STAR"]["MULTIMAP_SCORE_RANGE"],
+        filter_mismatch = config["STAR"]["FILTER_MISMATCH"],
+        additional_output = config["STAR"]["ADDITIONAL_OUTPUT"]
+    shell:
+        """
+        mkdir -p {params.tmpdir};
+        STAR \
+            --genomeDir {params.genome_dir} \
+            --genomeLoad LoadAndKeep \
+            --runThreadN {threads} \
+            --readFilesIn {input.fq1} \
+            --readFilesCommand zcat \
+            --outFileNamePrefix star/{wildcards.sample}. \
+            --outTmpDir {params.tmpdir}/STARtmp \
+            --outSAMtype {params.out_sam_type} \
+            --limitBAMsortRAM 10000000000 \
+            --outSAMunmapped Within \
+            --outFilterMultimapNmax {params.out_filter_multimap_nmax} \
+            --outFilterMultimapScoreRange {params.out_filter_multimap_score_range} \
+            {params.filter_mismatch} \
+            {params.additional_output}
+        """
 
 rule linl_unmapped:
     input: "star_CHM/{sample}_unmapped_R{mate}.fastq.gz"
@@ -258,6 +298,27 @@ rule fastp_pe:
     wrapper:
         "v3.3.6/bio/fastp"
 
+rule fastp_se:
+    input:
+        "fastq/{sample}_R1.fastq.gz"
+    output:
+        trimmed="fastp/{sample}_R1.fastq.gz"
+        #unpaired1="fastp/se/{sample}.u1.fastq",
+        #merged="fastp/pe/{sample}.merged.fastq",
+        #failed="fastp/pe/{sample}.failed.fastq",
+        html="fastp/{sample}.html",
+        json="fastp/{sample}.json"
+    threads: 8
+    log:
+        "fastp/{sample}.log.txt"
+    params:
+        adapters_r1="--adapter_sequence=AGATCGGAAGAGCACACGTCTGAACTCCAGTCA" 
+    shell: """
+        fastp --thread {threads}  --html {output.html} \
+        {params.adapters_r1} \
+        --in1 {input} --out1 {output.trimmed} --json {output.json} \
+        2> {log}
+        """
 
 # ------------ #
 # TRIM GALORE  #
@@ -583,55 +644,6 @@ rule rpk_ltpm:
     shell: """
         echo -n "Geneid" | gzip >{output}
         r -e 'library(edgeR); x<-read.table("{input}", header=T,check.names=FALSE,row.names=1); write.table(cpm(x, log=T, prior.count=${params.LTPM}), "{output}.tmp", append=T, sep="\t", quote=F, col.names=NA, row.names = T)';
-        (echo -n "Geneid"; cat {output}.tmp) | gzip > {output}
-        rm {output}.tmp
-    """
-
-rule GEP_exp_filter:
-    input:
-        "GEP.{filter}.gz"
-    output: 
-        "GEP.{filter}.tmm.gz"
-    shell: """
-        r -e 'library(edgeR);\
-        x <- read.table("{input}", header=T,check.names=FALSE,row.names=1);\
-        y <- DGEList(counts=x);\
-        y <- calcNormFactors(y,method="TMM");\
-        write.table(y$samples,"{output}.factors", sep="\t", quote=F, col.names=NA, row.names=T);\
-        write.table(cpm(y, normalized.lib.sizes=TRUE), "{output}.tmp", sep="\t", quote=F, col.names=NA, row.names = T)'
-        (echo -n "Geneid"; cat {output}.tmp) | gzip > {output}
-        rm {output}.tmp
-    """
-
-#TODO can we remove the following 3 rules?
-rule GEP_count_ltmm:
-    input: 
-        "GEP.count.gz"
-    output: 
-        "GEP.count.ltmm.gz"
-    shell: """
-        r -e 'library(edgeR);\\
-        x <- read.table("{input}", header=T,check.names=FALSE,row.names=1);\\
-        y <- DGEList(counts=x);\\
-        y <- calcNormFactors(y,method="TMM");\\
-        write.table(y$samples,"{output}.factors", sep="\t", quote=F, col.names=NA, row.names=T);\\
-        write.table(cpm(y, normalized.lib.sizes=TRUE, log=TRUE), "{output}.tmp", sep="\t", quote=F, col.names=NA, row.names = T)'
-        (echo -n "Geneid"; cat {output}.tmp) | gzip > {output}
-        rm {output}.tmp
-    """
-
-rule GEP_exp_filter_ltmm:
-    input: 
-        "GEP.count.exp_filter.gz"
-    output: 
-        "GEP.count.exp_filter.ltmm.gz"    
-    shell: """
-        r -e 'library(edgeR);\
-        x <- read.table("{input}", header=T,check.names=FALSE,row.names=1);\
-        y <- DGEList(counts=x);\
-        y <- calcNormFactors(y,method="TMM");\
-        write.table(y$samples,"{output}.factors", sep="\t", quote=F, col.names=NA, row.names=T);\
-        write.table(cpm(y, normalized.lib.sizes=TRUE, log=TRUE), "{output}.tmp", sep="\t", quote=F, col.names=NA, row.names = T)'
         (echo -n "Geneid"; cat {output}.tmp) | gzip > {output}
         rm {output}.tmp
     """
@@ -1069,194 +1081,7 @@ rule heatmap:
         heatmap {input.gep} -a {input.metadata} -C {params.sets} -c 12 -s -d correlation {params.color_set} --pdf -e 16 -w 12 {params.clusters} -N {params.n_top} -R {output.rds} {output.pdf}
     """
 
-# -------------- #
-# Generic rules  #
-# -------------- #
 
-rule tab2xlsx:
-    input: 
-        "{file}"
-    output: 
-        "{file}.xlsx"
-    shell: 
-        "cat < {input} | tab2xlsx > {output}"
-
-rule gz2xlsx:
-    input: 
-        "{file}.gz"
-    output: 
-        "{file}.xlsx"
-    shell: 
-        "zcat < {input} | tab2xlsx > {output}"
-
-rule tab2xls:
-    input: 
-        "{file}"
-    output: 
-        "{file}.xls"
-    shell: 
-        "tab2xls < {input} > {output}"
-
-
-rule fastqc:
-    input:
-        "{path}.fastq.gz"
-    output:
-        fastqc_html="fastqc/{path}_fastqc.html",
-        fastqc_zip="fastqc/{path}_fastqc.zip"
-    threads: config["CORES"]
-    container: 
-        "docker://quay.io/biocontainers/fastqc:0.11.3--0"
-    shell:"""
-        mkdir -p $(dirname {output.fastqc_html})
-        fastqc -t {threads} -o `dirname {output.fastqc_html}` {input}
-    """
-
-rule bam2cram:
-    input: 
-        "{file}.bam"
-    output: 
-        "{file}.cram"
-    params:
-        threads = config["CORES"],
-        genome = GENCODE_GENOME_FASTA
-    shell: 
-        "samtools view -@ {params.threads} -T {params.genome} -C -o {output} {input}"
-
-rule add_header:
-    input: 
-        "{path}.gz"
-    output: 
-        "{path}.header_added.gz"
-    shell: 
-        "(bawk -M {input} | cut -f 2 | transpose; zcat {input} ) | gzip > {output}"
-
-rule header_add:
-    input: 
-        "{file}"
-    output: 
-        "{file}.header_added"
-    shell: 
-        "(bawk -M {input} | cut -f 2 | transpose; cat {input} ) > {output}"
-
-rule get_bai:
-    input: 
-        "{file}.bam"
-    output: 
-        "{file}.bam.bai"
-    shell: 
-        "samtools index {input}"
-
-rule get_bam_id:
-    input: 
-        "{file}.bam"
-    output: 
-        "{file}.bam.id"
-    shell: 
-        "samtools view {input} | cut -f 1 | bsort -S8% | uniq > {output}"
-
-rule get_bw:
-    input: 
-        bam = "{file}.bam",
-        bai = "{file}.bam.bai"
-    output: 
-        "{file}.bw"
-    params:
-        threads = config["CORES"],
-        bin_size = "BIGWIG_BIN_SIZE"
-    shell: 
-        "bamCoverage --binSize={params.bin_size} -b {input.bam} -o {output} --numberOfProcessors={params.threads}"
-
-rule get_norm_bw:
-    input: 
-        bam = "{file}.bam",
-        bai = "{file}.bam.bai"
-    output: 
-        "{file}.norm.bw"
-    params:
-        threads = config["CORES"],
-        bin_size = "BIGWIG_BIN_SIZE"
-    shell: 
-        "bamCoverage --binSize={params.bin_size}  --normalizeUsing=CPM -b {input.bam} -o {output} --numberOfProcessors={params.threads}"
-
-rule get_bw_binsize:
-    input: 
-        bam = "{file}.bam",
-        bai = "{file}.bam.bai"
-    output: 
-        "{file}.{bin_size}.bw"
-    params:
-        threads = config["CORES"],
-        bin_size = BIGWIG_BIN_SIZE
-    shell: 
-        "bamCoverage --binSize={params.bin_size} -b {input.bam} -o {output} --numberOfProcessors={params.threads}"
-
-rule get_norm_bw_binsize:
-    input: 
-        bam = "{file}.bam",
-        bai = "{file}.bam.bai"
-    output: 
-        "{file}.{bin_size}.norm.bw"
-    params:
-        threads = config["CORES"],
-        bin_size = "BIGWIG_BIN_SIZE"
-    shell: 
-        "bamCoverage --binSize={params.bin_size}  --normalizeUsing=CPM -b {input.bam} -o {output} --numberOfProcessors={params.threads}"
-
-rule bam2bed:
-    input: 
-        "{file}.bam"
-    output: 
-        "{file}.bed"
-    shell: 
-        "bedtools bamtobed -splitD < {input} | bsort -k1,1V -k2,2n > {output}"
-
-rule get_bedgraph_ranges:
-    input: 
-        "{file}.bedGraph"
-    output: 
-        "{file}.bedGraph.ranges"
-    shell: 
-        "bawk '{{print $1,$2; print $1,$3}}' {input} | stat_base -o -g -b | bawk {{print $1,0,$2}}' > {output}"
-
-rule get_gff3:
-    input: 
-        bedGraph = "{file}.bedGraph",
-        ranges = "{file}.bedGraph.ranges"
-    output: 
-        "{file}.bedGraph.gff3"
-    params:
-        min_window_reads = GFF3_MIN_WINDOW_READS
-    shell: 
-        """
-        bawk '$4 > {params.min_window_reads}' {input.bedGraph} \
-        | repeat_group_pipe '\
-            grep -w $1 {input.ranges} | append_each_row -B "##sequence-region";\
-               grep -w $1 {input.ranges} | bawk '\''{{print $1,".","chromosome",$2,$3,$4,".","+-",".","."}}'\'';\
-               bawk '\''{{print $1,".","reads",$2,$3,$4,".","+-",".","."}}'\''\
-        ' 1 > {output}
-        """
-
-rule get_filtered_bed:
-    input: 
-        "{file}.bedGraph"
-    output: 
-        "{file}.bedGraph.{BEDGRAPH_FILTER}.merged.bed"
-    params:
-        bedgraph_filter = BEDGRAPH_FILTER
-    shell:
-        """
-        "bawk '$4 > {params.bedgraph_filter} {input} | union -s --allow-duplicates | bawk '{{print $1";"$2";"$3, $4}}' \
-        | expandsets 2 | stat_base -o -g -b | tr ";" "\t" > {output}
-        """
-
-rule get_fa:
-    input: 
-        "{file}.fastq.gz"
-    output: 
-        "{file}.fa.gz"
-    shell: 
-        "zcat {input} | fastq2tab | enumerate_rows | cut -f 1,3 | tab2fasta -s | gzip > {output}"
 
 # -------------- #
 # META           #

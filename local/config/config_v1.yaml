@@ -17,6 +17,10 @@ FEATURECOUNTS_PARAM: -t exon -g gene_name
 #default count on exons and summarize on gene names, consider -g gene_id
 #strandnes and paired-end handled in config.smk
 # -O allowMultiOverlap
+# -g gene_name
+# -s 2
+# -p -C ==> paired-end layout
+
 
 FASTQ_FILTERING: fastq
 

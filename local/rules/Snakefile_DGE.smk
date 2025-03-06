@@ -23,7 +23,7 @@ RAW_DATA_DIR= ["."]
 
 rule all:
     input:
-        "edger.toptable_clean.ALL_contrast.mark_seqc.exp_in_condition.header_added.gz"
+        "deseq2.toptable_clean.ALL_contrast.mark_seqc.exp_in_condition.header_added.gz"
 
 rule get_eset:
     input:

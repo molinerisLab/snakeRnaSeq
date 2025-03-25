@@ -21,3 +21,28 @@ rule filter_metadata:
     shell:
         "cat {input} | grep -v 'Undetermined' > {output}"
 
+rule merge_selected_bam:
+    input:
+        expand("star/{sample}.selected.bam", sample=SAMPLES)
+    output:
+        "star/ALL_samples.selected.bam"
+    shell:"""
+        samtools merge {output}.tmp {input};
+        samtools sort -o {output} {output}.tmp;
+        rm {output}.tmp
+    """
+
+rule select_regions:
+    input:
+        "star/{path}.bam"
+    output:
+        temp("star/{path}.selected.bam")
+    shell:"""
+        samtools view -h -b {input} chr7:5,527,148-5,530,601 chr12:6,534,517-6,538,371 chr19:54,115,754-54,131,713 > {output}
+    """
+
+
+# bamCoverage --bam star/ALL_samples.selected.bam --outFileName  ALL_sample.selected.forward.bw  --numberOfProcessors 1 --outFileFormat bigwig --ignoreDuplicates --minMappingQuality 10 --filterRNAstrand forward
+# bamCoverage --bam star/ALL_samples.selected.bam --outFileName  ALL_sample.selected.reverse.bw  --numberOfProcessors 1 --outFileFormat bigwig --ignoreDuplicates --minMappingQuality 10 --filterRNAstrand reverse
+# bamCoverage --bam star/ALL_samples.selected_housekeep.bam --outFileName  ALL_sample.selected_housekeep.reverse.bw  --numberOfProcessors 1 --outFileFormat bigwig --ignoreDuplicates --minMappingQuality 10 --filterRNAstrand reverse
+# bamCoverage --bam star/ALL_samples.selected_housekeep.bam --outFileName  ALL_sample.selected_housekeep.forward.bw  --numberOfProcessors 1 --outFileFormat bigwig --ignoreDuplicates --minMappingQuality 10 --filterRNAstrand forward

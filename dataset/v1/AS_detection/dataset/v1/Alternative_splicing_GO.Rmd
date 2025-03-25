@@ -1,0 +1,78 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("C:/Users/franc/OneDrive/Desktop/rstudio/Pertinent/snakernaseq/v1/AS_detection/v1")
+library(clusterProfiler)
+suppressMessages(library(org.Hs.eg.db))
+suppressMessages(library(DOSE))
+library(enrichplot)
+library(ggplot2)
+library(stringr)
+```
+
+```{r, echo=FALSE}
+universe<-read.table("../../GEP.count.cpm.expressed_genes")$V1
+universe <- bitr(universe, fromType = "SYMBOL", toType = "ENTREZID", OrgDb = org.Hs.eg.db)$ENTREZID
+```
+
+```{r}
+get_enrich_GO<-function(genes,ont){
+    genes <- bitr(genes, fromType = "SYMBOL", toType = "ENTREZID", OrgDb = org.Hs.eg.db)
+    ego <- enrichGO(gene          = genes$ENTREZID,
+                universe      = universe,
+                OrgDb         = org.Hs.eg.db,
+                ont           = ont,
+                maxGSSize     = 500,
+                pAdjustMethod = "BH",
+                pvalueCutoff  = 0.01,
+                qvalueCutoff  = 0.05,
+                readable      = TRUE,
+                pool          = TRUE
+    )
+    return(ego)
+}
+
+get_enrich_DO<-function(genes,ont){
+    genes <- bitr(genes, fromType = "SYMBOL", toType = "ENTREZID", OrgDb = org.Hs.eg.db)
+    ego <- enrichDO(gene          = genes$ENTREZID,
+                universe      = universe,
+                #ont           = ont,
+                maxGSSize     = 500,
+                pAdjustMethod = "BH",
+                pvalueCutoff  = 0.5,
+                qvalueCutoff  = 0.5,
+                readable      = TRUE,
+    )
+    return(ego)
+}
+```
+
+#TODO fix input file
+####Change the file used in the first block based on your needs
+```{r plots}
+contrast_list <- c("RNA_RPE_HET_vs_RNA_RPE_WT", "RNA_RPE_HET_SINEUP1_vs_RNA_RPE_WT", "RNA_RPE_HET_PRPF31_vs_RNA_RPE_WT")
+
+contrast <- "RNA_RPE_HET_vs_RNA_RPE_WT"
+
+for (contrast in contrast_list) {
+  path <- paste("rMATS/", contrast, "/ALL_splicing_events.MATS.JC.signif.txt", sep="")
+  df <- read.table(path, header = T, sep = "\t")
+  genes <- df$geneSymbol
+  
+  ego <- get_enrich_GO(genes, "ALL")
+  p<-dotplot(ego, showCategory = 30)+scale_y_discrete(labels=function(x) str_wrap(x, width=60))
+  ggsave(paste(contrast, "-Alternative_splicing_GO.pdf", sep = ""), width = 7, height = 12)
+  print(p)
+ 
+  edo <- get_enrich_DO(genes, "DO")
+  p<-dotplot(edo, showCategory = 30)+scale_y_discrete(labels=function(x){str_wrap(x, width=60)})
+  ggsave(paste(contrast, "-Alternative_splicing_DO.pdf", sep = ""), width = 7, height = 12)
+  print(p)
+}
+
+```
+

@@ -7,9 +7,6 @@
 import os
 
 configfile: "config.yaml"
-if os.path.exists("Snakefile_versioned.sk"):
-    include: "Snakefile_versioned.sk"
-
 
 REFERENCE_ROOT=os.environ.get("REFERENCE_ROOT")
 
@@ -59,6 +56,9 @@ STAR_GENOME_DIR = GENCODE_DIR+"/"+config["GENCODE"]["GENOME"]+".star_index/"+STA
 
 # Samples ---
 SAMPLES, = glob_wildcards("fastq/{sample}_R1.fastq.gz")
+
+if os.path.exists("Snakefile_versioned.sk"):
+    include: "Snakefile_versioned.sk"
 
 # ---------------------- #
 # rule all and other all #

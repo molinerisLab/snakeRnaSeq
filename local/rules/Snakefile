@@ -448,6 +448,32 @@ rule read_count_uniq:
         samtools view -F 260 {input} | bawk '$1~/^@/ || $12==\"NH:i:1\"' | cut -f -1 | count > {output}
         """
 
+rule clear_bam_ribo:
+    input:
+        bam="{path}.bam",
+        bam_idx="{path}.bam.bai",
+        ribo_ex="{path}.ribo.ex.bam",
+        ribo_in="{path}.ribo.in.bam",
+        ribo_junk="{path}.ribo.junk.bam",
+        usable_reads="{path}.usable_reads",
+        featurecounts="{path}.bam.featurecounts.count"
+    output:
+        ribo_ex="{path}.ribo.ex.bam.cleared",
+        ribo_in="{path}.ribo.in.bam.cleared",
+        ribo_junk="{path}.ribo.junk.bam.cleared",
+    shell:"""
+        truncate_no_time {input.ribo_ex};
+        truncate_no_time {input.ribo_in};
+        truncate_no_time {input.ribo_junk}
+        touch {output};
+        """
+
+rule clear_bam_ribo_all:
+    input:
+        ribo_ex=expand("star/{sample}.ribo.ex.bam.cleared", sample=SAMPLES),
+        ribo_in=expand("star/{sample}.ribo.in.bam.cleared", sample=SAMPLES),
+        ribo_junk=expand("star/{sample}.ribo.junk.bam.cleared", sample=SAMPLES)
+
 rule usable_reads:
 	input:
 		read_count="{path}.bam.read_count",

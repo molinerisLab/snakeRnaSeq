@@ -1,7 +1,0 @@
-name: subread_v2.0.3
-channels:
-  - bioconda
-  - conda-forge
-  - defaults
-dependencies:
-  - subread

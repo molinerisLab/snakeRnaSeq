@@ -39,12 +39,12 @@ LTPM_PRIOR_COUNT = 0.0001
   
 #LAYOUT ---
 if config["LAYOUT"] == "SINGLE":
-	ruleorder: fastp_se > fastp_pe
-	ruleorder: trimgalore_se > trimgalore_pe
+    ruleorder: fastp_se > fastp_pe
+    ruleorder: trimgalore_se > trimgalore_pe
     ruleorder: star_align_se > star_align_pe
 elif config["LAYOUT"] == "PAIRED":
-	ruleorder: fastp_pe > fastp_se
-	ruleorder: trimgalore_pe > trimgalore_se
+    ruleorder: fastp_pe > fastp_se
+    ruleorder: trimgalore_pe > trimgalore_se
     ruleorder: star_align_pe > star_align_se
 
 # STAR ---

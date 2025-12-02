@@ -1049,6 +1049,22 @@ rule featurecounts_mouse:
 	#there are 2 header rows in the input file, we discard the first
 
 # ---------#
+# PCA      #
+# ---------#
+
+rule pca_plot:
+    input:
+        counts   = "../GEP.count.gz",
+        metadata = "../metadata.txt",
+        script   = "scripts/pca_plot.R"
+    output:
+        "PCA_vst_deseq2.pdf"
+    shell:
+        """
+        Rscript {input.script} {input.counts} {input.metadata} {output}
+        """
+
+# ---------#
 # Heatmap  #
 # ---------#
 
@@ -1103,40 +1119,8 @@ rule volcano_plot:
         title = lambda wc: config["VOLCANO"]["TITLES"][wc.contrast]
     shell:
         """
-        Rscript {params.script} \
-            {input} \
-            {output.pdf} \
-            {output.png} \
-            {output.rds} \
-            {params.lfc_cutoff} \
-            {params.padj_cutoff} \
-            "{params.title}"
+        Rscript {params.script} {input} {output.pdf} {output.png} {output.rds} {params.lfc_cutoff} {params.padj_cutoff} "{params.title}"
         """
-
-# Enhanced volcano plot ----
-# rule volcano_plot:
-#     input:
-#         "DGE/deseq2.toptable_clean.contrast_{contrast}.gz"
-#     output:
-#         pdf = "{contrast}.pdf",
-#         png = "{contrast}.png",
-#         rds = "{contrast}.Rds"
-#     params:
-#         script = "volcano_plot_enhanced.R",
-#         lfc_cutoff = config["VOLCANO"]["LFC_CUTOFF"],
-#         padj_cutoff = config["VOLCANO"]["PADJ_CUTOFF"],
-#         title = lambda wc: config["VOLCANO"]["TITLES"][wc.contrast]
-#     shell:
-#         """
-#         Rscript {params.script} \
-#             {input} \
-#             {output.pdf} \
-#             {output.png} \
-#             {output.rds} \
-#             {params.lfc_cutoff} \
-#             {params.padj_cutoff} \
-#             "{params.title}"
-#         """
 
 rule volcano_combined:
     input:
@@ -1152,15 +1136,8 @@ rule volcano_combined:
         padj_cutoff = config["VOLCANO"]["PADJ_CUTOFF"]
     shell:
         """
-        Rscript {params.script} \
-            {input} \
-            {output.pdf} \
-            {output.png} \
-            {output.rds} \
-            {params.lfc_cutoff} \
-            {params.padj_cutoff}
+        Rscript {params.script} {input} {output.pdf} {output.png} {output.rds} {params.lfc_cutoff} {params.padj_cutoff}
         """
-
 
 
 # -------------- #

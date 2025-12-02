@@ -1054,14 +1054,15 @@ rule featurecounts_mouse:
 
 rule pca_plot:
     input:
-        counts   = "../GEP.count.gz",
-        metadata = "../metadata.txt",
-        script   = "scripts/pca_plot.R"
+        counts = "GEP.count.gz",
+        metadata = "metadata.txt",
+        script = "/home/molinerislab/mosquitos/workflow/scripts/pca_plot.R"
     output:
-        "PCA_vst_deseq2.pdf"
+        png = "plots/PCA_plot.png",
+        pdf = "plots/PCA_plot.pdf"
     shell:
         """
-        Rscript {input.script} {input.counts} {input.metadata} {output}
+        Rscript {input.script} {input.counts} {input.metadata} {output.png} {output.pdf}
         """
 
 # ---------#

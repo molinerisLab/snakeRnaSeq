@@ -1,28 +1,72 @@
 #!/bin/bash
 
-# Directory to store FASTQ files
-# TODO: Read the output directory from command line argument
-OUTDIR="/home/nobackup/molinerislab/mosquito/fastq_jenkins"
+set -euo pipefail
 
-# Create directory if it doesn't exist
-mkdir -p "$OUTDIR"
+# Usage and argument parsing
+usage() {
+    echo "Usage: $0 -o OUTDIR -s SRA_LIST_FILE"
+    echo "  -o OUTDIR          Output directory for FASTQ files"
+    echo "  -s SRA_LIST_FILE   File containing one SRA accession per line"
+    exit 1
+}
 
-# List of SRA accessions to download
-#TODO: Read the SRA accessions from a file, so that you don't have to hardcode them and make the script executable every time
-SRA_LIST=(
-    ERR440788
-    ERR440789
-    ERR440790
-    ERR440791
-    ERR440792
-    ERR440793
-)
+# Default values
+OUTDIR=""
+SRA_FILE=""
 
-for SRA in "${SRA_LIST[@]}"; do
-    echo "Downloading $SRA ..."
-    fastq-dump --skip-technical --gzip --readids --read-filter pass --dumpbase --split-3 --clip --outdir "$OUTDIR" "$SRA" #split-3: split into files for paired-end reads | gzip compression | other flags for quality control
+# Parse command-line options
+while getopts "o:s:" opt; do
+    case "$opt" in
+        o) OUTDIR="$OPTARG" ;;
+        s) SRA_FILE="$OPTARG" ;;
+        *) usage ;;
+    esac
 done
 
-echo "Download complete."
+# Check required arguments
+if [[ -z "$OUTDIR" || -z "$SRA_FILE" ]]; then
+    usage
+fi
 
-#TODO: Add verification of downloaded files and error handling
+# Validate SRA file
+if [[ ! -f "$SRA_FILE" ]]; then
+    echo "ERROR: SRA list file '$SRA_FILE' not found."
+    exit 1
+fi
+
+if [[ ! -s "$SRA_FILE" ]]; then
+    echo "ERROR: SRA list file '$SRA_FILE' is empty."
+    exit 1
+fi
+
+# Create output directory
+mkdir -p "$OUTDIR"
+
+# Log file
+LOGFILE="$OUTDIR/download_log.txt"
+touch "$LOGFILE"
+
+# Download loop
+echo "Starting downloads..."
+echo "Log file: $LOGFILE"
+
+while read -r SRA; do
+    # Skip empty or commented lines
+    [[ -z "$SRA" || "$SRA" =~ ^# ]] && continue
+
+    echo "Downloading $SRA ..."
+    if fastq-dump --skip-technical --gzip --readids --read-filter pass --dumpbase --split-3 --clip --outdir "$OUTDIR" "$SRA" >>"$LOGFILE" 2>&1; then
+
+        # Verify files were created
+        if ls "$OUTDIR/${SRA}"*.fastq.gz >/dev/null 2>&1; then
+            echo "Successfully downloaded $SRA"
+        else
+            echo "ERROR: No FASTQ files found for $SRA" | tee -a "$LOGFILE"
+        fi
+    else
+        echo "ERROR: fastq-dump failed for $SRA" | tee -a "$LOGFILE"
+    fi
+done < "$SRA_FILE"
+
+echo "Download complete."
+echo "Check the log file for details: $LOGFILE"

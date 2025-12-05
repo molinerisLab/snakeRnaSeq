@@ -4,7 +4,7 @@ CORES: 6
 CONDA_ROOT: /opt/conda/miniconda3
 DOCKER_DATA_DIR: /home
 
-sample: ["NGUSSO1", "NGUSSO2", "NGUSSO3", "HADRES3", "HADRES5", "HADRES6", "HADUNEXP1", "HADUNEXP3", "HADUNEXP6"]
+sample: ["kisumu", "emutete", "busia", "bungoma"]
 LAYOUT: PAIRED
 
 SJDB: "149"

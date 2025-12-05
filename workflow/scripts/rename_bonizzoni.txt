@@ -1,0 +1,4 @@
+SRR1756036  kisumu       
+SRR1763906  emutete
+SRR1763907  busia
+SRR1763908  bungoma

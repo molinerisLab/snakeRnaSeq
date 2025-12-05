@@ -33,8 +33,8 @@ counts <- counts[, rownames(sample_info)]
 # Create DESeqDataSet
 dds <- DESeqDataSetFromMatrix(
     countData = counts,
-    colData   = sample_info,
-    design    = ~ condition
+    colData = sample_info,
+    design = ~ condition
 )
 
 # Variance Stabilizing Transformation
@@ -65,4 +65,3 @@ p <- ggplot(pcaData, aes(PC1, PC2, color = condition, label = name)) +
 # Save outputs
 ggsave(png_out, p, width = 6, height = 4.5, dpi = 300)
 ggsave(pdf_out, p, width = 6, height = 4.5)
-

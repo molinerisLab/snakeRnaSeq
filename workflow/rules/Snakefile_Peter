@@ -441,7 +441,7 @@ if (len(SAMPLES)>0):
 			file_translate=expand("star/{sample}.ribo.ex.bam.featurecounts.count", sample=SAMPLES[0])
 		output:
 			"featurecounts.ribo.ex.count.gz"
-		shell: """
+		shell: """			
 			matrix_reduce '*.ribo.ex.bam.featurecounts.count' -l '{input.file_all}' \
 			| grep -v '^#' \
 			| fasta2tab \

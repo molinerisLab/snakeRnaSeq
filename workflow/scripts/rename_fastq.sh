@@ -18,7 +18,7 @@ fi
 FASTQ_DIR="/home/nobackup/molinerislab/mosquito/fastq_bonizzoni"
 
 # Read mapping and rename files
-while read -r sra sample; do
+while read -r sra sample || [[ -n "$sra" ]]; do
 
     # Skip empty lines
     # [[ -z "$sample" || -z "$sra" ]] && continue

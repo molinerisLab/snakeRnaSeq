@@ -1,0 +1,152 @@
++ unset _mlshdbg
++ '[' 0 = 1 ']'
++ unset _mlre _mlIFS
++ '[' -n x ']'
++ _mlIFS=' 	
+'
++ IFS=' '
++ '[' -n '' ']'
+++ /usr/bin/tclsh8.6 /usr/lib/x86_64-linux-gnu/modulecmd.tcl bash autoinit
++ _mlcode='module() {
+   unset _mlshdbg;
+   if [ "${MODULES_SILENT_SHELL_DEBUG:-0}" = '\''1'\'' ]; then
+      case "$-" in
+         *v*x*) set +vx; _mlshdbg='\''vx'\'' ;;
+         *v*) set +v; _mlshdbg='\''v'\'' ;;
+         *x*) set +x; _mlshdbg='\''x'\'' ;;
+         *) _mlshdbg='\'''\'' ;;
+      esac;
+   fi;
+   unset _mlre _mlIFS;
+   if [ -n "${IFS+x}" ]; then
+      _mlIFS=$IFS;
+   fi;
+   IFS='\'' '\'';
+   for _mlv in ${MODULES_RUN_QUARANTINE:-}; do
+      if [ "${_mlv}" = "${_mlv##*[!A-Za-z0-9_]}" -a "${_mlv}" = "${_mlv#[0-9]}" ]; then
+         if [ -n "`eval '\''echo ${'\''$_mlv'\''+x}'\''`" ]; then
+            _mlre="${_mlre:-}${_mlv}_modquar='\''`eval '\''echo ${'\''$_mlv'\''}'\''`'\'' ";
+         fi;
+         _mlrv="MODULES_RUNENV_${_mlv}";
+         _mlre="${_mlre:-}${_mlv}='\''`eval '\''echo ${'\''$_mlrv'\'':-}'\''`'\'' ";
+      fi;
+   done;
+   if [ -n "${_mlre:-}" ]; then
+      eval `eval ${_mlre} /usr/bin/tclsh8.6 /usr/lib/x86_64-linux-gnu/modulecmd.tcl bash '\''"$@"'\''`;
+   else
+      eval `/usr/bin/tclsh8.6 /usr/lib/x86_64-linux-gnu/modulecmd.tcl bash "$@"`;
+   fi;
+   _mlstatus=$?;
+   if [ -n "${_mlIFS+x}" ]; then
+      IFS=$_mlIFS;
+   else
+      unset IFS;
+   fi;
+   unset _mlre _mlv _mlrv _mlIFS;
+   if [ -n "${_mlshdbg:-}" ]; then
+      set -$_mlshdbg;
+   fi;
+   unset _mlshdbg;
+   return $_mlstatus;
+};
+ml() { module ml "$@"; };
+MODULES_CMD=/usr/lib/x86_64-linux-gnu/modulecmd.tcl; export MODULES_CMD;
+ENV=/usr/share/modules/init/profile.sh; export ENV;
+BASH_ENV=/usr/share/modules/init/bash; export BASH_ENV;
+MODULESHOME=/usr/share/modules; export MODULESHOME;
+test 0;'
++ _mlret=0
++ '[' -n x ']'
++ IFS=' 	
+'
++ unset _mlIFS
++ unset _mlre _mlv _mlrv
++ '[' 0 -eq 0 ']'
++ eval 'module() {
+   unset _mlshdbg;
+   if [ "${MODULES_SILENT_SHELL_DEBUG:-0}" = '\''1'\'' ]; then
+      case "$-" in
+         *v*x*) set +vx; _mlshdbg='\''vx'\'' ;;
+         *v*) set +v; _mlshdbg='\''v'\'' ;;
+         *x*) set +x; _mlshdbg='\''x'\'' ;;
+         *) _mlshdbg='\'''\'' ;;
+      esac;
+   fi;
+   unset _mlre _mlIFS;
+   if [ -n "${IFS+x}" ]; then
+      _mlIFS=$IFS;
+   fi;
+   IFS='\'' '\'';
+   for _mlv in ${MODULES_RUN_QUARANTINE:-}; do
+      if [ "${_mlv}" = "${_mlv##*[!A-Za-z0-9_]}" -a "${_mlv}" = "${_mlv#[0-9]}" ]; then
+         if [ -n "`eval '\''echo ${'\''$_mlv'\''+x}'\''`" ]; then
+            _mlre="${_mlre:-}${_mlv}_modquar='\''`eval '\''echo ${'\''$_mlv'\''}'\''`'\'' ";
+         fi;
+         _mlrv="MODULES_RUNENV_${_mlv}";
+         _mlre="${_mlre:-}${_mlv}='\''`eval '\''echo ${'\''$_mlrv'\'':-}'\''`'\'' ";
+      fi;
+   done;
+   if [ -n "${_mlre:-}" ]; then
+      eval `eval ${_mlre} /usr/bin/tclsh8.6 /usr/lib/x86_64-linux-gnu/modulecmd.tcl bash '\''"$@"'\''`;
+   else
+      eval `/usr/bin/tclsh8.6 /usr/lib/x86_64-linux-gnu/modulecmd.tcl bash "$@"`;
+   fi;
+   _mlstatus=$?;
+   if [ -n "${_mlIFS+x}" ]; then
+      IFS=$_mlIFS;
+   else
+      unset IFS;
+   fi;
+   unset _mlre _mlv _mlrv _mlIFS;
+   if [ -n "${_mlshdbg:-}" ]; then
+      set -$_mlshdbg;
+   fi;
+   unset _mlshdbg;
+   return $_mlstatus;
+};
+ml() { module ml "$@"; };
+MODULES_CMD=/usr/lib/x86_64-linux-gnu/modulecmd.tcl; export MODULES_CMD;
+ENV=/usr/share/modules/init/profile.sh; export ENV;
+BASH_ENV=/usr/share/modules/init/bash; export BASH_ENV;
+MODULESHOME=/usr/share/modules; export MODULESHOME;
+test 0;'
+++ MODULES_CMD=/usr/lib/x86_64-linux-gnu/modulecmd.tcl
+++ export MODULES_CMD
+++ ENV=/usr/share/modules/init/profile.sh
+++ export ENV
+++ BASH_ENV=/usr/share/modules/init/bash
+++ export BASH_ENV
+++ MODULESHOME=/usr/share/modules
+++ export MODULESHOME
+++ test 0
++ '[' -t 2 ']'
++ export -f module
+++ type -t ml
++ '[' function = function ']'
++ export -f ml
++ '[' 5 -ge 3 ']'
++ [[ hxB =~ i ]]
++ [[ ! :/home/molinerislab/mosquitos/workflow/scripts:/home/pokeke/.vscode-server/data/User/globalStorage/github.copilot-chat/debugCommand:/home/pokeke/.vscode-server/data/User/globalStorage/github.copilot-chat/copilotCli:/home/pokeke/.vscode-server/cli/servers/Stable-bf9252a2fb45be6893dd8870c0bf37e2e1766d61/server/bin/remote-cli:/home/molinerislab/snakeRnaSeq/workflow/env/env/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games:/opt/bin:/opt/bin: =~ :/usr/bin: ]]
++ '[' '!' -n x ']'
+++ manpath
++ [[ ! :/home/molinerislab/snakeRnaSeq/workflow/env/env/man:/home/molinerislab/snakeRnaSeq/workflow/env/env/share/man:/usr/local/man:/usr/local/share/man:/usr/share/man:: =~ :/usr/share/man: ]]
++ unset _mlcode _mlret
++ '[' -n '' ']'
++ set -euo pipefail
++ OUTDIR=
++ SRA_FILE=
++ getopts o:s: opt
++ case "$opt" in
++ OUTDIR=/home/nobackup/molinerislab/mosquito/fastq_saizonou
++ getopts o:s: opt
++ case "$opt" in
++ SRA_FILE=/home/molinerislab/mosquitos/workflow/scripts/saizonou_sra.txt
++ getopts o:s: opt
++ [[ -z /home/nobackup/molinerislab/mosquito/fastq_saizonou ]]
++ [[ -z /home/molinerislab/mosquitos/workflow/scripts/saizonou_sra.txt ]]
++ [[ ! -f /home/molinerislab/mosquitos/workflow/scripts/saizonou_sra.txt ]]
++ [[ ! -s /home/molinerislab/mosquitos/workflow/scripts/saizonou_sra.txt ]]
++ mkdir -p /home/nobackup/molinerislab/mosquito/fastq_saizonou
++ LOGFILE=/home/nobackup/molinerislab/mosquito/fastq_saizonou/download_log.txt
++ touch /home/nobackup/molinerislab/mosquito/fastq_saizonou/download_log.txt
+touch: failed to close '/home/nobackup/molinerislab/mosquito/fastq_saizonou/download_log.txt': Disk quota exceeded

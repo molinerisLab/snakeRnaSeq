@@ -54,13 +54,13 @@ STAR_GENOME_DIR = GENCODE_DIR+"/"+config["GENCODE"]["GENOME"]+".star_index/"+STA
 # Samples ---
 SAMPLES, = glob_wildcards("fastq/{sample}_R1.fastq.gz")
 
-include: "../../local/rules/generic_rules.smk"
-include: "../../local/rules/trim.smk"
-include: "../../local/rules/star_alignment.smk"
-include: "../../local/rules/count.smk"
-include: "../../local/rules/rseqc.smk"
-include: "../../local/rules/DGE.smk"
-include: "../../local/rules/venn_heatmap.smk"
+#include: "../../local/rules/generic_rules.smk"
+#include: "../../local/rules/trim.smk"
+#include: "../../local/rules/star_alignment.smk"
+#include: "../../local/rules/count.smk"
+#include: "../../local/rules/rseqc.smk"
+#include: "../../local/rules/DGE.smk"
+#include: "../../local/rules/venn_heatmap.smk"
 
 if os.path.exists("Snakefile_versioned.sk"):
     include: "Snakefile_versioned.sk"
@@ -135,7 +135,7 @@ rule star_pe_multi:
     log:
         "star/{sample}.log",
     params:
-        extra=lambda wildcards: f"--outSAMtype BAM SortedByCoordinate --outSAMunmapped Within --chimOutType WithinBAM {config['STAR']['OPTIONS']}",
+        extra=lambda wildcards: f"--outSAMtype BAM SortedByCoordinate --outSAMunmapped Within --chimOutType WithinBAM {config['STAR']['OPTIONS']}"
     threads: config["CORES"],
     wrapper:
         "v3.3.6/bio/star/align"
@@ -185,11 +185,11 @@ rule star_align_se:
     output:
         aln="star/{sample}.bam",
         log="star/{sample}.Log.out",
-        sj="star/{sample}.SJ.out.tab,
+        sj="star/{sample}.SJ.out.tab",
     threads: config["CORES"]
     params:
         genome_dir = STAR_GENOME_DIR,
-        tmpdir="star/{sample}"
+        tmpdir="star/{sample}",
         out_sam_type = config["STAR"]["OUT_SAM_TYPE"],
         out_filter_multimap_nmax = config["STAR"]["OUT_FILTER_MULTIMAP_NMAX"],
         out_filter_multimap_score_range = config["STAR"]["MULTIMAP_SCORE_RANGE"],
@@ -314,7 +314,7 @@ rule fastp_se:
     input:
         "fastq/{sample}_R1.fastq.gz"
     output:
-        trimmed="fastp/{sample}_R1.fastq.gz"
+        trimmed="fastp/{sample}_R1.fastq.gz",
         #unpaired1="fastp/se/{sample}.u1.fastq",
         #merged="fastp/pe/{sample}.merged.fastq",
         #failed="fastp/pe/{sample}.failed.fastq",
@@ -370,6 +370,15 @@ rule trim_galore_pe:
 # -------------- #
 # Multiqc report #
 # -------------- #
+rule fastqc:
+    input:
+        "fastq/{sample}.fastq.gz"
+    output:
+        html="fastqc/{fastq_filtering}/{sample}_{read}_fastqc.html",
+        zip="fastqc/{fastq_filtering}/{sample}_{read}_fastqc.zip"
+    threads: 2
+    wrapper:
+        "v3.3.6/bio/fastqc"
 
 rule multiqc_fastq:
     input:

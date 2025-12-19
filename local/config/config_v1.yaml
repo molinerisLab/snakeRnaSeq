@@ -2,7 +2,8 @@
 TMPDIR: /mnt/nvme_raid0/tmp
 CORES: 6
 DOCKER_DATA_DIR: /home
-
+RAW_DATA_DIR: ["."]
+ 
 LAYOUT: PAIRED
 #LAYOUT: PAIRED
 
@@ -108,3 +109,8 @@ HEATMAP:
   # indicate the number of clusters the rows (-r) and the columns (-z) will be divided into. 
   # leave empty to have no clusters
 
+# visualization param ---
+GFF3_MIN_WINDOW_READS: "100"
+BIGWIG_BIN_SIZE: "50"
+BEDGRAPH_FILTER: "100"
+#REPEAT_FAMILY_RAND_REPETITION=10 

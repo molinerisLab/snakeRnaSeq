@@ -1,20 +1,28 @@
 #
 # RNA-seq analysis pipeline
 #
-# --------------#
-# Configuration #
-# --------------#
+# --------------------------#
+# Import / Include / Config #
+# --------------------------#
+
 import os
 
 configfile: "config.yaml"
 if os.path.exists("Snakefile_versioned.sk"):
     include: "Snakefile_versioned.sk"
 
-REFERENCE_ROOT=os.environ.get("REFERENCE_ROOT")
+#include: "../../local/rules/generic_rules.smk"
+#include: "../../local/rules/trim.smk"
+#include: "../../local/rules/star_alignment.smk"
+#include: "../../local/rules/count.smk"
+#include: "../../local/rules/rseqc.smk"
+#include: "../../local/rules/DGE.smk"
+#include: "../../local/rules/venn_heatmap.smk"
+
 
 # GENERAL SETUP ---
-RAW_DATA_DIR= ["."]
 
+REFERENCE_ROOT=os.environ.get("REFERENCE_ROOT")
 # GENCODE ---
 GENCODE_DIR=REFERENCE_ROOT+"/bioinfotree/task/gencode/dataset/"+config["GENCODE"]["SPECIES"]+"/"+config["GENCODE"]["VERSION"]
 GENCODE_GENOME_FASTA=GENCODE_DIR+"/"+config["GENCODE"]["GENOME"]+".genome.fa"
@@ -22,11 +30,7 @@ GENCODE_ANNOTATION_GTF=GENCODE_DIR+"/"+config["GENCODE"]["ANNOTATION"]+".gtf"
 GENCODE_ANNOTATION_BED=GENCODE_DIR+"/"+config["GENCODE"]["ANNOTATION"]+".bed"
 RSEQC_REF_BED=GENCODE_DIR+"/basic.annotation.bed"
 
-# visualization param ---
-GFF3_MIN_WINDOW_READS = "100"
-BIGWIG_BIN_SIZE = "50"
-BEDGRAPH_FILTER = "100"
-#REPEAT_FAMILY_RAND_REPETITION=10 
+
 
 
 # featurecounts param ---
@@ -54,16 +58,7 @@ STAR_GENOME_DIR = GENCODE_DIR+"/"+config["GENCODE"]["GENOME"]+".star_index/"+STA
 # Samples ---
 SAMPLES, = glob_wildcards("fastq/{sample}_R1.fastq.gz")
 
-#include: "../../local/rules/generic_rules.smk"
-#include: "../../local/rules/trim.smk"
-#include: "../../local/rules/star_alignment.smk"
-#include: "../../local/rules/count.smk"
-#include: "../../local/rules/rseqc.smk"
-#include: "../../local/rules/DGE.smk"
-#include: "../../local/rules/venn_heatmap.smk"
 
-if os.path.exists("Snakefile_versioned.sk"):
-    include: "Snakefile_versioned.sk"
 
 
 # Rule ALL ---

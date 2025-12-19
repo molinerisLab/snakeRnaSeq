@@ -1,6 +1,27 @@
 # ----- #
 # Fastp #
 # ----- #
+rule fastp_se:
+    input:
+        "fastq/{sample}_R1.fastq.gz"
+    output:
+        trimmed="fastp/{sample}_R1.fastq.gz",
+        #unpaired1="fastp/se/{sample}.u1.fastq",
+        #merged="fastp/pe/{sample}.merged.fastq",
+        #failed="fastp/pe/{sample}.failed.fastq",
+        html="fastp/{sample}.html",
+        json="fastp/{sample}.json"
+    threads: 8
+    log:
+        "fastp/{sample}.log.txt"
+    params:
+        adapters_r1="--adapter_sequence=AGATCGGAAGAGCACACGTCTGAACTCCAGTCA" 
+    shell: """
+        fastp --thread {threads}  --html {output.html} \
+        {params.adapters_r1} \
+        --in1 {input} --out1 {output.trimmed} --json {output.json} \
+        2> {log}
+        """
 
 rule fastp_pe:
     input:
@@ -19,9 +40,15 @@ rule fastp_pe:
         adapters="--adapter_sequence=AGATCGGAAGAGCACACGTCTGAACTCCAGTCA --adapter_sequence_r2=AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT",
         #extra="--merge"
         extra=""
-    threads: 4
-    wrapper:
-        "v3.3.6/bio/fastp"
+    threads: 8
+	log:
+        "fastp/{sample}.log.txt"
+    shell: """
+        fastp --thread {threads}  --html {output.html} \
+        {params.adapters_r1} {params.adapters_r2} \
+        --in1 {input.sample[0]} --in2 {input.sample[1]} --out1 {output.trimmed[0]} --out2 {output.trimmed[1]} --json {output.json} \
+        2> {log}
+        """
 
 
 # ------------ #

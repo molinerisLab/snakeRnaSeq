@@ -23,6 +23,7 @@ if os.path.exists("Snakefile_versioned.sk"):
 # GENERAL SETUP ---
 
 REFERENCE_ROOT=os.environ.get("REFERENCE_ROOT")
+
 # GENCODE ---
 GENCODE_DIR=REFERENCE_ROOT+"/bioinfotree/task/gencode/dataset/"+config["GENCODE"]["SPECIES"]+"/"+config["GENCODE"]["VERSION"]
 GENCODE_GENOME_FASTA=GENCODE_DIR+"/"+config["GENCODE"]["GENOME"]+".genome.fa"
@@ -57,10 +58,7 @@ STAR_GENOME_DIR = GENCODE_DIR+"/"+config["GENCODE"]["GENOME"]+".star_index/"+STA
 
 # Samples ---
 SAMPLES, = glob_wildcards("fastq/{sample}_R1.fastq.gz")
-
-
-
-
+print("Detected samples:", SAMPLES)
 # Rule ALL ---
 
 # ---------------------- #
@@ -280,87 +278,8 @@ rule clean_bam_downstream:
         fi
     """
 
-# ----- #
-# Fastp #
-# ----- #
 
-rule fastp_pe:
-    input:
-        sample=["fastq/{sample}_R1.fastq.gz", "fastq/{sample}_R2.fastq.gz"]
-    output:
-        trimmed=["fastp/{sample}_R1.fastq.gz", "fastp/{sample}_R2.fastq.gz"],
-        #unpaired1="fastp/pe/{sample}.u1.fastq",
-        #unpaired2="fastp/pe/{sample}.u2.fastq",
-        #merged="fastp/pe/{sample}.merged.fastq",
-        #failed="fastp/pe/{sample}.failed.fastq",
-        html="fastp/{sample}.html",
-        json="fastp/{sample}.json"
-    log:
-        "fastp/{sample}.log"
-    params:
-        adapters="--adapter_sequence=AGATCGGAAGAGCACACGTCTGAACTCCAGTCA --adapter_sequence_r2=AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT",
-        #extra="--merge"
-        extra=""
-    threads: 4
-    wrapper:
-        "v3.3.6/bio/fastp"
 
-rule fastp_se:
-    input:
-        "fastq/{sample}_R1.fastq.gz"
-    output:
-        trimmed="fastp/{sample}_R1.fastq.gz",
-        #unpaired1="fastp/se/{sample}.u1.fastq",
-        #merged="fastp/pe/{sample}.merged.fastq",
-        #failed="fastp/pe/{sample}.failed.fastq",
-        html="fastp/{sample}.html",
-        json="fastp/{sample}.json"
-    threads: 8
-    log:
-        "fastp/{sample}.log.txt"
-    params:
-        adapters_r1="--adapter_sequence=AGATCGGAAGAGCACACGTCTGAACTCCAGTCA" 
-    shell: """
-        fastp --thread {threads}  --html {output.html} \
-        {params.adapters_r1} \
-        --in1 {input} --out1 {output.trimmed} --json {output.json} \
-        2> {log}
-        """
-
-# ------------ #
-# TRIM GALORE  #
-# ------------ #
-
-rule trim_galore_se:
-	input:
-		"fastq/{sample}_R1.fastq.gz"
-	output:
-		"trimgalore/{sample}_R1.fastq.gz"
-	params:
-		trim_galore_params=config["TRIM_GALORE"]["PARAM"],
-		cores=config["CORES"]
-	shell:"""
-		mkdir -p `dirname {output}`; 
-		trim_galore -j {params.cores} -o trimgalore {params.trim_galore_params} {input}; 
-		mv trimgalore/{wildcards.sample}_R1_trimmed.fq.gz {output}
-        """
-
-rule trim_galore_pe:
-	input:
-		fastq_read1="fastq/{sample}_R1.fastq.gz",
-		fastq_read2="fastq/{sample}_R2.fastq.gz"
-	output:
-		fastq_read1="trimgalore/{sample}_R1.fastq.gz",
-		fastq_read2="trimgalore/{sample}_R2.fastq.gz"
-	params:
-		trim_galore_params=config["TRIM_GALORE"]["PARAM"],
-		cores=config["CORES"]
-	shell:"""
-		mkdir -p `dirname {output}`; 
-		trim_galore -j {params.cores} -o trimgalore {params.trim_galore_params} --paired {input}; 
-		mv trimgalore/{wildcards.sample}_R1_val_1.fq.gz {output.fastq_read1}; 
-		mv trimgalore/{wildcards.sample}_R2_val_2.fq.gz {output.fastq_read2}
-    """
 
 # -------------- #
 # Multiqc report #

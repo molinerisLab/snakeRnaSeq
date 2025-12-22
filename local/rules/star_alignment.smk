@@ -1,3 +1,5 @@
+## TODO: the genome load can be performed w/ the wrappers by using a dummy file 
+
 def choose_fastq_according_to_genome(wildcards, mate):
     sample = wildcards['sample']  # Definisce 'sample' usando 'wildcards'
     if config['GENCODE']['ASSEMBLY'] == "GRCh":
@@ -6,6 +8,45 @@ def choose_fastq_according_to_genome(wildcards, mate):
     #     return f"star_GRCh/{sample}_unmapped_R{mate}.fastq.gz"
     else:
         raise Exception(f"Genome not valid: {config['GENOME']}")
+
+
+rule star_align_se:
+    input:
+        fq1 = "fastq/{sample}_R1.fastq.gz",
+    output:
+        aln="star/{sample}.bam",
+        log="star/{sample}.Log.out",
+        sj="star/{sample}.SJ.out.tab",
+    threads: config["CORES"]
+    params:
+        genome_dir = STAR_GENOME_DIR,
+        tmpdir="star/{sample}",
+        out_sam_type = config["STAR"]["OUT_SAM_TYPE"],
+        out_filter_multimap_nmax = config["STAR"]["OUT_FILTER_MULTIMAP_NMAX"],
+        out_filter_multimap_score_range = config["STAR"]["MULTIMAP_SCORE_RANGE"],
+        filter_mismatch = config["STAR"]["FILTER_MISMATCH"],
+        additional_output = config["STAR"]["ADDITIONAL_OUTPUT"]
+    shell:
+        """
+        mkdir -p {params.tmpdir};
+        STAR \
+            --genomeDir {params.genome_dir} \
+            --genomeLoad LoadAndKeep \
+            --runThreadN {threads} \
+            --readFilesIn {input.fq1} \
+            --readFilesCommand zcat \
+            --outFileNamePrefix star/{wildcards.sample}. \
+            --outTmpDir {params.tmpdir}/STARtmp \
+            --outSAMtype {params.out_sam_type} \
+            --limitBAMsortRAM 10000000000 \
+            --outSAMunmapped Within \
+            --outFilterMultimapNmax {params.out_filter_multimap_nmax} \
+            --outFilterMultimapScoreRange {params.out_filter_multimap_score_range} \
+            {params.filter_mismatch} \
+            {params.additional_output}
+        """
+
+
 
 #gestire single vs pair ends
 rule star_pe_multi:

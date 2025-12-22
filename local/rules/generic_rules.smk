@@ -1,6 +1,6 @@
-# -------------- #
+##################
 # Generic rules  #
-# -------------- #
+##################
 
 rule tab2xlsx:
     input: 
@@ -26,20 +26,60 @@ rule tab2xls:
     shell: 
         "tab2xls < {input} > {output}"
 
+# -------------- #
+# Multiqc report #
+# -------------- #
 
 rule fastqc:
     input:
-        "{path}.fastq.gz"
+        "fastq/{sample}.fastq.gz"
     output:
-        fastqc_html="fastqc/{path}_fastqc.html",
-        fastqc_zip="fastqc/{path}_fastqc.zip"
-    threads: config["CORES"]
-    container: 
-        "docker://quay.io/biocontainers/fastqc:0.11.3--0"
+        html="fastqc/{fastq_filtering}/{sample}_{read}_fastqc.html",
+        zip="fastqc/{fastq_filtering}/{sample}_{read}_fastqc.zip"
+    threads: 2
+    wrapper:
+        "v3.3.6/bio/fastqc"
+
+rule multiqc_fastq:
+    input:
+        fastqc_html=expand("fastqc/{fastq_filtering}/{s}_{p}_fastqc.html", s=SAMPLES, p=("R1","R2"), fastq_filtering=config["FASTQ_FILTERING"]),
+        fastqc_zip=expand("fastqc/{fastq_filtering}/{s}_{p}_fastqc.zip",  s=SAMPLES, p=("R1","R2"), fastq_filtering=config["FASTQ_FILTERING"])
+    output:
+        "multiqc_report.html"
+    params:
+        data_dir = RAW_DATA_DIR
     shell:"""
-        mkdir -p $(dirname {output.fastqc_html})
-        fastqc -t {threads} -o `dirname {output.fastqc_html}` {input}
+        multiqc -f -n {output} {params.data_dir}
     """
+
+rule multiqc_report_rseqc:
+    input:
+        expand("rseqc/{sample}.geneBodyCoverage.txt", sample=SAMPLES),
+        expand("rseqc/{sample}.infer_experiment.txt", sample=SAMPLES),
+        expand("rseqc/{sample}.junctionSaturation_plot.r", sample=SAMPLES),
+        expand("rseqc/{sample}.pos.DupRate.xls", sample=SAMPLES),
+        expand("rseqc/{sample}.read_distribution.txt", sample=SAMPLES),
+        expand("rseqc/{sample}.bam_stat.txt", sample=SAMPLES),
+        expand("fastqc/{fastq_filtering}/{sample}_R1_fastqc.html", sample=SAMPLES, fastq_filtering=config["FASTQ_FILTERING"])
+    output:
+        "multiqc_report.rseqc.html"
+    params:
+        data_dir = RAW_DATA_DIR
+    shell: """
+        multiqc -f -n {output} {params.data_dir}
+    """
+
+ rule multiqc_alignment:
+     input:
+         fastqc_html=expand("fastq/{fastq}_fastqc.html", fastq=FASTQ_FILES),
+         fastqc_zip=expand("fastq/{fastq}_fastqc.zip", fastq=FASTQ_FILES),
+         bam=expand("bam/{sample}.bam", sample=SAMPLES),
+         bai=expand("bam/{sample}.bam.bai", sample=SAMPLES)
+     output:
+         report="multiqc_report.alignment.html",
+         star="multiqc_report.alignment_data/multiqc_star.txt"
+     shell:
+         "multiqc -f -n {output} ."
 
 rule bam2cram:
     input: 

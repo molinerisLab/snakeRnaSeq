@@ -12,8 +12,8 @@ configfile: "config.yaml"
 if os.path.exists("Snakefile_versioned.sk"):
     include: "Snakefile_versioned.sk"
 
-#include: "../../local/rules/generic_rules.smk"
-#include: "../../local/rules/trim.smk"
+include: "../../local/rules/generic_rules.smk"
+include: "../../local/rules/trim.smk"
 #include: "../../local/rules/star_alignment.smk"
 #include: "../../local/rules/count.smk"
 #include: "../../local/rules/rseqc.smk"

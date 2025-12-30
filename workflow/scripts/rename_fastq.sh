@@ -15,7 +15,7 @@ if [[ ! -f "$mapfile" ]]; then
 fi
 
 # Path to the directory containing the FASTQ files
-FASTQ_DIR="/home/nobackup/molinerislab/mosquito/fastq_bonizzoni"
+FASTQ_DIR="/home/nobackup/molinerislab/mosquito/fastq_saizonou"
 
 # Read mapping and rename files
 while read -r sra sample || [[ -n "$sra" ]]; do

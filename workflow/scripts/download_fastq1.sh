@@ -1,8 +1,7 @@
 #!/bin/bash
-set -Eeuo pipefail
+set -euo pipefail
 
-
-# Usage --------------------------------------
+# Usage -----------------------------------------------
 usage() {
     echo "Usage: $0 -o OUTDIR -s SRA_LIST_FILE"
     echo "  -o OUTDIR          Output directory for FASTQ files"
@@ -10,67 +9,90 @@ usage() {
     exit 1
 }
 
-# Argument parsing ---------------------------
+# Argument parsing ------------------------------------
 OUTDIR=""
-SRA_FILE=""
+SRA_LIST=""
 
-while getopts "o:s:" opt; do
-    case "$opt" in
-        o) OUTDIR="$OPTARG" ;;
-        s) SRA_FILE="$OPTARG" ;;
+while getopts ":o:s:" opt; do
+    case "${opt}" in
+        o) OUTDIR="${OPTARG}" ;;
+        s) SRA_LIST="${OPTARG}" ;;
         *) usage ;;
     esac
 done
 
-[[ -z "$OUTDIR" || -z "$SRA_FILE" ]] && usage
-[[ ! -f "$SRA_FILE" ]] && { echo "ERROR: '$SRA_FILE' not found"; exit 1; }
-[[ ! -s "$SRA_FILE" ]] && { echo "ERROR: '$SRA_FILE' is empty"; exit 1; }
+if [[ -z "${OUTDIR}" || -z "${SRA_LIST}" ]]; then
+    usage
+fi
 
-# TMPDIR handling ---------------------------
-BASE_TMPDIR="${TMPDIR:-/tmp}"
+if [[ ! -f "${SRA_LIST}" ]]; then
+    echo "ERROR: SRA list file not found: ${SRA_LIST}" >&2
+    exit 1
+fi
 
-WORKDIR="$(mktemp -d "$BASE_TMPDIR/fastq_dump.XXXXXX")"
-ERRLOG="$WORKDIR/fastq_dump.err.log"
+# TMPDIR handling --------------------------------------
+TMPBASE="${TMPDIR:-/mnt/nvme_raid0/tmp}"
+WORKTMP="${TMPBASE}/sra_work"
+mkdir -p "${WORKTMP}"
 
-cleanup() {
-    rm -rf "$WORKDIR"
-}
-trap cleanup EXIT INT TERM
+# Setup output + logging ------------------------------
+mkdir -p "${OUTDIR}"
+LOGDIR="${OUTDIR}/logs"
+mkdir -p "${LOGDIR}"
 
-echo "Using temporary directory: $WORKDIR"
+LOGFILE="${LOGDIR}/download_$(date +%Y%m%d_%H%M%S).log"
 
-# Output directory ---------------------------
-mkdir -p "$OUTDIR"
+{
+    echo "[$(date)] Starting SRA pipeline"
+    echo "OUTDIR: ${OUTDIR}"
+    echo "SRA LIST: ${SRA_LIST}"
+    echo "WORKTMP: ${WORKTMP}"
+    echo "fasterq-dump: $(command -v fasterq-dump)"
+    fasterq-dump --version
+} | tee -a "${LOGFILE}"
 
-# Download loop ------------------------------- 
-echo "Starting downloads..."
+# Prefetch SRA files ---------------------------------
+echo "[$(date)] Checking SRA files" | tee -a "${LOGFILE}"
 
-while read -r SRA; do
-    [[ -z "$SRA" || "$SRA" =~ ^# ]] && continue
+while read -r ACC; do
+    [[ -z "${ACC}" ]] && continue
+    ACC="${ACC%%[$'\r\t ']*}"
 
-    echo "Downloading $SRA ..."
+    SRA_PATH="${WORKTMP}/${ACC}/${ACC}.sra"
 
-    if fastq-dump --skip-technical --gzip --readids --read-filter pass --dumpbase --split-3 --clip --outdir "$WORKDIR" "$SRA" 2>>"$ERRLOG"
-    then
-        if ls "$WORKDIR/${SRA}"*.fastq.gz >/dev/null 2>&1; then
-            echo "✓ $SRA downloaded successfully"
-
-            mv "$WORKDIR/${SRA}"*.fastq.gz "$OUTDIR/"
-        else
-            echo "ERROR: No FASTQ files produced for $SRA"
-        fi
+    if [[ -f "${SRA_PATH}" ]]; then
+        echo "[$(date)] ${ACC}: SRA exists, skipping prefetch" | tee -a "${LOGFILE}"
     else
-        echo "ERROR: fastq-dump failed for $SRA (see error log)"
+        echo "[$(date)] ${ACC}: downloading SRA" | tee -a "${LOGFILE}"
+        prefetch "${ACC}" --output-directory "${WORKTMP}" --max-size 200G --progress 2>&1 | tee -a "${LOGFILE}"
+    fi
+done < "${SRA_LIST}"
+
+# Convert SRA → FASTQ --------------------------------
+while read -r ACC; do
+    [[ -z "${ACC}" ]] && continue
+    ACC="${ACC%%[$'\r\t ']*}"
+
+    SRA_PATH="${WORKTMP}/${ACC}/${ACC}.sra"
+    FASTQ1="${OUTDIR}/${ACC}_1.fastq"
+    FASTQ2="${OUTDIR}/${ACC}_2.fastq"
+    FASTQSE="${OUTDIR}/${ACC}.fastq"
+
+    if [[ -f "${FASTQ1}" || -f "${FASTQSE}" ]]; then
+        echo "[$(date)] ${ACC}: FASTQ exists, skipping conversion" | tee -a "${LOGFILE}"
+        continue
     fi
 
-done < "$SRA_FILE"
+    echo "[$(date)] ${ACC}: converting to FASTQ" | tee -a "${LOGFILE}"
 
-# Final status --------------------------
-if [[ -s "$ERRLOG" ]]; then
-    echo
-    echo "Some errors occurred. Error log:"
-    echo "$ERRLOG"
-else
-    echo
-    echo "All downloads completed successfully."
-fi
+    fasterq-dump "${SRA_PATH}" --outdir "${OUTDIR}" -t "${WORKTMP}" --threads 6 --split-files --skip-technical 2>&1 | tee -a "${LOGFILE}"
+
+done < "${SRA_LIST}"
+
+# Compress FASTQ -------------------------------------
+echo "[$(date)] Compressing FASTQ files" | tee -a "${LOGFILE}"
+
+find "${OUTDIR}" -maxdepth 1 -name "*.fastq" ! -name "*.gz" \
+    -print -exec pigz -p 6 {} \; | tee -a "${LOGFILE}"
+
+echo "[$(date)] Pipeline completed successfully" | tee -a "${LOGFILE}"

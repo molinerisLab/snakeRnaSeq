@@ -46,11 +46,11 @@ LTPM_PRIOR_COUNT = 0.0001
 #LAYOUT ---
 if config["LAYOUT"] == "SINGLE":
     ruleorder: fastp_se > fastp_pe
-    ruleorder: trimgalore_se > trimgalore_pe
+    ruleorder: trim_galore_se > trim_galore_pe
     ruleorder: star_align_se > star_align_pe
 elif config["LAYOUT"] == "PAIRED":
     ruleorder: fastp_pe > fastp_se
-    ruleorder: trimgalore_pe > trimgalore_se
+    ruleorder: trim_galore_pe > trim_galore_se
     ruleorder: star_align_pe > star_align_se
 
 # STAR ---
@@ -60,6 +60,7 @@ STAR_GENOME_DIR = GENCODE_DIR+"/"+config["GENCODE"]["GENOME"]+".star_index/"+STA
 # Samples ---
 SAMPLES, = glob_wildcards("fastq/{sample}_R1.fastq.gz")
 print("Detected samples:", SAMPLES)
+
 # Rule ALL ---
 
 # ---------------------- #
@@ -96,65 +97,8 @@ rule all_fastq_unmapped:
         expand("fastq_unmapped/{sample}_R1.fastq.gz", sample=SAMPLES),
         expand("fastq_unmapped/{sample}_R2.fastq.gz", sample=SAMPLES)
 
-rule generate_unmapped_R1:
-    input:
-        "{sample}.bam"
-    output:
-        "{sample}_unmapped_R1.fastq.gz"
-    shell:"""
-        samtools view -f 76 {input} | bawk '{{print "@"$1; print $10; print "+"; print $11}}' | gzip > {output}
-    """
-    # 76=4+8+64 = read unmapped AND mate unmapped AND first in pair, i.e., discard reads that are unmapped but that have mate mapped
 
-rule generate_unmapped_R2:
-    input:
-        "{sample}.bam"
-    output:
-        "{sample}_unmapped_R2.fastq.gz"
-    shell: """
-        samtools view -f 140 {input} | bawk '{{print "@"$1; print $10; print "+"; print $11}}' | gzip > {output}
-    """
-    # 140=4+8+128 = read unmapped AND mate unmapped AND second in pair, i.e., discard reads that are unmapped but that have mate mapped
 
-#TODO decide files to remove
-# ------------------ #
-# downstream cleanup #
-# ------------------ #
-
-	# for s in $(SAMPLES); do\
-	# 	[ -e STAR/$(FASTQ_FILTERING)/$${s}.STAR/Aligned.sortedByCoord.out.bam ] && echo rm STAR/$(FASTQ_FILTERING)/$${s}.STAR/Aligned.out.bam;\
-	# 	[ -e STAR/$(FASTQ_FILTERING)/$${s}.STAR/Aligned.sortedByCoord.out.bam ] && [ -e STAR/$(FASTQ_FILTERING)/$${s}.STAR/Aligned.sortedByCoord.out.ribo.ex.bam ] && echo rm STAR/$(FASTQ_FILTERING)/$${s}.STAR/Aligned.sortedByCoord.out.ribo.ex.bam;\
-	# 	[ -e STAR/$(FASTQ_FILTERING)/$${s}.STAR/Aligned.sortedByCoord.out.ribo.in.bam ] && rm STAR/$(FASTQ_FILTERING)/$${s}.STAR/Aligned.sortedByCoord.out.ribo.in.bam;\
-	# 	[ -e STAR/$(FASTQ_FILTERING)/$${s}.STAR/Aligned.sortedByCoord.out.ribo.junk.bam ] && rm STAR/$(FASTQ_FILTERING)/$${s}.STAR/Aligned.sortedByCoord.out.ribo.junk.bam;\
-	# done;
-
-rule clean_bam_downstream:
-    shell:
-        """
-        if [[ $(ls star/*.srt.mapq.*bam) ]]; then
-            echo ""
-            echo "clean downstream processed bam"
-            echo ""
-            for i in $(ls bam/*.srt.mapq.*bam); do
-                echo rm $i
-                rm $i
-            done
-        else
-            echo "no downstream processed bam files found"
-        fi
-
-        if [[ $(ls bam/*.srt.mapq.*bam.bai) ]]; then
-            echo ""
-            echo "clean downstream processed bai"
-            echo ""
-            for i in $(ls bam/*.srt.mapq.*bam.bai); do
-                echo rm $i
-                rm $i
-            done
-        else
-            echo "no downstream processed bai files found"
-        fi
-    """
 
 # ------------------------------- #
 # Correct ribosomal read counting #

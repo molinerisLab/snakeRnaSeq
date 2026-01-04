@@ -314,3 +314,42 @@ rule ltmm:
         (echo -n "Geneid"; cat {output}.tmp) | gzip > {output}
         rm {output}.tmp
     """
+
+# =============================================================================
+# 8. DOWNSTREAM CLEANUP
+# =============================================================================
+
+	# for s in $(SAMPLES); do\
+	# 	[ -e STAR/$(FASTQ_FILTERING)/$${s}.STAR/Aligned.sortedByCoord.out.bam ] && echo rm STAR/$(FASTQ_FILTERING)/$${s}.STAR/Aligned.out.bam;\
+	# 	[ -e STAR/$(FASTQ_FILTERING)/$${s}.STAR/Aligned.sortedByCoord.out.bam ] && [ -e STAR/$(FASTQ_FILTERING)/$${s}.STAR/Aligned.sortedByCoord.out.ribo.ex.bam ] && echo rm STAR/$(FASTQ_FILTERING)/$${s}.STAR/Aligned.sortedByCoord.out.ribo.ex.bam;\
+	# 	[ -e STAR/$(FASTQ_FILTERING)/$${s}.STAR/Aligned.sortedByCoord.out.ribo.in.bam ] && rm STAR/$(FASTQ_FILTERING)/$${s}.STAR/Aligned.sortedByCoord.out.ribo.in.bam;\
+	# 	[ -e STAR/$(FASTQ_FILTERING)/$${s}.STAR/Aligned.sortedByCoord.out.ribo.junk.bam ] && rm STAR/$(FASTQ_FILTERING)/$${s}.STAR/Aligned.sortedByCoord.out.ribo.junk.bam;\
+	# done;
+
+rule clean_bam_downstream:
+    shell:
+        """
+        if [[ $(ls star/*.srt.mapq.*bam) ]]; then
+            echo ""
+            echo "clean downstream processed bam"
+            echo ""
+            for i in $(ls bam/*.srt.mapq.*bam); do
+                echo rm $i
+                rm $i
+            done
+        else
+            echo "no downstream processed bam files found"
+        fi
+
+        if [[ $(ls bam/*.srt.mapq.*bam.bai) ]]; then
+            echo ""
+            echo "clean downstream processed bai"
+            echo ""
+            for i in $(ls bam/*.srt.mapq.*bam.bai); do
+                echo rm $i
+                rm $i
+            done
+        else
+            echo "no downstream processed bai files found"
+        fi
+    """

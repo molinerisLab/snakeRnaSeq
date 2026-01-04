@@ -17,6 +17,7 @@ rule split_bam_ribo:
 
 #TODO move to generic_rules.sk
 ruleorder: featurecounts > split_bam_ribo
+
 rule featurecounts:
 	input:
 		bam="{path}.bam",

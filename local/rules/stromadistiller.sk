@@ -11,4 +11,4 @@ rule featurecounts_mouse:
 	shell:"""
 		perl -lne 'print if $.==2 || s/^M_//' {input} > {output}
 	"""
-	#thre are 2 header row in the input file, we discard the first
+	#there are 2 header row in the input file, we discard the first

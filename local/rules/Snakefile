@@ -87,10 +87,6 @@ rule ALL_star:
     input:
         expand("star/{sample}.bam", sample=SAMPLES)
 
-# -------------- #
-# STAR Alignment #
-# -------------- #
-
 
 rule all_fastq_unmapped:
     input:
@@ -104,51 +100,9 @@ rule all_fastq_unmapped:
 # Correct ribosomal read counting #
 # ------------------------------- #
 
-rule split_bam_ribo:
-	input:
-		bam="{path}.bam",
-		bam_idx="{path}.bam.bai",
-		ribosome_bed=GENCODE_DIR+"/primary_assembly.annotation.rRNA_complete.bed"
-	output:
-		ribo_ex="{path}.ribo.ex.bam",
-		ribo_in="{path}.ribo.in.bam",
-		ribo_log="{path}.summary"
-	shell:"""
-		mkdir -p `dirname {output}`; 
-		split_bam.py -i {input.bam} -r {input.ribosome_bed} -o {wildcards.path}.ribo > {wildcards.path}.summary
-        """
-
 ruleorder: featurecounts > split_bam_ribo
-rule featurecounts:
-	input:
-		bam="{path}.bam",
-		annotation_gtf=GENCODE_ANNOTATION_GTF
-	output:
-		counts="{path}.bam.featurecounts.count",
-		summary="{path}.bam.featurecounts.count.summary"
-	params:
-		cores=config["CORES"],
-		tmpdir=config["TMPDIR"],
-		params=FEATURECOUNTS_PARAM
-	shell: """
-		featureCounts {input.bam} -o {output.counts} -a {input.annotation_gtf} {params.params} --tmpDir {params.tmpdir} -T {params.cores}
-        """
 
-rule featurecounts_ribo_ex:
-	input:
-		file_all=expand("star/{sample}.ribo.ex.bam.featurecounts.count", sample=SAMPLES),
-		file_translate=expand("star/{sample}.ribo.ex.bam.featurecounts.count", sample=SAMPLES[0])
-	output:
-		"featurecounts.ribo.ex.count.gz"
-	shell: """
-		matrix_reduce '*.ribo.ex.bam.featurecounts.count' -l '{input.file_all}' \
-		| grep -v '^#' \
-		| fasta2tab \
-		| bawk '$2!="Geneid" {{print $2,$1,$8}}' \
-		| tab2matrix -r Geneid \
-		| translate -a <(cut -f -6 {input.file_translate} | unhead) 1 \
-		| gzip > {output}
-	    """
+
 
 rule featurecounts_ribo_ex_summary:
 	input:
@@ -714,58 +668,8 @@ rule read_distribution:
         read_distribution.py -i {input.bam} -r {input.rseqc_ref_bed} > {output.text}"
         """
 
-rule plot_read_distribution:
-    input:
-        all_gene_body_cov=expand(
-            "rseqc/{sample}.read_distribution.txt",
-            sample=SAMPLES
-        ),
-        rscript="../../local/src/plotReadDistributionSummary.R"
-    output:
-        "rseqc/reads_distribution_summary.pdf",
-    shell:"""
-        {CONDA_ACTIVATE} rstudio_Rv4.0.3; 
-        Rscript --vanilla {input.rscript} rseqc
-        """
 
-# ---------------- #
-# stroma distiller #
-# ---------------- #
 
-rule featurecounts_human:
-	input: "{fastq_filtering}.featurecounts"
-	output: "{fastq_filtering}.featurecounts.human"
-	shell:"""
-		perl -lne 'print if $.==1 || s/^H_//' {input} > {output}
-	"""
-
-rule featurecounts_mouse:
-	input: "{fastq_filtering}.featurecounts"
-	output: "{fastq_filtering}.featurecounts.mouse"
-	shell:"""
-		perl -lne 'print if $.==2 || s/^M_//' {input} > {output}
-	"""
-	#there are 2 header rows in the input file, we discard the first
-
-# ---------#
-# Heatmap  #
-# ---------#
-
-rule heatmap:
-    input:
-        gep = "GEP.count.exp_filter.ltmm.no_undeter.gz",
-        metadata = "metadata.no_undeter.txt"
-    output:
-        pdf = "heatmap."+config['HEATMAP']['N_TOP']+"_top_genes.pdf",
-        rds = "heatmap."+config['HEATMAP']['N_TOP']+"_top_genes.Rds"
-    params:
-        sets = config["HEATMAP"]["COLUMNS"],
-        n_top = config["HEATMAP"]["N_TOP"],
-        color_set = config["HEATMAP"]["COLORS"],
-        clusters = config["HEATMAP"]["CLUSTERS"]
-    shell:"""
-        heatmap {input.gep} -a {input.metadata} -C {params.sets} -c 12 -s -d correlation {params.color_set} --pdf -e 16 -w 12 {params.clusters} -N {params.n_top} -R {output.rds} {output.pdf}
-    """
 
 
 

@@ -152,6 +152,50 @@ rule ALL_skewness:
 # rseqc/%.read_distribution.txt: STAR/%.STAR/Aligned.sortedByCoord.out.bam $(RSEQC_REF_BED)
 # 	mkdir -p `dirname $@`
 # 	read_distribution.py  -i $< -r $^2 > $@
+
+rule gene_body_coverage:
+    input:
+        bam="star/{sample}.bam",
+        bai="star/{sample}.bam.bai",
+        housekeeping_genes=GENCODE_DIR+"/rseqc.HouseKeepingGenes.bed.gz"
+    output:
+        text="rseqc/{sample}.geneBodyCoverage.txt",
+        rscript="rseqc/{sample}.geneBodyCoverage.r"
+    params:
+        docker_data_dir=config["DOCKER_DATA_DIR"],
+        scratch_dir=config["TMPDIR"]
+    shell: """
+        mkdir -p `dirname {output.text}`; 
+        docker run -u `id -u`:`id -g` --rm \
+            -v {params.docker_data_dir}:{params.docker_data_dir} \
+            -v {params.scratch_dir}:{params.scratch_dir} \
+            quay.io/biocontainers/rseqc:4.0.0--py38h0213d0e_0  \
+            bash -c "cd `echo $PWD`; geneBody_coverage.py -i {input.bam} -r <(zcat {input.housekeeping_genes}) -o rseqc/{wildcards.sample}"; 
+        sed -i 's|Aligned.sortedByCoord.out|{wildcards.sample}|' {output.text}
+    """
+
+rule read_distribution:
+    input:
+        bam="star/{sample}/Aligned.sortedByCoord.out.bam",
+        rseqc_ref_bed=GENCODE_ANNOTATION_BED
+    output:
+        text="rseqc/{sample}.read_distribution.txt"
+    params:
+        docker_data_dir=config["DOCKER_DATA_DIR"],
+        scratch_dir=config["TMPDIR"]
+    shell:"""
+        mkdir -p `dirname {output}`; 
+        docker run -u `id -u`:`id -g` --rm \
+        -v {params.docker_data_dir}:{params.docker_data_dir} \
+        -v {params.scratch_dir}:{params.scratch_dir} \
+        quay.io/biocontainers/rseqc:4.0.0--py38h0213d0e_0  \
+        bash -c "cd `echo $PWD`; \
+        read_distribution.py -i {input.bam} -r {input.rseqc_ref_bed} > {output.text}"
+        """
+
+
+
+
 rule get_read_distribution:
     input:
         bam = "star/{file}.bam",

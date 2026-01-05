@@ -15,10 +15,12 @@ if os.path.exists("Snakefile_versioned.sk"):
 include: "../../local/rules/generic_rules.smk"
 include: "../../local/rules/trim.smk"
 include: "../../local/rules/star_alignment.smk"
+include : "../../local/rules/bwa_alignment.smk"
 include: "../../local/rules/count.smk"
 include: "../../local/rules/rseqc.smk"
 include: "../../local/rules/DGE.smk"
 include: "../../local/rules/venn_heatmap.smk"
+include: "../../local/rules/metagenome.smk"
 
 
 # GENERAL SETUP ---

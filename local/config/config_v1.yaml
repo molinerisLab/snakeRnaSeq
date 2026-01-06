@@ -5,7 +5,7 @@ TMPDIR: "/mnt/nvme_raid0/tmp"
 CORES: 6
 DOCKER_DATA_DIR: "/home"
 RAW_DATA_DIR: "fastq"                             # Unified fastq location
-OUTPUT_DIR: "/home/alele/snakeRnaSeq/dataset/v1"  # Unified output location
+OUTPUT_DIR: /home/alele/snakeRnaSeq/dataset/v1  # Unified output location
  
 # ========================
 # EXPERIMENT INFO
@@ -23,7 +23,6 @@ GENCODE:
   GENOME: "GRCh38.primary_assembly" # GRCh38.primary_assembly | GRCm38.primary_assembly
   ASSEMBLY: "GRCh"
   ANNOTATION: "basic.annotation" # primary_assembly.annotation | basic.annotation
-
 
 # ========================
 # ALIGNMENT (STAR)

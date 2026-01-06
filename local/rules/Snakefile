@@ -62,7 +62,7 @@ elif config["LAYOUT"] == "PAIRED":
     ruleorder: fastp_pe > fastp_se
     ruleorder: trim_galore_pe > trim_galore_se
     ruleorder: star_align_pe > star_align_se
-
+    
 ruleorder: featurecounts > split_bam_ribo
 
 
@@ -104,6 +104,10 @@ rule all_fastq_unmapped:
     input:
         expand("fastq_unmapped/{sample}_R1.fastq.gz", sample=SAMPLES),
         expand("fastq_unmapped/{sample}_R2.fastq.gz", sample=SAMPLES)
+
+
+
+
 
 # -------------- #
 # META           #

@@ -46,7 +46,26 @@ rule star_align_se:
             {params.additional_output}
         """
 
-
+rule star_align_pe:
+    input:
+        fq1=lambda wildcards: f"{config['output_dir']}/fastq_trimmed/{wildcards.sample}_R1.fastq.gz",
+        fq2=lambda wildcards: f"{config['output_dir']}/fastq_trimmed/{wildcards.sample}_R2.fastq.gz",
+        idx=lambda wildcards: config['star_index'][wildcards['genome']],
+    output:
+        aln="{output_dir}/star_{genome}/{sample}.bam",
+        log="{output_dir}/star_{genome}/{sample}.Log.out",
+        sj="{output_dir}/star_{genome}/{sample}.SJ.out.tab",
+        # Uncomment the next line if you want to handle unmapped reads
+        # unmapped=["star_{genome}/unmapped/{sample}_R1.fastq.gz", "star_{genome}/unmapped/{sample}_R2.fastq.gz"],
+        #unmapped read filtered after, sice by default STAR report as unmapped partially mapped (i.e. mapped only one mate of a paired end read)
+        log_final="{output_dir}/star_{genome}/{sample}.Log.final.out"
+    log:
+        "{output_dir}/star_{genome}/{sample}.log",
+    params:
+        extra=lambda wildcards: f"--outSAMtype BAM SortedByCoordinate --outSAMunmapped Within --chimOutType WithinBAM {config['star_options']}",
+    threads: 16,
+    wrapper:
+        "v3.3.6/bio/star/align"
 
 #gestire single vs pair ends
 rule star_pe_multi:
@@ -74,10 +93,6 @@ rule linl_unmapped:
     output: "fastq_unmapped/{sample}_R{mate}.fastq.gz"
     shell: "ln {input} {output}"
 
-rule all_fastq_unmapped:
-    input:
-        expand("fastq_unmapped/{sample}_R1.fastq.gz", sample=SAMPLES),
-        expand("fastq_unmapped/{sample}_R2.fastq.gz", sample=SAMPLES)
 
 rule generate_unmapped_R1:
     input:

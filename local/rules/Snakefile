@@ -9,22 +9,12 @@
 import os
 
 configfile: "config.yaml"
-if os.path.exists("Snakefile_versioned.sk"):
-    include: "Snakefile_versioned.sk"
-
-include: "../../local/rules/generic_rules.smk"
-include: "../../local/rules/trim.smk"
-include: "../../local/rules/star_alignment.smk"
-include : "../../local/rules/bwa_alignment.smk"
-include: "../../local/rules/count.smk"
-include: "../../local/rules/rseqc.smk"
-include: "../../local/rules/DGE.smk"
-include: "../../local/rules/venn_heatmap.smk"
-include: "../../local/rules/metagenome.smk"
-
-
+# Samples ---
+SAMPLES, = glob_wildcards("fastq/{sample}_R1.fastq.gz")
+print("Detected samples:", SAMPLES)
+RAW_DATA_DIR = "fastq/"
 # GENERAL SETUP ---
-
+FASTQ_FILES = SAMPLES
 REFERENCE_ROOT=os.environ.get("REFERENCE_ROOT")
 
 # GENCODE ---
@@ -34,7 +24,9 @@ GENCODE_ANNOTATION_GTF=GENCODE_DIR+"/"+config["GENCODE"]["ANNOTATION"]+".gtf"
 GENCODE_ANNOTATION_BED=GENCODE_DIR+"/"+config["GENCODE"]["ANNOTATION"]+".bed"
 RSEQC_REF_BED=GENCODE_DIR+"/basic.annotation.bed"
 
-
+# STAR ---
+STAR_VERSION = shell("STAR --version", read=True).strip()
+STAR_GENOME_DIR = GENCODE_DIR+"/"+config["GENCODE"]["GENOME"]+".star_index/"+STAR_VERSION
 
 
 # featurecounts param ---
@@ -44,6 +36,22 @@ if config["LAYOUT"] == "PAIRED":
 # -O allowMultiOverlap
 LCPM_PRIOR_COUNT = 0.25           # *standard of edgeR*
 LTPM_PRIOR_COUNT = 0.0001
+
+
+
+if os.path.exists("Snakefile_versioned.sk"):
+    include: "Snakefile_versioned.sk"
+
+include: "../../local/rules/generic_rules.smk"
+include: "../../local/rules/trim.smk"
+include: "../../local/rules/star_alignment.smk"
+include: "../../local/rules/bwa_alignment.smk"
+include: "../../local/rules/count.smk"
+include: "../../local/rules/rseqc.smk"
+include: "../../local/rules/DGE.smk"
+include: "../../local/rules/venn_heatmap.smk"
+include: "../../local/rules/metagenome.smk"
+
   
 #LAYOUT ---
 if config["LAYOUT"] == "SINGLE":
@@ -58,13 +66,9 @@ elif config["LAYOUT"] == "PAIRED":
 ruleorder: featurecounts > split_bam_ribo
 
 
-# STAR ---
-STAR_VERSION = shell("STAR --version", read=True).strip()
-STAR_GENOME_DIR = GENCODE_DIR+"/"+config["GENCODE"]["GENOME"]+".star_index/"+STAR_VERSION
 
-# Samples ---
-SAMPLES, = glob_wildcards("fastq/{sample}_R1.fastq.gz")
-print("Detected samples:", SAMPLES)
+
+
 
 # ---------------------- #
 # rule all and other all #
@@ -76,6 +80,11 @@ rule all:
         "multiqc_report.html",
         "multiqc_report.rseqc.html",
         "usable_reads.txt.xlsx" 
+
+rule all_fastq_trimmed_se:
+    input:
+        expand("fastp/{sample}_R1.fastq.gz",
+               sample=SAMPLES)
 
 rule ALL_infer_experiment:
     input: 

@@ -84,11 +84,11 @@ rule braken:
 
 rule bracken_merged:
     input:
-        reports=expand("breports_filtered/{sample}.breport", sample=config["samples"]),
-        outputs=expand("boutputs_filtered/{sample}.braken", sample=config["samples"]),
-        #log= expand("logs/{sample}_bracken_merged.txt", sample=config["samples"])
+        reports=expand("breports_filtered/{sample}.breport", sample=SAMPLES),
+        outputs=expand("boutputs_filtered/{sample}.braken", sample=SAMPLES),
+        #log= expand("logs/{sample}_bracken_merged.txt", sample=SAMPLES)
     output:"bracken_merged_abbundances.txt"
-    #log: expand("logs/{sample}_bracken_merged.txt", sample=config["samples"])
+    #log: expand("logs/{sample}_bracken_merged.txt", sample=SAMPLES)
     shell:"""
         combine_bracken_outputs.py --files  {input.outputs} -o {output} 2> log.txt 
     """
@@ -280,7 +280,7 @@ rule megahit_assembly:
 # Split the contigs into smaller files for BLASTN
 def get_all_blastn_outputs(wildcards=None):
     outputs = []
-    for sample in config["samples"]:
+    for sample in SAMPLES:
         split_dir = f"Megahit_meta/{sample}_assembly/split_fasta"
         files = glob.glob(f"{split_dir}/contigs_*.fa")
         for f in files:

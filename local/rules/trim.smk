@@ -2,11 +2,13 @@
 # FASTP (QC AND TRIMMING)
 # =============================================================================
 
-if config["TRIMMER"] == "fastp":
+if config["TRIMMER"] == "fastp" and config["LAYOUT"] == "SINGLE":
     ruleorder: fastp_se > trim_galore_se > trim_galore_pe
+elif config["TRIMMER"] == "fastp" and config["LAYOUT"] == "PAIRED":
     ruleorder: fastp_pe > trim_galore_pe > trim_galore_se
-elif config["TRIMMER"] == "trim_galore":
+elif config["TRIMMER"] == "trim_galore" and config["LAYOUT"] == "SINGLE":
     ruleorder: trim_galore_se > fastp_se > fastp_pe
+elif config["TRIMMER"] == "trim_galore" and config["LAYOUT"] == "PAIRED":
     ruleorder: trim_galore_pe > fastp_pe > fastp_se
 
 rule fastp_se:

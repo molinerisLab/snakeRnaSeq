@@ -9,14 +9,15 @@ OUTPUT_DIR: "/home/alele/snakeRnaSeq/dataset/v1"  # Unified output location
 # ========================
 # EXPERIMENT INFO
 # ========================
-LAYOUT: "PAIRED"
+LAYOUT: "PAIRED"  # SINGLE | PAIRED 
 STRANDED: "2"    # 0 -> unstranded, 1 -> forward, 2 -> reverse
 FASTQ_FILTERING: "fastq"
 
 # ========================
 # TRIMMER SELECTION
 # ========================
-TRIMMER: "fastp"
+TRIMMER: "fastp"  # fastp | trim_galore
+
 # ========================
 # GENCODE & REFERENCE
 # ========================
@@ -169,7 +170,3 @@ REFERENCE_DIR: "/home/reference_data/bioinfotree/task/gencode/dataset"
 GENOME_ASSEMBLY: "GRCh38.p14"
 GENCODE_RELEASE: "43"
 
-STAR_GENOMEDIR:
-    GRCh: /Users/aleone/Documents/snakeRnaSeq/dataset/v1/reference/GRCh38.p14.star_index/2.7.11a/
-    CHM:  /home/reference_data/bioinfotree/task/gencode/dataset/hsapiens/T2T-CHM13v2.0/GCF_009914755.1_T2T-CHM13v2.0.star_index/2.7.11a/
-    M29:  /home/reference_data/bioinfotree/task/gencode/dataset/mmusculus/M29/GRCm39.primary_assembly.star_index/2.7.11a/

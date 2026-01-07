@@ -1,14 +1,20 @@
+if config["LAYOUT"] == "PAIRED":
+    ruleorder: align_pe_bwa > align_se_bwa
+elif config["LAYOUT"] == "SINGLE":
+    ruleorder: align_se_bwa > align_pe_bwa
+
+
 rule align_pe_bwa:
     input:
-        trimmed_fastq1="{output_dir}/fastq_trimmed/{sample}_R1.fastq.gz",
-        trimmed_fastq2="{output_dir}/fastq_trimmed/{sample}_R2.fastq.gz"
+        trimmed_fastq1="fastq/fastq_trimmed/{sample}_R1.fastq.gz",
+        trimmed_fastq2="fastq/fastq_trimmed/{sample}_R2.fastq.gz"
     output:
-        bam="{output_dir}/aligned_bwa/{sample}.aligned.bam"
+        bam="aligned_bwa/{sample}.aligned.bam"
     params:
         reference="/home/molinerislab/NeriMetagenome/Reference_genome/bwa/GRCh38.p14.genome.fa", 
         threads=20  
     log:
-        "{output_dir}/aligned_bwa/logs/{sample}_bwa.log"
+        "aligned_bwa/logs/{sample}_bwa.log"
     shell:
         """
         T=$(mktemp -d) &&  \
@@ -21,14 +27,14 @@ rule align_pe_bwa:
 
 rule align_se_bwa:
     input:
-        trimmed_fastq="{output_dir}/fastq_trimmed/{sample}.fastq.gz",
+        trimmed_fastq="fastq/fastq_trimmed/{sample}_R1.fastq.gz",
     output:
-        bam="{output_dir}/aligned_bwa/{sample}.aligned.bam"
+        bam="aligned_bwa/{sample}.aligned.bam"
     params:
         reference="/home/molinerislab/NeriMetagenome/Reference_genome/bwa/GRCh38.p14.genome.fa", 
         threads=20  
     log:
-        "{output_dir}/aligned_bwa/logs/{sample}_bwa.log"
+        "aligned_bwa/logs/{sample}_bwa.log"
     shell:
         """
         T=$(mktemp -d) &&  \

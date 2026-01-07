@@ -137,13 +137,13 @@ rule star_align_first_pass:
         ),
         idx=lambda wc: config['STAR_GENOMEDIR']['GRCh']
     output:
-        sj           = "Results/pass1_{genome}/{sample}/SJ.out.tab",
-        log          = "Results/pass1_{genome}/{sample}/Log.out",
-        log_final    = "Results/pass1_{genome}/{sample}/Log.final.out",
-        log_progress = "Results/pass1_{genome}/{sample}/Log.progress.out"
+        sj           = "Results/pass1/{sample}/SJ.out.tab",
+        log          = "Results/pass1/{sample}/Log.out",
+        log_final    = "Results/pass1/{sample}/Log.final.out",
+        log_progress = "Results/pass1/{sample}/Log.progress.out"
     threads: 16
     params:
-        tmpdir     = "Results/pass1_{genome}/{sample}",
+        tmpdir     = "Results/pass1/{sample}",
         read_cmd   = config["STAR"]["readFilesCommand"],
         limitSjdb  = config["STAR"]["limitSjdbInsertNsj"],
         fq_join    = lambda wc, input: " ".join(input.fq)
@@ -164,10 +164,10 @@ rule star_align_first_pass:
         
 rule merge_and_filter_sj:
     input:
-        expand("Results/pass1_{{genome}}/{sample}/SJ.out.tab",
+        expand("Results/pass1/{sample}/SJ.out.tab",
                sample= SAMPLES)
     output:
-        "Results/pass1_{genome}/merged_filtered_SJ.out.tab"
+        "Results/pass1/merged_filtered_SJ.out.tab"
     shell:
         """
         mkdir -p $(dirname {output})
@@ -191,11 +191,11 @@ rule star_second_pass:
                 f"fastq/fastq_trimmed/{wc.sample}.fastq.gz"
             ]
         ),
-        idx=lambda wc: STAR_GENOMEDIR[wc.genome],
-        sj=lambda wc: f"Results/pass1_{wc.genome}/merged_filtered_SJ.out.tab"
+        idx=config['STAR']['INDEX']['GRCh'],
+        sj=lambda wc: f"Results/pass1/merged_filtered_SJ.out.tab"
     output:
-        bam         = "Results/pass2_{genome}/{sample}/Aligned.sortedByCoord.out.bam",
-        gene_counts = "Results/pass2_{genome}/{sample}/ReadsPerGene.out.tab"
+        bam         = "Results/pass2/{sample}/Aligned.sortedByCoord.out.bam",
+        gene_counts = "Results/pass2/{sample}/ReadsPerGene.out.tab"
     threads: 16
     params:
         out_samtype = config["STAR"]["outSAMtype"],
@@ -204,7 +204,7 @@ rule star_second_pass:
         read_cmd    = config["STAR"]["readFilesCommand"],
         limitSjdb   = config["STAR"]["limitSjdbInsertNsj"],
         fq_join     = lambda wc, input: " ".join(input.fq),
-        tmpdir      = "Results/pass2_{genome}/{sample}"
+        tmpdir      = "Results/pass2/{sample}"
     shell:
         """
         mkdir -p {params.tmpdir}
@@ -233,24 +233,24 @@ rule star_twopass_basic_se:
     """
     input:
         fq = lambda wc: f"fastq/fastq_trimmed/{wc.sample}.fastq.gz",
-        idx = lambda wc: STAR_GENOMEDIR[GENOME_KEY]
+        idx = config['STAR']['INDEX']['GRCh'],
     output:
-        bam        = "star_2pass_{genome}/{sample}/Aligned.sortedByCoord.out.bam",
-        sj         = "star_2pass_{genome}/{sample}/SJ.out.tab",
-        gene_counts= "star_2pass_{genome}/{sample}/ReadsPerGene.out.tab",
-        log        = "star_2pass_{genome}/{sample}/Log.out",
-        log_final  = "star_2pass_{genome}/{sample}/Log.final.out"
+        bam        = "star_2pass/{sample}/Aligned.sortedByCoord.out.bam",
+        sj         = "star_2pass/{sample}/SJ.out.tab",
+        gene_counts= "star_2pass/{sample}/ReadsPerGene.out.tab",
+        log        = "star_2pass/{sample}/Log.out",
+        log_final  = "star_2pass/{sample}/Log.final.out"
     threads: 16
     conda: "transcript_env.yaml"
     params:
-        genome_dir   = lambda wc: STAR_GENOMEDIR[wc.genome_key],
+        genome_dir   = config['STAR']['INDEX']['GRCh'],
         read_cmd     = config["STAR"]["readFilesCommand"],
-        out_prefix   = "star_2pass_{genome}/{sample}/",
+        out_prefix   = "star_2pass/{sample}/",
         gtf          = annotation_gtf_path,
         sjdbOverhang = config["STAR"]["sjdbOverhang"]
     shell:
         """
-        mkdir -p star_2pass_{wildcards.genome}/{wildcards.sample}
+        mkdir -p star_2pass/{wildcards.sample}
 
         STAR \
             --runThreadN {threads} \
@@ -273,25 +273,25 @@ rule star_twopass_basic_pe:
     input:
         fq1 = lambda wc: f"fastq/fastq_trimmed/{wc.sample}_R1.fastq.gz",
         fq2 = lambda wc: f"fastq/fastq_trimmed/{wc.sample}_R2.fastq.gz",
-        idx = lambda wc: STAR_GENOMEDIR[wc.genome]
+        idx = config['STAR']['INDEX']['GRCh'],
     output:
-        bam        = "star_2pass_{genome}/{sample}/Aligned.sortedByCoord.out.bam",
-        sj         = "star_2pass_{genome}/{sample}/SJ.out.tab",
-        gene_counts= "star_2pass_{genome}/{sample}/ReadsPerGene.out.tab",
-        log        = "star_2pass_{genome}/{sample}/Log.out",
-        log_final  = "star_2pass_{genome}/{sample}/Log.final.out"
+        bam        = "star_2pass/{sample}/Aligned.sortedByCoord.out.bam",
+        sj         = "star_2pass/{sample}/SJ.out.tab",
+        gene_counts= "star_2pass/{sample}/ReadsPerGene.out.tab",
+        log        = "star_2pass/{sample}/Log.out",
+        log_final  = "star_2pass/{sample}/Log.final.out"
     threads: 16
     conda: "transcript_env.yaml"
     params:
-        genome_dir   = lambda wc: STAR_GENOMEDIR[wc.genome],
+        genome_dir   = config['STAR']['INDEX']['GRCh'],
         read_cmd     = config["STAR"]["readFilesCommand"],
-        out_prefix   = "star_2pass_{genome}/{sample}/",
+        out_prefix   = "star_2pass/{sample}/",
         twopass1readsN = config["STAR"].get("twopass1readsN", -1),
         gtf          = annotation_gtf_path,
         sjdbOverhang = config["STAR"]["sjdbOverhang"]
     shell:
         """
-        mkdir -p star_2pass_{wildcards.genome}/{wildcards.sample}
+        mkdir -p star_2pass/{wildcards.sample}
 
         STAR \
             --runThreadN {threads} \

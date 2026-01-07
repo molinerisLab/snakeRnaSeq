@@ -51,8 +51,8 @@ rule fastp_pe:
     log:
         "fastq/fastq_trimmed/{sample}.log"
     params:
-        adapters="--adapter_sequence=AGATCGGAAGAGCACACGTCTGAACTCCAGTCA --adapter_sequence_r2=AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT",
-        #extra="--merge"
+        adapters_r1="--adapter_sequence=AGATCGGAAGAGCACACGTCTGAACTCCAGTCA",
+        adapters_r2="--adapter_sequence_r2=AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT",
         extra=""
     threads: 8
     log:

@@ -5,8 +5,7 @@ TMPDIR: "/mnt/nvme_raid0/tmp"
 CORES: 6
 DOCKER_DATA_DIR: "/home"
 RAW_DATA_DIR: "fastq"                             # Unified fastq location
-OUTPUT_DIR: /home/alele/snakeRnaSeq/dataset/v1  # Unified output location
- 
+OUTPUT_DIR: "/home/alele/snakeRnaSeq/dataset/v1"  # Unified output location
 # ========================
 # EXPERIMENT INFO
 # ========================
@@ -14,6 +13,10 @@ LAYOUT: "PAIRED"
 STRANDED: "2"    # 0 -> unstranded, 1 -> forward, 2 -> reverse
 FASTQ_FILTERING: "fastq"
 
+# ========================
+# TRIMMER SELECTION
+# ========================
+TRIMMER: "fastp"
 # ========================
 # GENCODE & REFERENCE
 # ========================
@@ -32,11 +35,16 @@ STAR:
   OPTIONS: "--outFilterType BySJout --outFilterMultimapNmax 200 --alignSJoverhangMin 8 --alignSJDBoverhangMin 1 --outFilterMismatchNmax 999 --outFilterMismatchNoverReadLmax 0.04 --alignIntronMin 20 --alignIntronMax 1000000 --alignMatesGapMax 1000000"
   OUT_SAM_TYPE: "BAM_SORTED"
   OUT_FILTER_MULTIMAP_NMAX: 200
+  outSAMtype: "BAM SortedByCoordinate"
+  quantMode: "GeneCounts TranscriptomeSAM"
+  sjdbOverhang: 100
+  readFilesCommand: "zcat"
+  limitSjdbInsertNsj: 1000000
   MULTIMAP_SCORE_RANGE: 1
   FILTER_MISMATCH: 0.04
   ADDITIONAL_OUTPUT: ""
   INDEX:
-    GRCh: "/home/reference_data/bioinfotree/task/gencode/dataset/hsapiens/45/GRCh38.p14.star_index/2.7.11a/"
+    GRCh: "/Users/aleone/Documents/snakeRnaSeq/dataset/v1/reference/GRCh38.p14.star_index/2.7.11a/"
     CHM: "/home/reference_data/bioinfotree/task/gencode/dataset/hsapiens/T2T-CHM13v2.0/GCF_009914755.1_T2T-CHM13v2.0.star_index/2.7.11a/"
     M29: "/home/reference_data/bioinfotree/task/gencode/dataset/mmusculus/M29/GRCm39.primary_assembly.star_index/2.7.11a/"
 
@@ -48,7 +56,7 @@ FASTP:
   adapter_r2: "AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT"
 
 TRIM_GALORE:
-  PARAM: "" # https://support-docs.illumina.com/SHARE/AdapterSequences/Content/SHARE/AdapterSeq/TruSeq/SingleIndexes.htm
+  PARAM: "" # https://support-docs.illumina.com/SHARE/AdapterSequences/Content/SingleIndexes.htm
 
 
 
@@ -155,3 +163,13 @@ CONTAMINANT_INFO:
   split_by: ["sample_type"]
   split_by_value: [""]
   multiple_files: FALSE
+
+
+REFERENCE_DIR: "/home/reference_data/bioinfotree/task/gencode/dataset"
+GENOME_ASSEMBLY: "GRCh38.p14"
+GENCODE_RELEASE: "43"
+
+STAR_GENOMEDIR:
+    GRCh: /Users/aleone/Documents/snakeRnaSeq/dataset/v1/reference/GRCh38.p14.star_index/2.7.11a/
+    CHM:  /home/reference_data/bioinfotree/task/gencode/dataset/hsapiens/T2T-CHM13v2.0/GCF_009914755.1_T2T-CHM13v2.0.star_index/2.7.11a/
+    M29:  /home/reference_data/bioinfotree/task/gencode/dataset/mmusculus/M29/GRCm39.primary_assembly.star_index/2.7.11a/

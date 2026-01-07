@@ -1,0 +1,2 @@
+WorkflowError in file "/Users/aleone/Documents/snakeRnaSeq/local/rules/Snakefile", line 11:
+Workflow defines configfile config.yaml but it is not present or accessible (full checked path: /Users/aleone/Documents/snakeRnaSeq/local/rules/config.yaml).

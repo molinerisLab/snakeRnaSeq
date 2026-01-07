@@ -2,6 +2,13 @@
 # FASTP (QC AND TRIMMING)
 # =============================================================================
 
+if config["TRIMMER"] == "fastp":
+    ruleorder: fastp_se > trim_galore_se > trim_galore_pe
+    ruleorder: fastp_pe > trim_galore_pe > trim_galore_se
+elif config["TRIMMER"] == "trim_galore":
+    ruleorder: trim_galore_se > fastp_se > fastp_pe
+    ruleorder: trim_galore_pe > fastp_pe > fastp_se
+
 rule fastp_se:
     """
     Run fastp on Single-End (SE) reads for quality control and adapter trimming.
@@ -9,15 +16,15 @@ rule fastp_se:
     input:
         "fastq/{sample}_R1.fastq.gz"
     output:
-        trimmed="fastp/{sample}_R1.fastq.gz",
-        #unpaired1="fastp/se/{sample}.u1.fastq",
-        #merged="fastp/pe/{sample}.merged.fastq",
-        #failed="fastp/pe/{sample}.failed.fastq",
-        html="fastp/{sample}.html",
-        json="fastp/{sample}.json"
+        trimmed="fastq/fastq_trimmed/{sample}_R1.fastq.gz",
+        #unpaired1="fastq/fastq_trimmed/se/{sample}.u1.fastq",
+        #merged="fastq/fastq_trimmed/pe/{sample}.merged.fastq",
+        #failed="fastq/fastq_trimmed/pe/{sample}.failed.fastq",
+        html="fastq/fastq_trimmed/{sample}.html",
+        json="fastq/fastq_trimmed/{sample}.json"
     threads: 8
     log:
-        "fastp/{sample}.log.txt"
+        "fastq/fastq_trimmed/{sample}.log.txt"
     params:
         adapters_r1="--adapter_sequence=AGATCGGAAGAGCACACGTCTGAACTCCAGTCA" 
     shell: """
@@ -34,15 +41,15 @@ rule fastp_pe:
     input:
         sample=["fastq/{sample}_R1.fastq.gz", "fastq/{sample}_R2.fastq.gz"]
     output:
-        trimmed=["fastq_trimmed/{sample}_R1.fastq.gz", "fastq_trimmed/{sample}_R2.fastq.gz"],
-        #unpaired1="fastp/pe/{sample}.u1.fastq",
-        #unpaired2="fastp/pe/{sample}.u2.fastq",
-        #merged="fastp/pe/{sample}.merged.fastq",
-        #failed="fastp/pe/{sample}.failed.fastq",
-        html="fastq_trimmed/{sample}.html",
-        json="fastq_trimmed/{sample}.json"
+        trimmed=["fastq/fastq_trimmed/{sample}_R1.fastq.gz", "fastq/fastq_trimmed/{sample}_R2.fastq.gz"],
+        #unpaired1="fastq/fastq_trimmed/pe/{sample}.u1.fastq",
+        #unpaired2="fastq/fastq_trimmed/pe/{sample}.u2.fastq",
+        #merged="fastq/fastq_trimmed/pe/{sample}.merged.fastq",
+        #failed="fastq/fastq_trimmed/pe/{sample}.failed.fastq",
+        html="fastq/fastq_trimmed/{sample}.html",
+        json="fastq/fastq_trimmed/{sample}.json"
     log:
-        "fastq_trimmed/{sample}.log"
+        "fastq/fastq_trimmed/{sample}.log"
     params:
         adapters="--adapter_sequence=AGATCGGAAGAGCACACGTCTGAACTCCAGTCA --adapter_sequence_r2=AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT",
         #extra="--merge"
@@ -69,7 +76,7 @@ rule trim_galore_se:
     input:
         "fastq/{sample}_R1.fastq.gz"
     output:
-        "trimgalore/{sample}_R1.fastq.gz"
+        "fastq/fastq_trimmed/{sample}_R1.fastq.gz"
     params:
         trim_galore_params=config["TRIM_GALORE"]["PARAM"],
         cores=config["CORES"]
@@ -89,8 +96,8 @@ rule trim_galore_pe:
         fastq_read1="fastq/{sample}_R1.fastq.gz",
         fastq_read2="fastq/{sample}_R2.fastq.gz"
     output:
-        fastq_read1="trimgalore/{sample}_R1.fastq.gz",
-        fastq_read2="trimgalore/{sample}_R2.fastq.gz"
+        fastq_read1="fastq/fastq_trimmed/{sample}_R1.fastq.gz",
+        fastq_read2="fastq/fastq_trimmed/{sample}_R2.fastq.gz"
     params:
         trim_galore_params=config["TRIM_GALORE"]["PARAM"],
         cores=config["CORES"]

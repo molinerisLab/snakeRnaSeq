@@ -1,6 +1,7 @@
 # ------------------------------- #
-# Correct ribosomal read counting #
+# Ribosomal read counting #
 # ------------------------------- #
+ruleorder: featurecounts > split_bam_ribo
 
 rule split_bam_ribo:
 	input:
@@ -15,8 +16,7 @@ rule split_bam_ribo:
 		"mkdir -p `dirname {output}`; "
 		"split_bam.py -i {input.bam} -r {input.ribosome_bed} -o {wildcards.path}.ribo > {wildcards.path}.summary"
 
-#TODO move to generic_rules.sk
-ruleorder: featurecounts > split_bam_ribo
+
 
 rule featurecounts:
 	input:
@@ -567,7 +567,7 @@ rule GEP_count_lfpkm:
     #    " GEP.count.exp_filter.ltmm.lfpkm.gz", 
     #    "GEP.count.exp_filter.lcpm.lfpkm.gz", 
     #    "GEP.count.exp_filter.lcpm.lfpkm.gz"
-        " GEP.count.exp_filter.{filter}.lfpkm.gz"
+        "GEP.count.exp_filter.{filter}.lfpkm.gz"
     shell: """
         zcat {input.GEP1} | translate -a {input.GenLen} 1 \
         | perl -wlane 'BEGIN{$,="\t"} {$g=shift(@F); $l=shift(@F); if($.==1){print $g,@F}else{@F=map {$_=$_ - log($l/1000)/log(2)} @F; print $g,@F}}' \

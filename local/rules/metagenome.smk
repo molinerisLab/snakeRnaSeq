@@ -1,10 +1,15 @@
 ##########################
 ### Rules for Kraken2  ###
 ##########################
+if config["LAYOUT"] == "PAIRED":
+    ruleorder: kraken_paired_ends > kraken_single_end
+else:
+    ruleorder: kraken_single_end > kraken_paired_ends
+
 rule kraken_paired_ends:
     input:
-        R1=lambda wildcards: f"{config['output_dir']}/fastq_unmapped/{wildcards.sample}_unmapped_R1.fastq.gz",
-        R2=lambda wildcards: f"{config['output_dir']}/fastq_unmapped/{wildcards.sample}_unmapped_R2.fastq.gz"
+        R1=lambda wildcards: f"fastq/unmapped/{wildcards.sample}_unmapped_R1.fastq.gz",
+        R2=lambda wildcards: f"fastq/unmapped/{wildcards.sample}_unmapped_R2.fastq.gz"
     output:
         report="kreports/{sample}.k2report",
         out="koutputs/{sample}.kraken2",
@@ -23,8 +28,8 @@ rule kraken_paired_ends:
 
 rule kraken_nr_paired_ends:
     input: 
-        R1="fastq/{sample}_R1.fq.gz",
-        R2="fastq/{sample}_R2.fq.gz"
+        R1="fastq/unmapped/{sample}_R1.fq.gz",
+        R2="fastq/unmapped/{sample}_R2.fq.gz"
     output: 
         report="kreports_nr/{sample}.k2report", 
         out="koutputs_nr/{sample}.kraken2"
@@ -40,7 +45,7 @@ rule kraken_nr_paired_ends:
 
 rule kraken_single_end:
     input: 
-        R1=lambda wildcards: f"{config['output_dir']}/fastq_unmapped/{wildcards.sample}_unmapped.fastq.gz"
+        R1=lambda wildcards: f"fastq/unmapped/{wildcards.sample}_unmapped_R1.fastq.gz"
     output: 
         report="kreports/{sample}.k2report", 
         out="koutputs/{sample}.kraken2"

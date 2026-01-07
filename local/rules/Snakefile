@@ -91,7 +91,7 @@ rule ALL_infer_experiment:
         expand("rseqc/{samples}.infer_experiment.txt", samples= SAMPLES)
     output: 
         "ALL_infer_experiment"
-    shell:"""  
+    shell: r"""  
         matrix_reduce 'rseqc/*.infer_experiment.txt' -l '{input}' | grep . | perl -lne 'if(m/^>/){{print; next}} print "$1\t$2" if m/("[^:]+|failed to determine):\s+(.*)/' | fasta2tab | tab2matrix -r sample > {output}
     """ 
 

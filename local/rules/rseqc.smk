@@ -68,7 +68,7 @@ rule get_junction_saturation:
 # 	mkdir -p $$(dirname $@)
 # 	touch $@
 # 	RPKM_saturation.py -r $^2 -i $< -o rseqc/$*\
-# 		 $$(tr ":" "\t" < $^3 | bawk '$$2'  | bsort -k2,2n | tail -n 1 | perl -lne 'm/([^\s]+)\t/; print "--strand $1" if $$1!="determine"')
+# 		 $$(tr ":" "\t" < $^3 | bawk '$$2'  | bsort -k2,2n | tail -n 1 | perl -lne 'm/([^\\s]+)\t/; print "--strand $1" if $$1!="determine"')
 rule get_saturation:
     input:
         bam = "star/{file}.bam",
@@ -81,7 +81,7 @@ rule get_saturation:
         mkdir -p `dirname {output}`;
         touch {output};
         RPKM_saturation.py -r {input.ref_bed} -i {input.bam} -o rseqc/{wildcards.file}\
-            $(tr ":" "\t" < {input.infer_exp} | bawk '$2'  | bsort -k2,2n | tail -n 1 | perl -lne 'm/([^\s]+)\t/; print "--strand $1" if $1!="determine"')
+            $(tr ":" "\t" < {input.infer_exp} | bawk '$2'  | bsort -k2,2n | tail -n 1 | perl -lne 'm/([^\\s]+)\t/; print "--strand $1" if $1!="determine"')
         """
         
 # rseqc/%.pos.DupRate.xls: STAR/%.STAR/Aligned.sortedByCoord.out.bam
@@ -140,7 +140,7 @@ rule get_inner_distance:
 # 	| fasta2tab | grep -v Percentile | cut -f 1,3- | tab2fasta | tr "\t" "\n" | fasta2tab | stat_base -o -g -k > $@
 rule ALL_skewness:
     input:
-        expand("./rseqc/{filter}/{samples}.geneBodyCoverage.txt", filter = config["FASTQ_FILTERING"], samples = SAMPLES)
+        expand("rseqc/{filter}/{samples}.geneBodyCoverage.txt", filter = config["FASTQ_FILTERING"], samples = SAMPLES)
     output:
         "ALL.skewness"
     shell:
@@ -209,7 +209,7 @@ rule get_read_distribution:
         """
 
 # rseqc/$(FASTQ_FILTERING)/ALL.read_distribution.tagskb_matrix: $(addprefix rseqc/$(FASTQ_FILTERING)/,$(addsuffix .read_distribution.txt, $(SAMPLES))) 
-# 	matrix_reduce 'rseqc/$(FASTQ_FILTERING)/*.read_distribution.txt' | fasta2tab | perl -ne 's/_S\d+(\s)/\1/; print if !m/===/ and !m/Group/ and !m/Total/' | perl -lpe 's/\s+/\t/g' | cut -f 1,2,5 | tab2matrix > $@
+# 	matrix_reduce 'rseqc/$(FASTQ_FILTERING)/*.read_distribution.txt' | fasta2tab | perl -ne 's/_S\\d+(\\s)/\1/; print if !m/===/ and !m/Group/ and !m/Total/' | perl -lpe 's/\\s+/\t/g' | cut -f 1,2,5 | tab2matrix > $@
 rule read_distribution_matrix:
     input:
         expand("rseqc/{samples}.read_distribution.txt", filter = config['FASTQ_FILTERING'], samples = SAMPLES)
@@ -217,12 +217,12 @@ rule read_distribution_matrix:
         "rseqc/{FASTQ_FILTERING}/ALL.read_distribution.tagskb_matrix"
     shell:
         """
-        matrix_reduce '{input}' | fasta2tab | perl -ne 's/_S\d+(\s)/\1/; print if !m/===/ and !m/Group/ and !m/Total/' \
-        | perl -lpe 's/\s+/\t/g' | cut -f 1,2,5 | tab2matrix > {output}
+        matrix_reduce '{input}' | fasta2tab | perl -ne 's/_S\\d+(\\s)/\1/; print if !m/===/ and !m/Group/ and !m/Total/' \
+        | perl -lpe 's/\\s+/\t/g' | cut -f 1,2,5 | tab2matrix > {output}
         """
 
 # rseqc/$(FASTQ_FILTERING)/ALL.read_distribution.tagskb_tab_norm: $(addprefix rseqc/$(FASTQ_FILTERING)/,$(addsuffix .read_distribution.txt, $(SAMPLES)))
-# 	matrix_reduce 'rseqc/$(FASTQ_FILTERING)/*.read_distribution.txt' | fasta2tab | perl -lne 'BEGIN{$$,="\t"} $$T=$$1 if m/Total Tags\s+(\d+)/; s/_S\d+(\s)/\1/; s/\s+/\t/g; @F=split("\t",$$_); print $$F[0],$$F[1],$$F[4],$$F[4]/$$T if !m/===/ and !m/Group/ and !m/Total/' > $@
+# 	matrix_reduce 'rseqc/$(FASTQ_FILTERING)/*.read_distribution.txt' | fasta2tab | perl -lne 'BEGIN{$$,="\t"} $$T=$$1 if m/Total Tags\\s+(\\d+)/; s/_S\\d+(\\s)/\1/; s/\\s+/\t/g; @F=split("\t",$$_); print $$F[0],$$F[1],$$F[4],$$F[4]/$$T if !m/===/ and !m/Group/ and !m/Total/' > $@
 rule norm_read_distribution_matrix:
     input:
         expand("rseqc/{filter}/{samples}.read_distribution.txt", filter = config['FASTQ_FILTERING'], samples = SAMPLES)
@@ -230,7 +230,7 @@ rule norm_read_distribution_matrix:
         "rseqc/{FASTQ_FILTERING}/ALL.read_distribution.tagskb_tab_norm"
     shell:
         """
-        matrix_reduce '{input}' | fasta2tab | perl -lne 'BEGIN{{$,="\t"}} $T=$1 if m/Total Tags\s+(\d+)/; s/_S\d+(\s)/\1/; s/\\s+/\t/g; @F=split("\t",$_); print $F[0],$F[1],$F[4],$F[4]/$T if !m/===/ and !m/Group/ and !m/Total/' > {output}
+        matrix_reduce '{input}' | fasta2tab | perl -lne 'BEGIN{{$,="\t"}} $T=$1 if m/Total Tags\\s+(\\d+)/; s/_S\\d+(\\s)/\1/; s/\\s+/\t/g; @F=split("\t",$_); print $F[0],$F[1],$F[4],$F[4]/$T if !m/===/ and !m/Group/ and !m/Total/' > {output}
         """
      
 # .META:	ALL.read_distribution.tagskb_tab_norm

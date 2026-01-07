@@ -12,6 +12,12 @@ def choose_fastq_according_to_genome(wildcards, mate):
     else:
         raise Exception(f"Genome not valid: {config['GENOME']}")
 
+if config["LAYOUT"] == "SINGLE":
+     ruleorder: generate_unmapped_single > generate_unmapped_R1
+     ruleorder: generate_unmapped_single > generate_unmapped_R2
+elif config["LAYOUT"] == "PAIRED":
+     ruleorder: generate_unmapped_R1 > generate_unmapped_single
+     ruleorder: generate_unmapped_R2 > generate_unmapped_single
 
 rule star_align_se:
     input:
@@ -60,7 +66,7 @@ rule star_align_pe:
         log = "star/{sample}.Log.out",
         sj ="star/{sample}.SJ.out.tab",
         # Uncomment the next line if you want to handle unmapped reads
-        # unmapped=["star/unmapped/{sample}_R1.fastq.gz", "star/unmapped/{sample}_R2.fastq.gz"],
+        unmapped=["star/unmapped/{sample}_unmapped_R1.fastq.gz", "star/unmapped/{sample}_unmapped_R2.fastq.gz"],
         #unmapped read filtered after, sice by default STAR report as unmapped partially mapped (i.e. mapped only one mate of a paired end read)
         log_final="star/{sample}.Log.final.out"
     log:
@@ -92,16 +98,37 @@ rule star_align_pe:
 #        "v3.3.6/bio/star/align"
 
 rule link_unmapped:
-    input: "star/{sample}_unmapped_R{mate}.fastq.gz"
-    output: "fastq_unmapped/{sample}_R{mate}.fastq.gz"
-    shell: "ln {input} {output}"
+    input:
+        "star/{sample}_unmapped_R{mate}.fastq.gz"
+    output:
+        "fastq/unmapped/{sample}_unmapped_R{mate}.fastq.gz" # I added _unmapped
+    shell:
+        "ln {input} {output}"
+
+rule generate_unmapped_single:
+    input:
+        lambda wildcards: (
+            f"star/{wildcards.sample}.bam"
+            if config["aligner"] == "star"
+            else f"aligned_bwa/{wildcards.sample}.aligned.bam"
+        )
+    output:
+        "fastq/unmapped/{sample}_unmapped.fastq.gz"
+    shell:
+        """
+        samtools view -f 4 {input} | awk '{{print "@"$1; print $10; print "+"; print $11}}' | gzip > {output}
+        """
 
 
 rule generate_unmapped_R1:
     input:
-        "star/{sample}.bam"
+       lambda wildcards: (
+            f"star/{wildcards.sample}.bam"
+            if config["aligner"] == "star"
+            else f"aligned_bwa/{wildcards.sample}.aligned.bam"
+        )
     output:
-        "{sample}_unmapped_R1.fastq.gz"
+        "fastq/unmapped/{sample}_unmapped_R1.fastq.gz"
     shell:"""
         samtools view -f 76 {input} | bawk '{{print "@"$1; print $10; print "+"; print $11}}' | gzip > {output}
     """
@@ -109,9 +136,13 @@ rule generate_unmapped_R1:
 
 rule generate_unmapped_R2:
     input:
-        "star/{sample}.bam"
+        lambda wildcards: (
+            f"star/{wildcards.sample}.bam"
+            if config["aligner"] == "star"
+            else f"aligned_bwa/{wildcards.sample}.aligned.bam"
+        )
     output:
-        "{sample}_unmapped_R2.fastq.gz"
+        "fastq/unmapped/{sample}_unmapped_R2.fastq.gz"
     shell: """
         samtools view -f 140 {input} | bawk '{{print "@"$1; print $10; print "+"; print $11}}' | gzip > {output}
     """

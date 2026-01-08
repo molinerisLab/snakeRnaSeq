@@ -182,3 +182,12 @@ UCSC_VERSION: hg38
 STAR_VERSION: 2.7.11a
 
 STAR_sjdbOverhang: 149
+
+#TODO: put them in the featurecounts section above
+# featurecounts param ---
+FEATURECOUNTS_PARAM = config["FEATURECOUNTS_PARAM"] + " -s" + config["STRANDED"]
+if config["LAYOUT"] == "PAIRED":
+    FEATURECOUNTS_PARAM += " -p -C --countReadPairs" 
+# -O allowMultiOverlap
+LCPM_PRIOR_COUNT = 0.25           # *standard of edgeR*
+LTPM_PRIOR_COUNT = 0.0001

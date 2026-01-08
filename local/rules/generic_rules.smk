@@ -117,8 +117,8 @@ rule multiqc_report_rseqc:
 rule multiqc_alignment:
     """Aggregate alignment stats (STAR, BAM) and FastQC."""
     input:
-        fastqc_html=expand("fastq/{fastq}_fastqc.html", fastq=FASTQ_FILES),
-        fastqc_zip=expand("fastq/{fastq}_fastqc.zip", fastq=FASTQ_FILES),
+        fastqc_html=expand("fastq/{fastq}_fastqc.html", fastq=SAMPLES),
+        fastqc_zip=expand("fastq/{fastq}_fastqc.zip", fastq=SAMPLES),
         bam=expand("bam/{sample}.bam", sample=SAMPLES),
         bai=expand("bam/{sample}.bam.bai", sample=SAMPLES)
     output:

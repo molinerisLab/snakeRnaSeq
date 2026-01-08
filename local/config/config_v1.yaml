@@ -170,3 +170,15 @@ REFERENCE_DIR: "/home/reference_data/bioinfotree/task/gencode/dataset"
 GENOME_ASSEMBLY: "GRCh38.p14"
 GENCODE_RELEASE: "43"
 
+GENOME_VERSION: GRCh38.p14
+
+VERSION: "46"
+
+SPECIES: human
+
+UCSC_VERSION: hg38
+ 
+#TODO: unify STAR version in config.yaml and in the rules, currently duplicated
+STAR_VERSION: 2.7.11a
+
+STAR_sjdbOverhang: 149

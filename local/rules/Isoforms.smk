@@ -1,10 +1,11 @@
 #############################
 ### Salmon quantification ###
 #############################
+REFERENCE_DIR = config["REFERENCE_DIR"]
 
 rule salmon_quant:
     input:
-        fq = lambda wc: f"{FASTQ_DIR}/fastq_trimmed/{wc.sample}.fastq.gz",
+        fq = lambda wc: f"fastq/fastq_trimmed/{wc.sample}.fastq.gz",
         index = f"{REFERENCE_DIR}/salmon_index"
     output:
         "salmon/{sample}/quant.sf"
@@ -74,7 +75,7 @@ rule bam_to_fastq:
 
 rule kallisto_quant:
     input:
-        fq = lambda wc: f"{FASTQ_DIR}/fastq_trimmed/{wc.sample}.fastq.gz",
+        fq = lambda wc: f"fastq/fastq_trimmed/{wc.sample}_R1.fastq.gz",
         index = f"{REFERENCE_DIR}/kallisto_index/index_with_mask.idx"
     output:
         "kallisto/{sample}/abundance.tsv"
@@ -96,12 +97,12 @@ rule kallisto_quant:
 
 rule merge_kallisto_transcripts:
     input:
-        expand("kallisto/{sample}/abundance.tsv", sample=config["samples"])
+        expand("kallisto/{sample}/abundance.tsv", sample=SAMPLES)
     output:
         "transcripts_tpm.tsv",
         "transcripts_counts.tsv"
     params:
-        names=",".join(config["samples"]),
+        names=",".join(SAMPLES),
         script="dataset/Isella/merge_kallisto.R",
         files=lambda wc, input: ",".join(map(str, input))
     shell:
@@ -136,7 +137,7 @@ rule stringtie_assemble:
 
 rule stringtie_merge:
     input:
-        gtfs = expand("stringtie/{sample}/transcripts.gtf", sample=config["samples"]),
+        gtfs = expand("stringtie/{sample}/transcripts.gtf", sample=SAMPLES),
         gtf  = annotation_gtf_path
     output:
         merged = "stringtie/merged/merged.gtf"
@@ -223,7 +224,7 @@ rule spladder_merge:
     input:
         graphs = expand(
             "spladder/{{genome}}/{sample}/spladder/genes_graph_conf3.pickle",
-            sample=config["samples"]
+            sample=SAMPLES
         )
     output:
         "spladder/merged_{genome}/spladder/genes_graph_conf3.merge_graph.pickle"
@@ -242,7 +243,7 @@ rule spladder_quant:
         graph = "spladder/merged_{genome}/spladder/genes_graph_conf3.merge_graph.pickle",
         bams  = expand(
             "Results/pass2/{{genome}}/{sample}/Aligned.sortedByCoord.out.bam",
-            sample=config["samples"]
+            sample=SAMPLES
         )
     output:
         "spladder/quantification_{genome}/spladder/genes_graph_conf3.quant.pickle"
@@ -258,99 +259,6 @@ rule spladder_quant:
             --parallel {threads}
         """
 
-
-
-#########################
-### Ribosomal Removal ###
-#########################
-
-rule split_bam_ribo:
-    input:
-        bam = "{path}.bam",
-        bam_idx = "{path}.bam.bai",
-        ribosome_bed = f"{REFERENCE_DIR}/primary_assembly.annotation.rRNA_complete.bed"
-    output:
-        ribo_ex = "{path}.ribo.ex.bam",
-        ribo_in = "{path}.ribo.in.bam",
-        ribo_log = "{path}.summary"
-    shell:
-        """
-        mkdir -p $(dirname {output.ribo_ex})
-
-        split_bam.py \
-            -i {input.bam} \
-            -r {input.ribosome_bed} \
-            -o {wildcards.path}.ribo \
-            > {output.ribo_log}
-        """
-
-
-ruleorder: featurecounts > split_bam_ribo
-
-rule featurecounts:
-    input:
-        bam = "{path}.bam",
-        annotation_gtf = annotation_gtf_path
-    output:
-        counts  = "{path}.bam.featurecounts.count",
-        summary = "{path}.bam.featurecounts.count.summary"
-    params:
-        cores  = config["CORES"],
-        tmpdir = config["TMPDIR"],
-        opts   = config["FEATURECOUNTS_PARAM"]
-    shell:
-        """
-        featureCounts {input.bam} \
-            -o {output.counts} \
-            -a {input.annotation_gtf} \
-            {params.opts} \
-            --tmpDir {params.tmpdir} \
-            -T {params.cores}
-        """
-
-rule featurecounts_ribo_ex:
-    input:
-        file_all = expand("star/{sample}.ribo.ex.bam.featurecounts.count", sample=config["samples"]),
-        file_translate = lambda wc: f"star/{config['samples'][0]}.ribo.ex.bam.featurecounts.count"
-    output:
-        "featurecounts.ribo.ex.count.gz"
-    shell:
-        """
-        matrix_reduce '*.ribo.ex.bam.featurecounts.count' -l '{input.file_all}' \
-            | grep -v '^#' \
-            | fasta2tab \
-            | bawk '$2!="Geneid" {{print $2,$1,$8}}' \
-            | tab2matrix -r Geneid \
-            | translate -a <(cut -f -6 {input.file_translate} | unhead) 1 \
-            | gzip > {output}
-        """
-
-
-rule featurecounts_ribo_ex_summary:
-    input:
-        expand("star/{sample}.ribo.ex.bam.featurecounts.count.summary", sample=config["samples"])
-    output:
-        "fastq.featurecounts.ribo.ex.count.gz.summary_matrix"
-    shell:
-        """
-        matrix_reduce -t 'star/*.ribo.ex.bam.featurecounts.count.summary' \
-            | grep -v Status \
-            | tab2matrix -r Sample \
-            > {output}
-        """
-
-rule featurecounts_ribo_ex_summary_matrix:
-    input:
-        "fastq.featurecounts.ribo.ex.count.gz.summary_matrix"
-    output:
-        "fastq.featurecounts.ribo.ex.count.gz.summary_matrix.reduced"
-    shell:
-        """
-        matrix2tab {input} \
-            | bawk '$2=="Unassigned_Ambiguity" || $2=="Assigned" || $2=="Unassigned_NoFeatures"' \
-            | tab2matrix -r Sample \
-            > {output}
-        """
 
 
 

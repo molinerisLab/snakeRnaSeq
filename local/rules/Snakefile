@@ -52,7 +52,7 @@ include: "../../local/rules/DGE.smk"
 include: "../../local/rules/venn_heatmap.smk"
 include: "../../local/rules/metagenome.smk"
 include: "../../local/rules/Isoforms.smk"
-
+#TODO:include rules 4 index generation - downlad reference files
   
 #LAYOUT ---
 if config["LAYOUT"] == "SINGLE":
@@ -65,10 +65,6 @@ elif config["LAYOUT"] == "PAIRED":
     ruleorder: star_align_pe > star_align_se
     
 ruleorder: featurecounts > split_bam_ribo
-
-
-
-
 
 
 # ---------------------- #

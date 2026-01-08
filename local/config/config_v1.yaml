@@ -1,26 +1,43 @@
+#                                                                          
+#      ▄▄             ▄▄   █                             █                 
+#     █▀▀▌           ▐▛▀   ▀                       ▐▌    ▀                 
+#    ▐▛    ▟█▙ ▐▙██▖▐███  ██   ▟█▟▌▐▌ ▐▌ █▟█▌ ▟██▖▐███  ██   ▟█▙ ▐▙██▖     
+#    ▐▌   ▐▛ ▜▌▐▛ ▐▌ ▐▌    █  ▐▛ ▜▌▐▌ ▐▌ █▘   ▘▄▟▌ ▐▌    █  ▐▛ ▜▌▐▛ ▐▌     
+#    ▐▙   ▐▌ ▐▌▐▌ ▐▌ ▐▌    █  ▐▌ ▐▌▐▌ ▐▌ █   ▗█▀▜▌ ▐▌    █  ▐▌ ▐▌▐▌ ▐▌     
+#     █▄▄▌▝█▄█▘▐▌ ▐▌ ▐▌  ▗▄█▄▖▝█▄█▌▐▙▄█▌ █   ▐▙▄█▌ ▐▙▄ ▗▄█▄▖▝█▄█▘▐▌ ▐▌     
+#      ▀▀  ▝▀▘ ▝▘ ▝▘ ▝▘  ▝▀▀▀▘ ▞▀▐▌ ▀▀▝▘ ▀    ▀▀▝▘  ▀▀ ▝▀▀▀▘ ▝▀▘ ▝▘ ▝▘     
+#                              ▜█▛▘                                        
+#                                                                          
+
 # ========================
 # GENERAL SETUP
 # ========================
+
 TMPDIR: "/mnt/nvme_raid0/tmp"
 CORES: 6
 DOCKER_DATA_DIR: "/home"
 RAW_DATA_DIR: "fastq"                             # Unified fastq location
 OUTPUT_DIR: "/home/aleone/snakeRnaSeq/dataset/v1"  # Unified output location
+
 # ========================
 # EXPERIMENT INFO
 # ========================
+
 LAYOUT: "PAIRED"  # SINGLE | PAIRED 
 STRANDED: "2"    # 0 -> unstranded, 1 -> forward, 2 -> reverse
 FASTQ_FILTERING: "fastq"
 aligner: "star"  # star | bwa
+
 # ========================
 # TRIMMER SELECTION
 # ========================
+
 TRIMMER: "fastp"  # fastp | trim_galore
 
 # ========================
 # GENCODE & REFERENCE
 # ========================
+
 GENCODE:
   SPECIES: "hsapiens"      # hsapiens | mmusculus | mmusculus_hsapiens_combined
   VERSION: "37"            # 32 | M23
@@ -31,6 +48,7 @@ GENCODE:
 # ========================
 # ALIGNMENT (STAR)
 # ========================
+
 STAR:
   VERSION: "2.7.11a"
   OPTIONS: "--outFilterType BySJout --outFilterMultimapNmax 200 --alignSJoverhangMin 8 --alignSJDBoverhangMin 1 --outFilterMismatchNmax 999 --outFilterMismatchNoverReadLmax 0.04 --alignIntronMin 20 --alignIntronMax 1000000 --alignMatesGapMax 1000000"
@@ -52,6 +70,7 @@ STAR:
 # ========================
 # TRIMMING
 # ========================
+
 FASTP:
   adapter_r1: "AGATCGGAAGAGCACACGTCTGAACTCCAGTCA"
   adapter_r2: "AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT"
@@ -59,11 +78,10 @@ FASTP:
 TRIM_GALORE:
   PARAM: "" # https://support-docs.illumina.com/SHARE/AdapterSequences/Content/SingleIndexes.htm
 
-
-
 # ========================
 # COUNTING (FeatureCounts)
 # ========================
+
 FEATURECOUNTS_PARAM: "-t exon -g gene_name"
 #default count on exons and summarize on gene names, consider -g gene_id
 #strandnes and paired-end handled in config.smk
@@ -75,6 +93,7 @@ FEATURECOUNTS_PARAM: "-t exon -g gene_name"
 # ========================
 # DGE ANALYSIS
 # ========================
+
 DGE:
   DGE_TOOL: "edger"
   # FIXED: Added space after colon below
@@ -115,8 +134,6 @@ HEATMAP:
   # indicate the number of clusters the rows (-r) and the columns (-z) will be divided into. 
   # leave empty to have no clusters
 
-
-
 # ========================
 # VISUALIZATION
 # ========================
@@ -125,11 +142,10 @@ BIGWIG_BIN_SIZE: "50"
 BEDGRAPH_FILTER: "100"
 #REPEAT_FAMILY_RAND_REPETITION=10 
 
-
-
 # ========================
 # METAGENOMICS (Kraken/Bracken)
 # ========================
+
 BRACKEN:
   read_len: 62
   braken_read_len: 100
@@ -141,11 +157,10 @@ kraken_db_nr: "/home/reference_data/bioinfotree/task/kraken/nobackup/k2_nt"
 kraken_options: "--minimum-hit-groups 2"
 kraken_k2d: "/home/reference_data/bioinfotree/task/kraken/dataset/k2_pluspf_20231009/taxo.k2d"
 
-
-
 # ========================
 # FEATURE FILTERING
 # ========================
+
 feature_filter:
   condition: "disease"
   g1: "D"
@@ -154,10 +169,10 @@ feature_filter:
   min_exp: 100
   min_samples_ratio: 0.5
 
-
 # ========================
 # CONTAMINANT / HOST
 # ========================
+
 CONTAMINANT_INFO:
   contaminant: ["0000"]
   humanID: ["9606"]

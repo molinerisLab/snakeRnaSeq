@@ -704,3 +704,20 @@ rule matrix_exp_condition:
     shell:"""
         bawk '{{print $gene,$condition,$avg_exp}}' {input} | tab2matrix -r GeneID | gzip > {output}
     """
+
+
+"""
+.META: GEP.count.*.metadata.exp_genes_condition.gz
+	1	condition
+	2	gene
+	3	avg_exp
+	4	median_exp
+	5	min_exp
+
+ .META: GEP.count*metadata.max_exp_in_condition.gz
+ 	1	GeneID
+ 	2	best_condition
+ 	3	exp
+
+"""
+

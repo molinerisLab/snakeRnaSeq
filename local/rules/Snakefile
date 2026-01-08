@@ -52,7 +52,7 @@ include: "../../local/rules/DGE.smk"
 include: "../../local/rules/venn_heatmap.smk"
 include: "../../local/rules/metagenome.smk"
 include: "../../local/rules/Isoforms.smk"
-#TODO:include rules 4 index generation - downlad reference files
+include: "../../local/rules/reference.smk"
   
 #LAYOUT ---
 if config["LAYOUT"] == "SINGLE":
@@ -68,7 +68,7 @@ ruleorder: featurecounts > split_bam_ribo
 
 
 # ---------------------- #
-# rule all and other all #
+# rule all and other all # TODO: add all rules all for the individual rules
 # ---------------------- #
 
 rule all:
@@ -101,26 +101,3 @@ rule all_fastq_unmapped:
     input:
         expand("fastq_unmapped/{sample}_R1.fastq.gz", sample=SAMPLES),
         expand("fastq_unmapped/{sample}_R2.fastq.gz", sample=SAMPLES)
-
-
-
-
-
-# -------------- #
-# META           #
-# -------------- #
-"""
-.META: GEP.count.*.metadata.exp_genes_condition.gz
-	1	condition
-	2	gene
-	3	avg_exp
-	4	median_exp
-	5	min_exp
-
- .META: GEP.count*metadata.max_exp_in_condition.gz
- 	1	GeneID
- 	2	best_condition
- 	3	exp
-
-"""
-

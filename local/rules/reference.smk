@@ -1,7 +1,6 @@
 import os
 
 configfile: "config.yaml"
-include: "config.sk"
 
 if os.path.exists("prj_Snakefile"):
 	include: "prj_Snakefile"
@@ -19,7 +18,7 @@ FTP_PREFIX="http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_" + config["SPECI
 #		config["VERSION"]+"basic.rRNA_complete.bed",
 #		config["VERSION"]+"/repeat_rmsk.bed.gz"
 
-rule all:
+rule all_reference:
   input:
     config["GENOME_VERSION"]+".primary_assembly.genome.fa",
     "basic.annotation.gtf.gz",
@@ -80,8 +79,7 @@ rule annotation:
     output:
         "{annotation}.gtf.gz"
     shell:
-        "wget -O {output} -c "+FTP_PREFIX+"gencode.v"+config["VERSION"]+".{annotation}.gtf.gz"
-
+        "wget -O {output} -c "+FTP_PREFIX+"gencode.v"+config["VERSION"]+".{wildcards.annotation}.gtf.gz"
 # Generate this file :$(HSAPIENS_VERSION)/rseqc.HouseKeepingGenes.bed.gz and $(MMUSCULUS_VERSION)/rseqc.HouseKeepingGenes.bed.gz
 rule reseqc_HouseKeepingGenes:
     input:
@@ -98,7 +96,7 @@ rule reseqc_HouseKeepingGenes:
 #
 # repeat_rmsk.ribosomal.bed: repeat_rmsk.txt.gz
 # 	bawk '$$13=="rRNA" {print $$6,$$7,$$8,$$11,$$2,$$10}' $< \
-# 	| perl -lane 'if($$F[0]=~m/_/){$$chr=shift(@F); $$chr=~m/chr[^_]+_([^_]+)_?/; $$chr=$$1; $$chr=~s/v(\d+)$$/.\1/; $$_=$$chr."\t".join("\t",@F);} print ' \
+# 	| perl -lane 'if($$F[0]=~m/_/){$$chr=shift(@F); $$chr=~m/chr[^_]+_([^_]+)_?/; $$chr=$$1; $$chr=~s/v(\\d+)$$/.\1/; $$_=$$chr."\t".join("\t",@F);} print ' \
 # 	| bawk '{print $$0,$$2,$$3,0,1,$$3-$$2",",0","}' > $@                  * to bed12*
 #
 # %.annotation.rRNA.bed: %.annotation.gtf
@@ -121,7 +119,7 @@ rule repeat_rmsk_ribosomal_bed:
         "repeat_rmsk.ribosomal.bed"
     shell:"""
         bawk '$13=="rRNA" {{print $6,$7,$8,$11,$2,$10}}' {input}  \
-	    | perl -lane 'if($F[0]=~m/_/){{$chr=shift(@F); $chr=~m/chr[^_]+_([^_]+)_?/; $chr=$$1; $chr=~s/v(\d+)$/.\1/; $_=$chr."\t".join("\t",@F);}} print ' \
+	    | perl -lane 'if($F[0]=~m/_/){{$chr=shift(@F); $chr=~m/chr[^_]+_([^_]+)_?/; $chr=$$1; $chr=~s/v(\\d+)$/.\1/; $_=$chr."\t".join("\t",@F);}} print ' \
 	    | bawk '{{print $0,$2,$3,0,1,$3-$2",",0","}}' > {output}
     """
 
@@ -209,3 +207,40 @@ rule bwa_index:
         extra=lambda w: f"-a {w.alg}",
     wrapper:
         "v4.3.0/bio/bwa/index"
+
+
+#### Salmon index #### TODO: modify the rule to use the same logic as above
+rule build_salmon_index:
+    input:
+        transcripts=transcriptome_fasta_path,
+        downloaded=f"{REFERENCE_DIR}/.transcriptome_fasta_downloaded"
+    output:
+        directory(f"{REFERENCE_DIR}/salmon_index")
+    threads: 8
+    conda: "transcript_env.yaml"
+    shell:
+        """
+        mkdir -p {output}
+        salmon index \
+            -t {input.transcripts} \
+            -i {output} \
+            -p {threads}
+        """
+
+
+### Rule kallisto index ### TODO: modify the rule to use the same logic as above
+
+rule build_kallisto_index:
+    input:
+        transcripts=transcriptome_fasta_path,
+        downloaded=f"{REFERENCE_DIR}/.transcriptome_fasta_downloaded"
+    output:
+        f"{REFERENCE_DIR}/kallisto_index/transcripts.idx"
+    conda: "transcript_env.yaml"
+    shell:
+        """
+        mkdir -p {REFERENCE_DIR}/kallisto_index
+        kallisto index \
+            -i {output} \
+            {input.transcripts}
+        """

@@ -51,6 +51,7 @@ include: "../../local/rules/rseqc.smk"
 include: "../../local/rules/DGE.smk"
 include: "../../local/rules/venn_heatmap.smk"
 include: "../../local/rules/metagenome.smk"
+include: "../../local/rules/Isoforms.smk"
 
   
 #LAYOUT ---

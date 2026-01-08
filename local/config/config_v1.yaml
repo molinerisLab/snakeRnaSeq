@@ -5,7 +5,7 @@ TMPDIR: "/mnt/nvme_raid0/tmp"
 CORES: 6
 DOCKER_DATA_DIR: "/home"
 RAW_DATA_DIR: "fastq"                             # Unified fastq location
-OUTPUT_DIR: "/home/alele/snakeRnaSeq/dataset/v1"  # Unified output location
+OUTPUT_DIR: "/home/aleone/snakeRnaSeq/dataset/v1"  # Unified output location
 # ========================
 # EXPERIMENT INFO
 # ========================

@@ -140,7 +140,7 @@ rule get_inner_distance:
 # 	| fasta2tab | grep -v Percentile | cut -f 1,3- | tab2fasta | tr "\t" "\n" | fasta2tab | stat_base -o -g -k > $@
 rule ALL_skewness:
     input:
-        expand("rseqc/{filter}/{samples}.geneBodyCoverage.txt", filter = config["FASTQ_FILTERING"], samples = SAMPLES)
+        expand("rseqc/{sample}.geneBodyCoverage.txt", sample=SAMPLES)
     output:
         "ALL.skewness"
     shell:
@@ -225,7 +225,7 @@ rule read_distribution_matrix:
 # 	matrix_reduce 'rseqc/$(FASTQ_FILTERING)/*.read_distribution.txt' | fasta2tab | perl -lne 'BEGIN{$$,="\t"} $$T=$$1 if m/Total Tags\\s+(\\d+)/; s/_S\\d+(\\s)/\1/; s/\\s+/\t/g; @F=split("\t",$$_); print $$F[0],$$F[1],$$F[4],$$F[4]/$$T if !m/===/ and !m/Group/ and !m/Total/' > $@
 rule norm_read_distribution_matrix:
     input:
-        expand("rseqc/{filter}/{samples}.read_distribution.txt", filter = config['FASTQ_FILTERING'], samples = SAMPLES)
+        expand("rseqc/{samples}.read_distribution.txt", filter = config['FASTQ_FILTERING'], samples = SAMPLES)
     output:
         "rseqc/{FASTQ_FILTERING}/ALL.read_distribution.tagskb_tab_norm"
     shell:

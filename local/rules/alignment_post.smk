@@ -1,135 +1,6 @@
-###############################################################################
-# GENERIC BIOINFORMATICS UTILITY RULES
-###############################################################################
 
 # =============================================================================
-# 1. FILE FORMAT CONVERSIONS (EXCEL / TEXT)
-# =============================================================================
-
-rule tab2xlsx:
-    """Convert a TSV/Tab file to Excel (.xlsx) format."""
-    input: 
-        "{file}"
-    output: 
-        "{file}.xlsx"
-    shell: 
-        "cat < {input} | tab2xlsx > {output}"
-
-rule gz2xlsx:
-    """Decompress a gzipped tab file and convert to Excel (.xlsx)."""
-    input: 
-        "{file}.gz"
-    output: 
-        "{file}.xlsx"
-    shell: 
-        "zcat < {input} | tab2xlsx > {output}"
-
-rule tab2xls:
-    """Convert a TSV/Tab file to the older Excel (.xls) format."""
-    input: 
-        "{file}"
-    output: 
-        "{file}.xls"
-    shell: 
-        "tab2xls < {input} > {output}"
-
-# =============================================================================
-# 2. HEADER MANIPULATION
-# =============================================================================
-
-rule add_header:
-    """Add a header row to a compressed file by transposing the 2nd column."""
-    input: 
-        "{path}.gz"
-    output: 
-        "{path}.header_added.gz"
-    shell: 
-        "(bawk -M {input} | cut -f 2 | transpose; zcat {input} ) | gzip > {output}"
-
-rule header_add:
-    """Add a header row to a standard text file by transposing the 2nd column."""
-    input: 
-        "{file}"
-    output: 
-        "{file}.header_added"
-    shell: 
-        "(bawk -M {input} | cut -f 2 | transpose; cat {input} ) > {output}"
-
-# =============================================================================
-# 3. SEQUENCE MANIPULATION (FASTQ/FASTA)
-# =============================================================================
-
-rule get_fa:
-    """Convert a gzipped FASTQ file to a gzipped FASTA file."""
-    input: 
-        "{file}.fastq.gz"
-    output: 
-        "{file}.fa.gz"
-    shell: 
-        "zcat {input} | fastq2tab | enumerate_rows | cut -f 1,3 | tab2fasta -s | gzip > {output}"
-
-# =============================================================================
-# 4. MULTIQC REPORTING
-# =============================================================================
-
-rule fastqc:
-    """Run FastQC on raw sequencing reads."""
-    input:
-        "fastq/{sample}.fastq.gz"
-    output:
-        html="fastqc/{fastq_filtering}/{sample}_{read}_fastqc.html",
-        zip="fastqc/{fastq_filtering}/{sample}_{read}_fastqc.zip"
-    threads: 2
-    wrapper:
-        "v3.3.6/bio/fastqc"
-
-rule multiqc_fastq:
-    """Aggregate FastQC results into a single MultiQC report."""
-    input:
-        fastqc_html=expand("fastqc/{fastq_filtering}/{s}_{p}_fastqc.html", s=SAMPLES, p=("R1","R2"), fastq_filtering=config["FASTQ_FILTERING"]),
-        fastqc_zip=expand("fastqc/{fastq_filtering}/{s}_{p}_fastqc.zip",  s=SAMPLES, p=("R1","R2"), fastq_filtering=config["FASTQ_FILTERING"])
-    output:
-        "multiqc_report.html"
-    params:
-        data_dir = RAW_DATA_DIR
-    shell:"""
-        multiqc -f -n {output} {params.data_dir}
-    """
-
-rule multiqc_report_rseqc:
-    """Aggregate RSeQC metrics and FastQC into a specialized QC report."""
-    input:
-        expand("rseqc/{sample}.geneBodyCoverage.txt", sample=SAMPLES),
-        expand("rseqc/{sample}.infer_experiment.txt", sample=SAMPLES),
-        expand("rseqc/{sample}.junctionSaturation_plot.r", sample=SAMPLES),
-        expand("rseqc/{sample}.pos.DupRate.xls", sample=SAMPLES),
-        expand("rseqc/{sample}.read_distribution.txt", sample=SAMPLES),
-        expand("rseqc/{sample}.bam_stat.txt", sample=SAMPLES),
-        expand("fastqc/{fastq_filtering}/{sample}_R1_fastqc.html", sample=SAMPLES, fastq_filtering=config["FASTQ_FILTERING"])
-    output:
-        "multiqc_report.rseqc.html"
-    params:
-        data_dir = RAW_DATA_DIR
-    shell: """
-        multiqc -f -n {output} {params.data_dir}
-    """
-
-rule multiqc_alignment:
-    """Aggregate alignment stats (STAR, BAM) and FastQC."""
-    input:
-        fastqc_html=expand("fastqc/{fastq_filtering}/{sample}_{read}_fastqc.html",fastq_filtering=config["FASTQ_FILTERING"],read=("R1", "R2"), sample=SAMPLES),
-        fastqc_zip=expand("fastqc/{fastq_filtering}/{sample}_{read}_fastqc.zip",fastq_filtering=config["FASTQ_FILTERING"], read=("R1", "R2"), sample=SAMPLES),
-        # Inject the ALIGNER variable into the path
-        bam=expand("{aligner}/{sample}.bam", aligner=config["aligner"], sample=SAMPLES),
-        bai=expand("{aligner}/{sample}.bam.bai", aligner=config["aligner"], sample=SAMPLES)
-    output:
-        report="multiqc_report.alignment.html",
-        star="multiqc_report.alignment_data/multiqc_star.txt"
-    shell:
-        "multiqc -f -n {output.report} ."
-
-# =============================================================================
-# 5. BAM/CRAM/SAM MANIPULATION
+# 1. BAM/CRAM/SAM MANIPULATION
 # =============================================================================
 
 rule bam2cram:
@@ -172,7 +43,7 @@ rule bam2bed:
         "bedtools bamtobed -splitD < {input} | bsort -k1,1V -k2,2n > {output}"
 
 # =============================================================================
-# 6. BIGWIG AND BEDGRAPH (VISUALIZATION)
+# 2. BIGWIG AND BEDGRAPH (VISUALIZATION)
 # =============================================================================
 
 if not 'BIGWIG_BIN_SIZE' in globals():
@@ -279,7 +150,7 @@ rule get_filtered_bed:
         """
 
 # =============================================================================
-# 7. NORMALIZATION AND R-BASED SCRIPTS (EDGER)
+# 3. NORMALIZATION AND R-BASED SCRIPTS (EDGER)
 # =============================================================================
 
 rule tmm:
@@ -317,7 +188,7 @@ rule ltmm:
     """
 
 # =============================================================================
-# 8. DOWNSTREAM CLEANUP
+# 4. DOWNSTREAM CLEANUP
 # =============================================================================
 
 	# for s in $(SAMPLES); do\

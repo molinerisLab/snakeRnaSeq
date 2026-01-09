@@ -71,7 +71,9 @@ LTPM_PRIOR_COUNT = 0.0001
 if os.path.exists("Snakefile_versioned.sk"):
     include: "Snakefile_versioned.sk"
 
-include: "../../local/rules/generic_rules.smk"
+include: "../../local/rules/alignment_post.smk"
+include: "../../local/rules/utils.smk"
+include: "../../local/rules/qc.smk"
 include: "../../local/rules/trim.smk"
 include: "../../local/rules/star_alignment.smk"
 include: "../../local/rules/bwa_alignment.smk"

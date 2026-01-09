@@ -117,15 +117,16 @@ rule multiqc_report_rseqc:
 rule multiqc_alignment:
     """Aggregate alignment stats (STAR, BAM) and FastQC."""
     input:
-        fastqc_html=expand("fastq/{fastq}_fastqc.html", fastq=SAMPLES),
-        fastqc_zip=expand("fastq/{fastq}_fastqc.zip", fastq=SAMPLES),
-        bam=expand("bam/{sample}.bam", sample=SAMPLES),
-        bai=expand("bam/{sample}.bam.bai", sample=SAMPLES)
+        fastqc_html=expand("fastqc/{fastq_filtering}/{sample}_{read}_fastqc.html",fastq_filtering=config["FASTQ_FILTERING"],read=("R1", "R2"), sample=SAMPLES),
+        fastqc_zip=expand("fastqc/{fastq_filtering}/{sample}_{read}_fastqc.zip",fastq_filtering=config["FASTQ_FILTERING"], read=("R1", "R2"), sample=SAMPLES),
+        # Inject the ALIGNER variable into the path
+        bam=expand("{aligner}/{sample}.bam", aligner=config["aligner"], sample=SAMPLES),
+        bai=expand("{aligner}/{sample}.bam.bai", aligner=config["aligner"], sample=SAMPLES)
     output:
         report="multiqc_report.alignment.html",
         star="multiqc_report.alignment_data/multiqc_star.txt"
     shell:
-        "multiqc -f -n {output} ."
+        "multiqc -f -n {output.report} ."
 
 # =============================================================================
 # 5. BAM/CRAM/SAM MANIPULATION

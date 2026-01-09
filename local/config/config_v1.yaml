@@ -63,7 +63,7 @@ STAR:
   FILTER_MISMATCH: 0.04
   ADDITIONAL_OUTPUT: ""
   INDEX:
-    GRCh: "/Users/aleone/Documents/snakeRnaSeq/dataset/v1/reference/GRCh38.p14.star_index/2.7.11a/"
+    GRCh: "/home/reference_data/bioinfotree/task/gencode/dataset/hsapiens/46/GRCh38.p14.star_index/2.7.11a"
     CHM: "/home/reference_data/bioinfotree/task/gencode/dataset/hsapiens/T2T-CHM13v2.0/GCF_009914755.1_T2T-CHM13v2.0.star_index/2.7.11a/"
     M29: "/home/reference_data/bioinfotree/task/gencode/dataset/mmusculus/M29/GRCm39.primary_assembly.star_index/2.7.11a/"
 
@@ -105,7 +105,7 @@ DGE:
   MIN_NUM_OF_EXPRESSED_SAMPLE: 3
   EXPRESSED_GENES_MIN_CPM: 1
   DGE_CONDITION: "condition"
-  LIMMA_CONTRASTS_NAMES:
+  LIMMA_CONTRASTS_NAMES: []
 MARK_SEQC:
   LOGFC: 1
   PVALUE: 1
@@ -200,9 +200,9 @@ STAR_sjdbOverhang: 149
 
 #TODO: put them in the featurecounts section above
 # featurecounts param ---
-FEATURECOUNTS_PARAM = config["FEATURECOUNTS_PARAM"] + " -s" + config["STRANDED"]
-if config["LAYOUT"] == "PAIRED":
-    FEATURECOUNTS_PARAM += " -p -C --countReadPairs" 
+#FEATURECOUNTS_PARAM = config["FEATURECOUNTS_PARAM"] + " -s" + config["STRANDED"]
+#if config["LAYOUT"] == "PAIRED":
+#    FEATURECOUNTS_PARAM += " -p -C --countReadPairs" 
 # -O allowMultiOverlap
-LCPM_PRIOR_COUNT = 0.25           # *standard of edgeR*
-LTPM_PRIOR_COUNT = 0.0001
+#LCPM_PRIOR_COUNT = 0.25           # *standard of edgeR*
+#LTPM_PRIOR_COUNT = 0.0001

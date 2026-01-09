@@ -605,10 +605,10 @@ rule GEP_count_log2r:
 ###non so perché sia rosso. idem per quello dopo 
 rule GEP_count_metadata:
     input: 
-        GEP="GEP.count{filter}gz",
+        GEP="GEP.count.{filter}.gz",
         metadata="metadata.txt"
     output: 
-        "GEP.count{filter}metadata.gz"
+        "GEP.count.{filter}.metadata.gz"
     shell:"""
         (echo -e "GeneID\\tsample\\texp"; zcat {input.GEP} | matrix2tab ) | translate -a {input.metadata} 2 | gzip > {output}
     """

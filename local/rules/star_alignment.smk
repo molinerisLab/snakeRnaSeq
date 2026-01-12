@@ -1,6 +1,3 @@
-reference_fasta_path     = f"{config['REFERENCE_DIR']}/{config['GENOME_ASSEMBLY']}.genome.fa"
-annotation_gtf_path      = f"{config['REFERENCE_DIR']}/46/primary_assembly.annotation.gtf" #TODO: make dynamic 46
-transcriptome_fasta_path = f"{config['REFERENCE_DIR']}/gencode.v{config['GENCODE_RELEASE']}.transcripts.fa"
 
 def choose_fastq_according_to_genome(wildcards, mate):
     sample = wildcards['sample']  # Definisce 'sample' usando 'wildcards'

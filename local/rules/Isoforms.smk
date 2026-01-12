@@ -76,7 +76,7 @@ rule bam_to_fastq:
 rule kallisto_quant:
     input:
         fq = lambda wc: f"fastq/fastq_trimmed/{wc.sample}_R1.fastq.gz",
-        index = f"{REFERENCE_DIR}/kallisto_index/index_with_mask.idx"
+        index = f"{REFERENCE_DIR}/46/kallisto_index/index_with_mask.idx" #TODO: make dynamic 46
     output:
         "kallisto/{sample}/abundance.tsv"
     threads: 8
@@ -120,7 +120,7 @@ rule merge_kallisto_transcripts:
 
 rule stringtie_assemble:
     input:
-        bam = lambda wc: f"Results/pass2_{GENOME_KEY}/{wc.sample}/Aligned.sortedByCoord.out.bam",
+        bam = lambda wc: f"Results/pass2/{wc.sample}/Aligned.sortedByCoord.out.bam",
         gtf = annotation_gtf_path
     output:
         "stringtie/{sample}/transcripts.gtf"
@@ -157,7 +157,7 @@ rule stringtie_merge:
 
 rule stringtie_quantify:
     input:
-        bam    = lambda wc: f"Results/pass2_{GENOME_KEY}/{wc.sample}/Aligned.sortedByCoord.out.bam",
+        bam    = lambda wc: f"Results/pass2/{wc.sample}/Aligned.sortedByCoord.out.bam",
         merged = "stringtie/merged/merged.gtf"
     output:
         quant = "stringtie/{sample}/quant/abund.tab"
@@ -199,18 +199,17 @@ rule index_bam:
 
 rule spladder_build:
     input:
-        bam = "Results/pass2_{genome}/{sample}/Aligned.sortedByCoord.out.bam",
-        bai = "Results/pass2_{genome}/{sample}/Aligned.sortedByCoord.out.bam.bai",
+        bam = "Results/pass2/{sample}/Aligned.sortedByCoord.out.bam",
+        bai = "Results/pass2/{sample}/Aligned.sortedByCoord.out.bam.bai",
         gtf = annotation_gtf_path
     output:
-        "spladder/{genome}/{sample}/spladder/genes_graph_conf3.pickle"
+        "spladder/{sample}/spladder/genes_graph_conf3.pickle"
     threads: 8
     shell:
         """
-        mkdir -p spladder/{wildcards.genome}/{wildcards.sample}
-
+        mkdir -p spladder/{wildcards.sample}
         spladder build \
-            -o spladder/{wildcards.genome}/{wildcards.sample} \
+            -o spladder/{wildcards.sample} \
             -a {input.gtf} \
             -b {input.bam} \
             --confidence 3 \
@@ -223,37 +222,36 @@ rule spladder_build:
 rule spladder_merge:
     input:
         graphs = expand(
-            "spladder/{{genome}}/{sample}/spladder/genes_graph_conf3.pickle",
+            "spladder/{sample}/spladder/genes_graph_conf3.pickle",
             sample=SAMPLES
         )
     output:
-        "spladder/merged_{genome}/spladder/genes_graph_conf3.merge_graph.pickle"
+        "spladder/merged/spladder/genes_graph_conf3.merge_graph.pickle"
     shell:
         """
-        mkdir -p spladder/merged_{wildcards.genome}
+        mkdir -p spladder/merged
 
         spladder merge \
-            -o spladder/merged_{wildcards.genome} \
+            -o spladder/merged \
             -g {input.graphs}
         """
 
 
 rule spladder_quant:
     input:
-        graph = "spladder/merged_{genome}/spladder/genes_graph_conf3.merge_graph.pickle",
+        graph = "spladder/merged/spladder/genes_graph_conf3.merge_graph.pickle",
         bams  = expand(
-            "Results/pass2/{{genome}}/{sample}/Aligned.sortedByCoord.out.bam",
+            "Results/pass2/{sample}/Aligned.sortedByCoord.out.bam",
             sample=SAMPLES
         )
     output:
-        "spladder/quantification_{genome}/spladder/genes_graph_conf3.quant.pickle"
+        "spladder/quantification/spladder/genes_graph_conf3.quant.pickle"
     threads: 8
     shell:
         """
-        mkdir -p spladder/quantification_{wildcards.genome}
-
+        mkdir -p spladder/quantification
         spladder quantify \
-            -o spladder/quantification_{wildcards.genome} \
+            -o spladder/quantification \
             -g {input.graph} \
             -b {input.bams} \
             --parallel {threads}

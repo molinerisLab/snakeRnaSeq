@@ -209,25 +209,6 @@ rule bwa_index:
         "v4.3.0/bio/bwa/index"
 
 
-#### Salmon index #### TODO: modify the rule to use the same logic as above
-rule build_salmon_index:
-    input:
-        transcripts=transcriptome_fasta_path,
-        downloaded=f"{REFERENCE_DIR}/.transcriptome_fasta_downloaded"
-    output:
-        directory(f"{REFERENCE_DIR}/salmon_index")
-    threads: 8
-    conda: "transcript_env.yaml"
-    shell:
-        """
-        mkdir -p {output}
-        salmon index \
-            -t {input.transcripts} \
-            -i {output} \
-            -p {threads}
-        """
-
-
 ### Rule kallisto index ### TODO: modify the rule to use the same logic as above
 
 rule build_kallisto_index:
@@ -243,4 +224,25 @@ rule build_kallisto_index:
         kallisto index \
             -i {output} \
             {input.transcripts}
+        """
+
+VERSION = "GRCh38"
+def get_rseqc_url(version):
+    base = "https://sourceforge.net/projects/rseqc/files/BED"
+    if version in ["GRCh38", "hg38"]:
+        return f"{base}/Human_Homo_sapiens/hg38.HouseKeepingGenes.bed.gz/download"
+    elif version in ["GRCm38", "mm10"]:
+        return f"{base}/Mouse_Mus_musculus/mm10.HouseKeepingGenes.bed.gz/download"
+    else:
+        raise ValueError(f"Unknown version: {version}")
+
+rule download_rseqc_housekeeping:
+    output:
+        f"dataset/{VERSION}/rseqc.HouseKeepingGenes.bed.gz"
+    params:
+        url = get_rseqc_url(VERSION)
+    shell:
+        """
+        # 3. Use curl with -L (follow redirects) and -k (insecure/skip SSL check)
+        curl -L -k -o {output} "{params.url}"
         """

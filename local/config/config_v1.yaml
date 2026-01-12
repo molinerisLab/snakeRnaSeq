@@ -1,13 +1,8 @@
-#                                                                          
-#      ▄▄             ▄▄   █                             █                 
-#     █▀▀▌           ▐▛▀   ▀                       ▐▌    ▀                 
-#    ▐▛    ▟█▙ ▐▙██▖▐███  ██   ▟█▟▌▐▌ ▐▌ █▟█▌ ▟██▖▐███  ██   ▟█▙ ▐▙██▖     
-#    ▐▌   ▐▛ ▜▌▐▛ ▐▌ ▐▌    █  ▐▛ ▜▌▐▌ ▐▌ █▘   ▘▄▟▌ ▐▌    █  ▐▛ ▜▌▐▛ ▐▌     
-#    ▐▙   ▐▌ ▐▌▐▌ ▐▌ ▐▌    █  ▐▌ ▐▌▐▌ ▐▌ █   ▗█▀▜▌ ▐▌    █  ▐▌ ▐▌▐▌ ▐▌     
-#     █▄▄▌▝█▄█▘▐▌ ▐▌ ▐▌  ▗▄█▄▖▝█▄█▌▐▙▄█▌ █   ▐▙▄█▌ ▐▙▄ ▗▄█▄▖▝█▄█▘▐▌ ▐▌     
-#      ▀▀  ▝▀▘ ▝▘ ▝▘ ▝▘  ▝▀▀▀▘ ▞▀▐▌ ▀▀▝▘ ▀    ▀▀▝▘  ▀▀ ▝▀▀▀▘ ▝▀▘ ▝▘ ▝▘     
-#                              ▜█▛▘                                        
-#                                                                          
+#   ___           __ _                    _   _          
+#  / __|___ _ _  / _(_)__ _ _  _ _ _ __ _| |_(_)___ _ _  
+# | (__/ _ \ ' \|  _| / _` | || | '_/ _` |  _| / _ \ ' \ 
+#  \___\___/_||_|_| |_\__, |\_,_|_| \__,_|\__|_\___/_||_|
+#                     |___/                                                                             
 
 # ========================
 # GENERAL SETUP
@@ -27,7 +22,7 @@ LAYOUT: "PAIRED"  # SINGLE | PAIRED
 STRANDED: "2"    # 0 -> unstranded, 1 -> forward, 2 -> reverse
 FASTQ_FILTERING: "fastq"
 aligner: "star"  # star | bwa
-
+GENOME_KEY: "GRCh"
 # ========================
 # TRIMMER SELECTION
 # ========================
@@ -181,9 +176,9 @@ CONTAMINANT_INFO:
   multiple_files: FALSE
 
 
-REFERENCE_DIR: "/home/reference_data/bioinfotree/task/gencode/dataset"
+REFERENCE_DIR: "/home/reference_data/bioinfotree/task/gencode/dataset/hsapiens"
 GENOME_ASSEMBLY: "GRCh38.p14"
-GENCODE_RELEASE: "43"
+GENCODE_RELEASE: "46"
 
 GENOME_VERSION: GRCh38.p14
 
@@ -206,3 +201,11 @@ STAR_sjdbOverhang: 149
 # -O allowMultiOverlap
 #LCPM_PRIOR_COUNT = 0.25           # *standard of edgeR*
 #LTPM_PRIOR_COUNT = 0.0001
+
+braken_read_len: 100
+braken_min_reads: 5
+braken_level: "S"
+
+kraken:
+  exclude_classified: True
+  include_children: True

@@ -7,16 +7,16 @@
 # █▄▄▄▄▄██  ██    ██  ██▄▄▄███  ██  ▀█▄   ▀██▄▄▄▄█  ██    ██  ██   ███  ▄██  ██▄  █▄▄▄▄▄█▀  ██▄▄▄▄▄▄   ██▄▄██▀ 
 #  ▀▀▀▀▀▀   ▀▀    ▀▀   ▀▀▀▀ ▀▀  ▀▀   ▀▀▀    ▀▀▀▀▀   ▀▀    ▀▀▀ ▀▀   ▀▀▀  ▀▀    ▀▀   ▀▀▀▀▀    ▀▀▀▀▀▀▀▀    ▀▀▀██  
 #                                                                                                           ▀  
-#                 +-+-+-+-+-+ +-+-+-+-+ +-+-+-+-+-+-+-+ +-+-+-+-+-+-+-+ +-+-+-+-+-+-+-+-+
-#                 |(|n|o|t|)| |j|u|s|t| |a|n|o|t|h|e|r| |R|N|A|-|s|e|q| |p|i|p|e|l|i|n|e|
-#                 +-+-+-+-+-+ +-+-+-+-+ +-+-+-+-+-+-+-+ +-+-+-+-+-+-+-+ +-+-+-+-+-+-+-+-+
-#                      __    __    __    __
-#                     /  \  /  \  /  \  /  \
-#____________________/  __\/  __\/  __\/  __\___________________________________________________________________
-#___________________/  /__/  /__/  /__/  /______________________________________________________________________
-#                   | / \   / \   / \   / \  \____
-#                   |/   \_/   \_/   \_/   \    o \
-#                                           \_____/--<
+#                   +-+-+-+-+-+ +-+-+-+-+ +-+-+-+-+-+-+-+ +-+-+-+-+-+-+-+ +-+-+-+-+-+-+-+-+
+#                   |(|n|o|t|)| |j|u|s|t| |a|n|o|t|h|e|r| |R|N|A|-|s|e|q| |p|i|p|e|l|i|n|e|
+#                   +-+-+-+-+-+ +-+-+-+-+ +-+-+-+-+-+-+-+ +-+-+-+-+-+-+-+ +-+-+-+-+-+-+-+-+
+#                                         __    __    __    __
+#                                        /  \  /  \  /  \  /  \
+#_______________________________________/  __\/  __\/  __\/  __\_______________________________________________
+#______________________________________/  /__/  /__/  /__/  /__________________________________________________
+#                                      | / \   / \   / \   /  \  \____
+#                                      |/   \_/   \_/   \_/    \    o \
+#                                                               \_____/--<
 
 
 ###########
@@ -54,6 +54,7 @@ GENCODE_GENOME_FASTA=GENCODE_DIR+"/"+config["GENCODE"]["GENOME"]+".genome.fa"
 GENCODE_ANNOTATION_GTF=GENCODE_DIR+"/"+config["GENCODE"]["ANNOTATION"]+".gtf"
 GENCODE_ANNOTATION_BED=GENCODE_DIR+"/"+config["GENCODE"]["ANNOTATION"]+".bed"
 RSEQC_REF_BED=GENCODE_DIR+"/basic.annotation.bed"
+GENOME_KEY = "GRCh"
 
 ##########
 # Star  #
@@ -71,15 +72,15 @@ LTPM_PRIOR_COUNT = 0.0001
 if os.path.exists("Snakefile_versioned.sk"):
     include: "Snakefile_versioned.sk"
 
-include: "../../local/rules/alignment_post.smk"
-include: "../../local/rules/utils.smk"
-include: "../../local/rules/qc.smk"
-include: "../../local/rules/trim.smk"
-include: "../../local/rules/star_alignment.smk"
-include: "../../local/rules/bwa_alignment.smk"
+include: "../../local/rules/alignment_post.smk" #DONE
+include: "../../local/rules/utils.smk" #DONE
+include: "../../local/rules/qc.smk" #DONE
+include: "../../local/rules/trim.smk" #DONE
+include: "../../local/rules/star_alignment.smk" #DONE
+include: "../../local/rules/bwa_alignment.smk" #DONE
 include: "../../local/rules/count.smk"
-include: "../../local/rules/rseqc.smk"
-include: "../../local/rules/DGE.smk"
+include: "../../local/rules/rseqc.smk" #DONE
+include: "../../local/rules/DGE.smk" #DONE
 include: "../../local/rules/venn_heatmap.smk"
 include: "../../local/rules/metagenome.smk"
 include: "../../local/rules/Isoforms.smk"
@@ -112,17 +113,16 @@ rule all:
         "multiqc_report.rseqc.html",
         "usable_reads.txt.xlsx" 
 
-rule all_qc:
+rule all_multiqc:
     input:
-        "multiqc_report.html",           # From rule multiqc_fastq
-        "multiqc_report.alignment.html", # From rule multiqc_alignment
-        "multiqc_report.rseqc.html"      # From rule multiqc_report_rseqc
+        "multiqc_report.html",
+        "multiqc_report.rseqc.html",
+        "multiqc_report.alignment.html"
 
 
-rule all_fastq_trimmed_se:
+rule all_fastq_trimmed:
     input:
-        expand("fastp/{sample}_R1.fastq.gz",
-               sample=SAMPLES)
+        expand("fastq/fastq_trimmed/{sample}_R1.fastq.gz",sample=SAMPLES)
 
 rule ALL_infer_experiment:
     input: 
@@ -142,3 +142,68 @@ rule all_fastq_unmapped:
     input:
         expand("fastq_unmapped/{sample}_R1.fastq.gz", sample=SAMPLES),
         expand("fastq_unmapped/{sample}_R2.fastq.gz", sample=SAMPLES)
+
+
+rule all_star_sp:
+    input:
+        expand("Results/pass2/{sample}/{suffix}",
+               genome=[config["GENOME_KEY"]],
+               sample=SAMPLES,
+               suffix=["Aligned.sortedByCoord.out.bam", "ReadsPerGene.out.tab"])
+
+rule all_merge_filter_sj:
+    input:
+        expand("Results/pass1/merged_filtered_SJ.out.tab")
+
+
+rule all_star_twopass_basic:
+    input:
+        expand("star_2pass/{sample}/Aligned.sortedByCoord.out.bam",
+               sample=SAMPLES)
+
+rule all_kallisto:
+    input:
+        expand("kallisto/{sample}/abundance.tsv", sample=SAMPLES) 
+
+rule all_spladder:
+    input:
+        expand("spladder/merged/spladder/genes_graph_conf3.merge_graph.pickle", sample=SAMPLES),
+        expand("spladder/quantification/spladder/genes_graph_conf3.quant.pickle", sample=SAMPLES)
+
+rule all_stringtie:
+    input:
+        expand("stringtie/{sample}/quant/abund.tab", sample=SAMPLES)
+
+rule all_samb_sort:
+    input:
+        expand("sambamba/{sample}.sorted.bam", sample=SAMPLES)
+
+rule all_kraken:
+    input:
+        expand("kreports/{S}.k2report", S=SAMPLES),
+        expand("koutputs/{S}.kraken2", S=SAMPLES)
+
+
+rule all_bracken:
+    input:
+        expand("breports/{S}.breport", S=SAMPLES),
+        expand("boutputs/{S}.braken", S=SAMPLES)
+
+rule all_fastq_unclassified:
+    input:
+        expand("fastq_unclassified/{sample}_R1.fastq.gz", sample=SAMPLES),
+        expand("fastq_unclassified/{sample}_R2.fastq.gz", sample=SAMPLES)
+
+rule all_filter_kraken:
+    input:
+        expand("koutput_filtered/{sample}.kraken2", sample=SAMPLES)
+
+rule all_k2rfilter:
+    input:
+        expand("kreports_filtered/{sample}.k2report", sample=SAMPLES)
+
+
+rule all_filbracken:
+    input:
+        expand("breports_filtered/{sample}.breport", sample=SAMPLES),
+        expand("boutputs_filtered/{sample}.braken", sample=SAMPLES)

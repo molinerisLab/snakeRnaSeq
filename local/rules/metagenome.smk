@@ -183,7 +183,7 @@ rule degw:
     """
 
 rule extract_unclassified_id_paired:
-    input: "outputs/{sample}.kraken2"
+    input: "koutput_filtered/{sample}.kraken2"
     output: "fastq_unclassified/{sample}.id"
     shell: """"
         awk '{{print $2,$1}}' {input} | collapsesets 2 | bawk '$2=="U"' > {output}
@@ -191,8 +191,8 @@ rule extract_unclassified_id_paired:
 
 rule extract_kraken_unclassified_reads:
     input:
-        kraken2_output = "outputs/{sample}.kraken2",
-        kraken2_report = "reports/{sample}.k2report",
+        kraken2_output = "koutput_filtered/{sample}.kraken2",
+        kraken2_report = "kreports_filtered/{sample}.k2report",
         fastq_r1 = "fastq/{sample}_R1.fastq.gz",
         fastq_r2 = "fastq/{sample}_R2.fastq.gz"
     output:
@@ -200,15 +200,16 @@ rule extract_kraken_unclassified_reads:
         fastq_r2_unclassified = "fastq_unclassified/{sample}_R2.fastq.gz"
     params:
         taxid = 1,
-        exclude = True,
-        include_children = True
+        # Reference the config file here
+        exclude_opt = "--exclude" if config["kraken"]["exclude_classified"] else "",
+        children_opt = "--include-children" if config["kraken"]["include_children"] else ""
     shell:
         """
         extract_kraken_reads.py \
             -k {input.kraken2_output} \
             --taxid {params.taxid} \
-            {"--exclude" if params.exclude else ""} \
-            {"--include-children" if params.include_children else ""} \
+            {params.exclude_opt} \
+            {params.children_opt} \
             -s1 {input.fastq_r1} \
             -s2 {input.fastq_r2} \
             --report {input.kraken2_report} \

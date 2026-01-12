@@ -1,0 +1,65 @@
+Bootstrap: docker
+From: ubuntu:22.04
+
+%labels
+    MAINTAINER Alessandro Leone
+
+%environment
+    export LANG=C
+    export LC_ALL=C
+    export MAMBA_ROOT_PREFIX=/transcript/mamba
+    export PATH=/transcript/mamba/envs/transcript_env/bin:$PATH
+
+%post
+    export DEBIAN_FRONTEND=noninteractive
+
+    mkdir -p /transcript
+
+    apt-get update && apt-get install -y \
+        curl \
+        cmake \
+        gcc g++ \
+        build-essential \
+        libgomp1 \
+        libboost-all-dev \
+        vim \
+        ssh-client \
+        wget \
+        unzip \
+        git \
+        gawk \
+        libz-dev \
+        libbz2-dev \
+        liblzma-dev \
+        libncurses5-dev \
+        libcurl4-openssl-dev \
+        libssl-dev \
+        bzip2 \
+        ca-certificates \
+        && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+    ######## Install micromamba (official installer – works everywhere) ########
+    curl -Ls https://micro.mamba.pm/install.sh | bash
+    export PATH=/root/.local/bin:$PATH
+
+    ######## Create the micromamba environment ########
+    /root/.local/bin/micromamba create -y \
+        -n transcript_env \
+        -f /transcript/transcript_env.yaml \
+        --root-prefix /transcript/mamba
+
+    chmod -R a+rX /transcript
+
+%files
+    transcript_env.yaml /transcript/
+
+%runscript
+    #!/bin/bash
+    export MAMBA_ROOT_PREFIX=/transcript/mamba
+    export PATH=/transcript/mamba/envs/transcript_env/bin:$PATH
+    exec "$@"
+
+%startscript
+    #!/bin/bash
+    export MAMBA_ROOT_PREFIX=/transcript/mamba
+    export PATH=/transcript/mamba/envs/transcript_env/bin:$PATH

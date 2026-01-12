@@ -29,6 +29,7 @@ rule fastp_se:
         "fastq/fastq_trimmed/{sample}.log.txt"
     params:
         adapters_r1="--adapter_sequence=AGATCGGAAGAGCACACGTCTGAACTCCAGTCA" 
+    conda: "transcript_env.yaml"
     shell: """
         fastp --thread {threads}  --html {output.html} \
         {params.adapters_r1} \
@@ -52,6 +53,7 @@ rule fastp_pe:
         json="fastq/fastq_trimmed/{sample}.json"
     log:
         "fastq/fastq_trimmed/{sample}.log"
+    conda: "transcript_env.yaml"
     params:
         adapters_r1="--adapter_sequence=AGATCGGAAGAGCACACGTCTGAACTCCAGTCA",
         adapters_r2="--adapter_sequence_r2=AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT",
@@ -82,6 +84,7 @@ rule trim_galore_se:
     params:
         trim_galore_params=config["TRIM_GALORE"]["PARAM"],
         cores=config["CORES"]
+    conda: "transcript_env.yaml"
     shell:
         "mkdir -p `dirname {output}`; "
         "trim_galore -j {params.cores} "
@@ -103,6 +106,7 @@ rule trim_galore_pe:
     params:
         trim_galore_params=config["TRIM_GALORE"]["PARAM"],
         cores=config["CORES"]
+    conda: "transcript_env.yaml"
     shell:
         "mkdir -p `dirname {output}`; "
         "trim_galore -j {params.cores} "

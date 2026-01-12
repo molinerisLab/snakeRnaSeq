@@ -24,6 +24,7 @@ rule star_align_se:
         log="star/{sample}.Log.out",
         sj="star/{sample}.SJ.out.tab",
     threads: config["CORES"]
+    conda: "transcript_env.yaml"
     params:
         genome_dir = input.idx,
         tmpdir="star/{sample}",
@@ -67,6 +68,7 @@ rule star_align_pe:
         log_final="star/{sample}.Log.final.out"
     log:
         "star/{sample}.log",
+    conda: "transcript_env.yaml"
     params:
         extra=lambda wildcards: f"--outSAMtype BAM SortedByCoordinate --outSAMunmapped Within --chimOutType WithinBAM {config['STAR']['OPTIONS']}",
     threads: 16,
@@ -110,6 +112,7 @@ rule generate_unmapped_single:
         )
     output:
         "fastq/unmapped/{sample}_unmapped.fastq.gz"
+    conda: "transcript_env.yaml"
     shell:
         """
         samtools view -f 4 {input} | awk '{{print "@"$1; print $10; print "+"; print $11}}' | gzip > {output}
@@ -125,6 +128,7 @@ rule generate_unmapped_R1:
         )
     output:
         "fastq/unmapped/{sample}_unmapped_R1.fastq.gz"
+    conda: "transcript_env.yaml"
     shell:"""
         samtools view -f 76 {input} | bawk '{{print "@"$1; print $10; print "+"; print $11}}' | gzip > {output}
     """
@@ -139,6 +143,7 @@ rule generate_unmapped_R2:
         )
     output:
         "fastq/unmapped/{sample}_unmapped_R2.fastq.gz"
+    conda: "transcript_env.yaml"
     shell: """
         samtools view -f 140 {input} | bawk '{{print "@"$1; print $10; print "+"; print $11}}' | gzip > {output}
     """
@@ -169,6 +174,7 @@ rule star_align_first_pass:
         log_final    = "Results/pass1/{sample}/Log.final.out",
         log_progress = "Results/pass1/{sample}/Log.progress.out"
     threads: 16
+    conda: "transcript_env.yaml"
     params:
         tmpdir     = "Results/pass1/{sample}",
         read_cmd   = config["STAR"]["readFilesCommand"],
@@ -195,6 +201,7 @@ rule merge_and_filter_sj:
                sample= SAMPLES)
     output:
         "Results/pass1/merged_filtered_SJ.out.tab"
+    conda: "transcript_env.yaml"
     shell:
         """
         mkdir -p $(dirname {output})
@@ -224,8 +231,9 @@ rule star_second_pass:
         bam         = "Results/pass2/{sample}/Aligned.sortedByCoord.out.bam",
         gene_counts = "Results/pass2/{sample}/ReadsPerGene.out.tab"
     threads: 16
+    conda: "transcript_env.yaml"
     params:
-        out_samtype = config["STAR"]["outSAMtype"],
+        out_samtype = config["STAR"]["OUT_SAM_TYPE"],
         quant_mode  = config["STAR"]["quantMode"],
         sjdbOver    = config["STAR"]["sjdbOverhang"],
         read_cmd    = config["STAR"]["readFilesCommand"],

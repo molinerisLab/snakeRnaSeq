@@ -268,7 +268,6 @@ rule megahit_assembly:
         "fastq/unmapped/{sample}_unmapped.fastq.gz"
     output:
         assembly="Megahit/{sample}_assembly/final.contigs.fa",
-        # We track the directory so Snakemake knows it is an output
         split_dir=directory("Megahit/{sample}_assembly/split_fasta")
     params:
         outdir="Megahit/{sample}_assembly",
@@ -284,17 +283,6 @@ rule megahit_assembly:
 #################################
 ### BLASTN against RefSeq RNA ###
 #################################
-# Split the contigs into smaller files for BLASTN
-def get_all_blastn_outputs(wildcards=None):
-    outputs = []
-    for sample in SAMPLES:
-        split_dir = f"Megahit_meta/{sample}_assembly/split_fasta"
-        files = glob.glob(f"{split_dir}/contigs_*.fa")
-        for f in files:
-            contig = os.path.basename(f).replace(".fa", "")
-            outputs.append(f"blastn/{sample}/{contig}.out")
-    return outputs
-
 
 
 rule blastn:

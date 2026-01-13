@@ -12,9 +12,6 @@ elif config["TRIMMER"] == "trim_galore" and config["LAYOUT"] == "PAIRED":
     ruleorder: trim_galore_pe > fastp_pe > fastp_se
 
 rule fastp_se:
-    """
-    Run fastp on Single-End (SE) reads for quality control and adapter trimming.
-    """
     input:
         "fastq/{sample}_R1.fastq.gz"
     output:
@@ -24,50 +21,30 @@ rule fastp_se:
         #failed="fastq/fastq_trimmed/pe/{sample}.failed.fastq",
         html="fastq/fastq_trimmed/{sample}.html",
         json="fastq/fastq_trimmed/{sample}.json"
-    threads: 8
+    threads: 6
     log:
         "fastq/fastq_trimmed/{sample}.log.txt"
     params:
-        adapters_r1="--adapter_sequence=AGATCGGAAGAGCACACGTCTGAACTCCAGTCA" 
+        #adapters_r1="--adapter_sequence=AGATCGGAAGAGCACACGTCTGAACTCCAGTCA" 
     conda: "transcript_env.yaml"
-    shell: """
-        fastp --thread {threads}  --html {output.html} \
-        {params.adapters_r1} \
-        --in1 {input} --out1 {output.trimmed} --json {output.json} \
-        2> {log}
-        """
+    wrapper:
+        "v3.3.6/bio/fastp"
 
 rule fastp_pe:
-    """
-    Run fastp on Paired-End (PE) reads for quality control and adapter trimming.
-    """
     input:
         sample=["fastq/{sample}_R1.fastq.gz", "fastq/{sample}_R2.fastq.gz"]
     output:
         trimmed=["fastq/fastq_trimmed/{sample}_R1.fastq.gz", "fastq/fastq_trimmed/{sample}_R2.fastq.gz"],
-        #unpaired1="fastq/fastq_trimmed/pe/{sample}.u1.fastq",
-        #unpaired2="fastq/fastq_trimmed/pe/{sample}.u2.fastq",
-        #merged="fastq/fastq_trimmed/pe/{sample}.merged.fastq",
-        #failed="fastq/fastq_trimmed/pe/{sample}.failed.fastq",
         html="fastq/fastq_trimmed/{sample}.html",
         json="fastq/fastq_trimmed/{sample}.json"
     log:
         "fastq/fastq_trimmed/{sample}.log"
     conda: "transcript_env.yaml"
     params:
-        adapters_r1="--adapter_sequence=AGATCGGAAGAGCACACGTCTGAACTCCAGTCA",
-        adapters_r2="--adapter_sequence_r2=AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT",
         extra=""
-    threads: 8
-    log:
-        "fastp/{sample}.log.txt"
-    shell: """
-        fastp --thread {threads}  --html {output.html} \
-        {params.adapters_r1} {params.adapters_r2} \
-        --in1 {input.sample[0]} --in2 {input.sample[1]} --out1 {output.trimmed[0]} --out2 {output.trimmed[1]} --json {output.json} \
-        2> {log}
-        """
-
+    threads: 6
+    wrapper:
+        "v3.3.6/bio/fastp"
 
 # =============================================================================
 # TRIM GALORE (ALTERNATIVE TRIMMING)

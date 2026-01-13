@@ -22,11 +22,6 @@ LAYOUT: "SINGLE"  # SINGLE | PAIRED
 STRANDED: "2"    # 0 -> unstranded, 1 -> forward, 2 -> reverse
 FASTQ_FILTERING: "fastq"
 aligner: "star"  # star | bwa
-GENOME_KEY: "GRCh"
-# ========================
-# TRIMMER SELECTION
-# ========================
-
 TRIMMER: "fastp"  # fastp | trim_galore
 
 # ========================
@@ -46,17 +41,27 @@ GENCODE:
 
 STAR:
   VERSION: "2.7.11b"
-  OPTIONS: "--outFilterType BySJout --outFilterMultimapNmax 200 --alignSJoverhangMin 8 --alignSJDBoverhangMin 1 --outFilterMismatchNmax 999 --outFilterMismatchNoverReadLmax 0.04 --alignIntronMin 20 --alignIntronMax 1000000 --alignMatesGapMax 1000000"
-  OUT_SAM_TYPE: "BAM SortedByCoordinate" #BAM_SORTED
-  OUT_FILTER_MULTIMAP_NMAX: 200
-  #outSAMtype: "BAM SortedByCoordinate"
-  quantMode: "GeneCounts TranscriptomeSAM"
-  sjdbOverhang: 100
+  
+  # Input / Output
+  OUT_SAM_TYPE: "BAM SortedByCoordinate"
   readFilesCommand: "zcat"
-  limitSjdbInsertNsj: 1000000
-  MULTIMAP_SCORE_RANGE: 1
-  FILTER_MISMATCH: 0.04
   ADDITIONAL_OUTPUT: ""
+  quantMode: "GeneCounts TranscriptomeSAM"
+  # Alignment Filters
+  OUT_FILTER_TYPE: "BySJout"
+  OUT_FILTER_MULTIMAP_NMAX: 200           
+  OUT_FILTER_MISMATCH_NMAX: 999           
+  OUT_FILTER_MISMATCH_NOVER_LMAX: 0.04    
+  MULTIMAP_SCORE_RANGE: 1
+  # Alignment Splicing/Introns
+  ALIGN_SJ_OVERHANG_MIN: 8                
+  ALIGN_SJDB_OVERHANG_MIN: 1
+  ALIGN_INTRON_MIN: 20
+  ALIGN_INTRON_MAX: 1000000
+  ALIGN_MATES_GAP_MAX: 1000000
+  # Additional Parameters
+  sjdbOverhang: 100
+  limitSjdbInsertNsj: 1000000
   INDEX:
     GRCh: "/home/reference_data/bioinfotree/task/gencode/dataset/hsapiens/46/GRCh38.p14.star_index/2.7.11b"
     CHM: "/home/reference_data/bioinfotree/task/gencode/dataset/hsapiens/T2T-CHM13v2.0/GCF_009914755.1_T2T-CHM13v2.0.star_index/2.7.11a"

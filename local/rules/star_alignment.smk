@@ -1,4 +1,4 @@
-
+#TODO: disconnected from the rules below, check if still needed
 def choose_fastq_according_to_genome(wildcards, mate):
     sample = wildcards['sample']  # Definisce 'sample' usando 'wildcards'
     if config['GENCODE']['ASSEMBLY'] == "GRCh":
@@ -17,89 +17,81 @@ elif config["LAYOUT"] == "PAIRED":
 
 rule star_align_se:
     input:
-        fq1 = "fastq/{sample}_R1.fastq.gz",
-        idx = config['STAR']['INDEX']['GRCh'],
-    output:
-        aln="star/{sample}.bam",
-        log="star/{sample}.Log.out",
-        sj="star/{sample}.SJ.out.tab",
-    threads: config["CORES"]
-    conda: "transcript_env.yaml"
-    params:
-        genome_dir = input.idx,
-        tmpdir="star/{sample}",
-        out_sam_type = config["STAR"]["OUT_SAM_TYPE"],
-        out_filter_multimap_nmax = config["STAR"]["OUT_FILTER_MULTIMAP_NMAX"],
-        out_filter_multimap_score_range = config["STAR"]["MULTIMAP_SCORE_RANGE"],
-        filter_mismatch = config["STAR"]["FILTER_MISMATCH"],
-        additional_output = config["STAR"]["ADDITIONAL_OUTPUT"]
-    shell:
-        """
-        mkdir -p {params.tmpdir};
-        STAR \
-            --genomeDir {params.genome_dir} \
-            --genomeLoad LoadAndKeep \
-            --runThreadN {threads} \
-            --readFilesIn {input.fq1} \
-            --readFilesCommand zcat \
-            --outFileNamePrefix star/{wildcards.sample}. \
-            --outTmpDir {params.tmpdir}/STARtmp \
-            --outSAMtype {params.out_sam_type} \
-            --limitBAMsortRAM 10000000000 \
-            --outSAMunmapped Within \
-            --outFilterMultimapNmax {params.out_filter_multimap_nmax} \
-            --outFilterMultimapScoreRange {params.out_filter_multimap_score_range} \
-            {params.filter_mismatch} \
-            {params.additional_output}
-        """
-
-rule star_align_pe:
-    input:
-        fq1 = "fastq/{sample}_R1.fastq.gz",
-        fq2 = "fastq/{sample}_R2.fastq.gz",
-        idx = config['STAR']['INDEX']['GRCh'],
+        fq1 = "fastq/fastq_trimmed/{sample}_R1.fastq.gz",
+        idx = config['STAR']['INDEX'][config['GENCODE']['ASSEMBLY']]
     output:
         aln = "star/{sample}.bam",
         log = "star/{sample}.Log.out",
-        sj ="star/{sample}.SJ.out.tab",
-        # Uncomment the next line if you want to handle unmapped reads
-        unmapped=["star/unmapped/{sample}_unmapped_R1.fastq.gz", "star/unmapped/{sample}_unmapped_R2.fastq.gz"],
-        #unmapped read filtered after, sice by default STAR report as unmapped partially mapped (i.e. mapped only one mate of a paired end read)
-        log_final="star/{sample}.Log.final.out"
+        sj  = "star/{sample}.SJ.out.tab",
+        unmapped = "star/unmapped/{sample}_unmapped.fastq.gz",
+        log_final = "star/{sample}.Log.final.out"
     log:
-        "star/{sample}.log",
+        "star/{sample}.log"
+    threads: config["CORES"]
     conda: "transcript_env.yaml"
     params:
-        extra=lambda wildcards: f"--outSAMtype BAM SortedByCoordinate --outSAMunmapped Within --chimOutType WithinBAM {config['STAR']['OPTIONS']}",
-    threads: 16,
+        extra = lambda wildcards: (
+            f"--outTmpDir star/{wildcards.sample}/STARtmp "
+            f"--outSAMtype {config['STAR']['OUT_SAM_TYPE']} "
+            f"--limitBAMsortRAM 10000000000 "
+            f"--genomeLoad LoadAndKeep "
+            f"--chimOutType WithinBAM "
+            f"--outSAMunmapped None "      
+            f"--outReadsUnmapped Fastx "  
+            f"--outFilterMultimapNmax {config['STAR']['OUT_FILTER_MULTIMAP_NMAX']} "
+            f"--outFilterMultimapScoreRange {config['STAR']['MULTIMAP_SCORE_RANGE']} "
+            f"--outFilterMismatchNoverReadLmax {config['STAR']['OUT_FILTER_MISMATCH_NOVER_LMAX']} "
+            f"--alignSJoverhangMin {config['STAR']['ALIGN_SJ_OVERHANG_MIN']} "
+            f"--alignSJDBoverhangMin {config['STAR']['ALIGN_SJDB_OVERHANG_MIN']} "
+            f"--alignIntronMin {config['STAR']['ALIGN_INTRON_MIN']} "
+            f"--alignIntronMax {config['STAR']['ALIGN_INTRON_MAX']} "
+            f"--alignMatesGapMax {config['STAR']['ALIGN_MATES_GAP_MAX']} "
+            f"{config['STAR']['ADDITIONAL_OUTPUT']}"
+        )
     wrapper:
         "v3.3.6/bio/star/align"
 
-#rule star_pe_multi:
-#    input:
-#        fq1 = "fastq/{sample}_R1.fastq.gz",
-#        fq2 = "fastq/{sample}_R2.fastq.gz",
-#        idx = config['STAR']['INDEX']['GRCh'],
-#    output:
-#        aln = "star/{sample}.bam",
-#        log = "star/{sample}.Log.out",
-#        sj = "star/{sample}.SJ.out.tab",
-        # Uncomment the next line if you want to handle unmapped reads
-        # unmapped=["star/unmapped/{sample}_R1.fastq.gz", "star/unmapped/{sample}_R2.fastq.gz"],
-        # unmapped read filtered after, sice by default STAR report as unmapped partially mapped (i.e. mapped only one mate of a paired end read)
-#    log:
-#        "star/{sample}.log",
-#    params:
-#        extra=lambda wildcards: f"--outSAMtype BAM SortedByCoordinate --outSAMunmapped Within --chimOutType WithinBAM {config['STAR']['OPTIONS']}",
-#    threads: config["CORES"],
-#    wrapper:
-#        "v3.3.6/bio/star/align"
+rule star_align_pe:
+    input:
+        fq1 = "fastq/fastq_trimmed/{sample}_R1.fastq.gz",
+        fq2 = "fastq/fastq_trimmed/{sample}_R2.fastq.gz",
+        idx = config['STAR']['INDEX'][config['GENCODE']['ASSEMBLY']]
+    output:
+        aln = "star/{sample}.bam",
+        log = "star/{sample}.Log.out",
+        sj  = "star/{sample}.SJ.out.tab",
+        unmapped = ["star/unmapped/{sample}_unmapped_R1.fastq.gz", 
+                    "star/unmapped/{sample}_unmapped_R2.fastq.gz"],
+        log_final = "star/{sample}.Log.final.out"
+    log:
+        "star/{sample}.log"
+    conda: 
+        "transcript_env.yaml"
+    threads: 16
+    params:
+        extra = lambda wildcards: (
+            f"--outTmpDir star/{wildcards.sample}/STARtmp "
+            f"--outSAMtype {config['STAR']['OUT_SAM_TYPE']} "
+            f"--chimOutType WithinBAM "
+            f"--outReadsUnmapped Fastx " 
+            f"--outFilterMultimapNmax {config['STAR']['OUT_FILTER_MULTIMAP_NMAX']} "
+            f"--outFilterMismatchNoverReadLmax {config['STAR']['OUT_FILTER_MISMATCH_NOVER_LMAX']} "
+            f"--alignSJoverhangMin {config['STAR']['ALIGN_SJ_OVERHANG_MIN']} "
+            f"--alignSJDBoverhangMin {config['STAR']['ALIGN_SJDB_OVERHANG_MIN']} "
+            f"--alignIntronMin {config['STAR']['ALIGN_INTRON_MIN']} "
+            f"--alignIntronMax {config['STAR']['ALIGN_INTRON_MAX']} "
+            f"--alignMatesGapMax {config['STAR']['ALIGN_MATES_GAP_MAX']} "
+            f"{config['STAR']['ADDITIONAL_OUTPUT']}"
+        )
+    wrapper:
+        "v3.3.6/bio/star/align"
+
 
 rule link_unmapped:
     input:
         "star/{sample}_unmapped_R{mate}.fastq.gz"
     output:
-        "fastq/unmapped/{sample}_unmapped_R{mate}.fastq.gz" # I added _unmapped
+        "fastq/unmapped/{sample}_unmapped_R{mate}.fastq.gz"
     shell:
         "ln {input} {output}"
 
@@ -164,7 +156,7 @@ rule star_align_first_pass:
             ]
             if config["LAYOUT"] == "PAIRED"
             else [
-                f"fastq/fastq_trimmed/{wc.sample}.fastq.gz"
+                f"fastq/fastq_trimmed/{wc.sample}_R1.fastq.gz"
             ]
         ),
         idx=lambda wc: config['STAR']['INDEX']['GRCh'],
@@ -222,7 +214,7 @@ rule star_second_pass:
             ]
             if config["LAYOUT"] == "PAIRED"
             else [
-                f"fastq/fastq_trimmed/{wc.sample}.fastq.gz"
+                f"fastq/fastq_trimmed/{wc.sample}_R1.fastq.gz"
             ]
         ),
         idx=config['STAR']['INDEX']['GRCh'],
@@ -267,7 +259,7 @@ rule star_twopass_basic_se:
     4. Re-maps reads using updated junctions (2nd pass)
     """
     input:
-        fq = lambda wc: f"fastq/fastq_trimmed/{wc.sample}.fastq.gz",
+        fq = lambda wc: f"fastq/fastq_trimmed/{wc.sample}_R1.fastq.gz",
         idx = config['STAR']['INDEX']['GRCh'],
     output:
         bam        = "star_2pass/{sample}/Aligned.sortedByCoord.out.bam",

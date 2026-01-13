@@ -36,6 +36,9 @@ configfile: "config.yaml"
 ############
 
 SAMPLES, = glob_wildcards("fastq/{sample}_R1.fastq.gz")
+EXCLUDE_DIRS = ['fastq_trimmed', 'unmapped', 'unclassified', 'ribo.ex']
+SAMPLES = [s for s in SAMPLES if not any(s.startswith(d) or f'/{d}/' in s for d in EXCLUDE_DIRS)]
+
 print("Detected samples:", SAMPLES)
 RAW_DATA_DIR = "fastq/"
 
@@ -132,7 +135,7 @@ rule all_multiqc:
 
 rule all_fastq_trimmed:
     input:
-        expand("fastq/fastq_trimmed/{sample}_R1.fastq.gz",sample=SAMPLES)
+        expand("fastq/fastq_trimmed//{sample}_R1.fastq.gz",sample=SAMPLES)
 
 rule ALL_infer_experiment:
     input: 

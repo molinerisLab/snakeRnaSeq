@@ -1,0 +1,58 @@
+channels:
+  - molinerislab  # Required for tools like bawk, matrix_reduce, etc.
+  - conda-forge
+  - bioconda
+  - defaults
+
+dependencies:
+  # Core Python and utilities
+  - python=3.12
+  - pip
+  - pysam           # Required for split_bam.py
+  - bx-python       # Often required for bed/interval manipulations
+
+  # Quality control and trimming
+  - fastp
+  - fastqc          # Used in qc.smk
+  - multiqc         # Used in qc.smk to aggregate reports
+  - trim-galore     # Used in trim.smk
+  - rseqc           # Used in rseqc.smk (infer_experiment.py, etc.)
+
+  # Alignment tools
+  - star
+  - samtools
+  - sambamba
+
+  # Quantification tools
+  - subread         # Required for featureCounts (used in count.smk)
+  - salmon
+  - kallisto
+  - stringtie
+
+  # R and packages
+  - r-base=4.3
+  - r-tidyverse
+  - r-optparse
+  # Bioconductor packages for DGE.smk and count.smk (CPM calculations)
+  - bioconductor-edger
+  - bioconductor-deseq2
+  - bioconductor-limma
+  - bioconductor-biobase  # Required for ExpressionSet manipulation in R scripts
+
+  # Custom Data Manipulation Tools (from molinerislab channel)
+  # These are used extensively in shell commands (e.g., matrix_reduce, bawk)
+  - tabular_data_manipulation
+  - symbol_count
+  - matrix2tab
+  - matrix_reduce
+  - filter_1col
+  - bawk
+  - translate
+  - transpose
+  - bsort
+  - find_best
+  - tab2xlsx
+
+  # Alternative splicing analysis
+  - pip:
+      - spladder

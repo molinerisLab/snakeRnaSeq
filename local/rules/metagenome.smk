@@ -265,19 +265,20 @@ rule filbraken:
 
 rule megahit_assembly:
     input:
-        "unclassified/fastq/{sample}_unclassified.fastq"
+        "fastq/unmapped/{sample}_unmapped.fastq.gz"
     output:
-        assembly="Megahit/{sample}_assembly/final.contigs.fa"
+        assembly="Megahit/{sample}_assembly/final.contigs.fa",
+        # We track the directory so Snakemake knows it is an output
+        split_dir=directory("Megahit/{sample}_assembly/split_fasta")
     params:
         outdir="Megahit/{sample}_assembly",
-        memory=0.1
     threads: 8
     shell:
         """
-        mkdir -p Megahit
-        megahit -r {input} -m {params.memory} -o {params.outdir} -t {threads} --preset meta-sensitive --keep-tmp
-        mkdir -p {params.outdir}/split_fasta
-        split -l 20 -d --additional-suffix=.fa {output.assembly} {params.outdir}/split_fasta/contigs_
+        rm -rf {params.outdir}
+        megahit -r {input}  -o {params.outdir} -t {threads} --preset meta-sensitive --keep-tmp
+        mkdir -p {output.split_dir}
+        seqkit split {output.assembly} -p 20 -O {output.split_dir}
         """
 
 #################################

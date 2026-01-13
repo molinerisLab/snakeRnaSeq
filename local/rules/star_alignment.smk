@@ -35,7 +35,6 @@ rule star_align_se:
     conda: "transcript_env.yaml"
     params:
         extra = lambda wildcards: (
-            f"--outTmpDir star/{wildcards.sample}/STARtmp "
             f"--outSAMtype {config['STAR']['OUT_SAM_TYPE']} "
             f"--limitBAMsortRAM 10000000000 "
             f"--genomeLoad LoadAndKeep "
@@ -77,7 +76,6 @@ rule star_align_pe:
     threads: 16
     params:
         extra = lambda wildcards: (
-            f"--outTmpDir star/{wildcards.sample}/STARtmp "
             f"--outSAMtype {config['STAR']['OUT_SAM_TYPE']} "
             f"--chimOutType WithinBAM "
             f"--outFilterMultimapNmax {config['STAR']['OUT_FILTER_MULTIMAP_NMAX']} "

@@ -30,9 +30,9 @@ TRIMMER: "fastp"  # fastp | trim_galore
 
 GENCODE:
   SPECIES: "hsapiens"      # hsapiens | mmusculus | mmusculus_hsapiens_combined
-  VERSION: "37"            # 32 | M23
+  VERSION: "29"            # 32 | M23
   GENOME: "GRCh38.primary_assembly" # GRCh38.primary_assembly | GRCm38.primary_assembly
-  ASSEMBLY: "GRCh"
+  ASSEMBLY: "M29"
   ANNOTATION: "basic.annotation" # primary_assembly.annotation | basic.annotation
 
 # ========================
@@ -66,7 +66,7 @@ STAR:
   INDEX:
     GRCh: "/home/reference_data/bioinfotree/task/gencode/dataset/hsapiens/46/GRCh38.p14.star_index/2.7.11b"
     CHM: "/home/reference_data/bioinfotree/task/gencode/dataset/hsapiens/T2T-CHM13v2.0/GCF_009914755.1_T2T-CHM13v2.0.star_index/2.7.11a"
-    M29: "/home/reference_data/bioinfotree/task/gencode/dataset/mmusculus/M29/GRCm39.primary_assembly.star_index/2.7.11aS"
+    M29: "/home/reference_data/bioinfotree/task/gencode/dataset/mmusculus/M29/GRCm39.primary_assembly.star_index/2.7.11a"
 
 # ========================
 # TRIMMING

@@ -83,7 +83,6 @@ transcriptome_fasta_path = f"{config['REFERENCE_DIR']}/gencode.v{config['GENCODE
 if os.path.exists("Snakefile_versioned.sk"):
     include: "Snakefile_versioned.sk"
 
-incklude: "../../local/rules/setup.smk" #DONE
 include: "../../local/rules/alignment_post.smk" #DONE
 include: "../../local/rules/utils.smk" #DONE
 include: "../../local/rules/qc.smk" #DONE

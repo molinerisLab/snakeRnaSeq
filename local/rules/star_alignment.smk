@@ -23,7 +23,11 @@ rule star_align_se:
         aln = "star/{sample}.bam",
         log = "star/{sample}.Log.out",
         sj  = "star/{sample}.SJ.out.tab",
-        unmapped = "star/unmapped/{sample}_unmapped.fastq.gz",
+        unmapped = (
+            "star/unmapped/{sample}_unmapped_R1.fastq.gz"
+            if config['STAR']['SAVE_UNMAPPED'] == "FASTQ" 
+            else []
+        ),
         log_final = "star/{sample}.Log.final.out"
     log:
         "star/{sample}.log"
@@ -35,9 +39,7 @@ rule star_align_se:
             f"--outSAMtype {config['STAR']['OUT_SAM_TYPE']} "
             f"--limitBAMsortRAM 10000000000 "
             f"--genomeLoad LoadAndKeep "
-            f"--chimOutType WithinBAM "
-            f"--outSAMunmapped None "      
-            f"--outReadsUnmapped Fastx "  
+            f"--chimOutType WithinBAM "   
             f"--outFilterMultimapNmax {config['STAR']['OUT_FILTER_MULTIMAP_NMAX']} "
             f"--outFilterMultimapScoreRange {config['STAR']['MULTIMAP_SCORE_RANGE']} "
             f"--outFilterMismatchNoverReadLmax {config['STAR']['OUT_FILTER_MISMATCH_NOVER_LMAX']} "
@@ -47,6 +49,7 @@ rule star_align_se:
             f"--alignIntronMax {config['STAR']['ALIGN_INTRON_MAX']} "
             f"--alignMatesGapMax {config['STAR']['ALIGN_MATES_GAP_MAX']} "
             f"{config['STAR']['ADDITIONAL_OUTPUT']}"
+            f"{'--outReadsUnmapped Fastx --outSAMunmapped None' if config['STAR']['SAVE_UNMAPPED'] == 'FASTQ' else '--outSAMunmapped Within'}"
         )
     wrapper:
         "v3.3.6/bio/star/align"
@@ -60,8 +63,12 @@ rule star_align_pe:
         aln = "star/{sample}.bam",
         log = "star/{sample}.Log.out",
         sj  = "star/{sample}.SJ.out.tab",
-        unmapped = ["star/unmapped/{sample}_unmapped_R1.fastq.gz", 
-                    "star/unmapped/{sample}_unmapped_R2.fastq.gz"],
+        unmapped = (
+            ["star/unmapped/{sample}_unmapped_R1.fastq.gz", 
+             "star/unmapped/{sample}_unmapped_R2.fastq.gz"]
+            if config['STAR']['SAVE_UNMAPPED'] == "FASTQ" 
+            else []
+        ),
         log_final = "star/{sample}.Log.final.out"
     log:
         "star/{sample}.log"
@@ -73,7 +80,6 @@ rule star_align_pe:
             f"--outTmpDir star/{wildcards.sample}/STARtmp "
             f"--outSAMtype {config['STAR']['OUT_SAM_TYPE']} "
             f"--chimOutType WithinBAM "
-            f"--outReadsUnmapped Fastx " 
             f"--outFilterMultimapNmax {config['STAR']['OUT_FILTER_MULTIMAP_NMAX']} "
             f"--outFilterMismatchNoverReadLmax {config['STAR']['OUT_FILTER_MISMATCH_NOVER_LMAX']} "
             f"--alignSJoverhangMin {config['STAR']['ALIGN_SJ_OVERHANG_MIN']} "
@@ -82,6 +88,7 @@ rule star_align_pe:
             f"--alignIntronMax {config['STAR']['ALIGN_INTRON_MAX']} "
             f"--alignMatesGapMax {config['STAR']['ALIGN_MATES_GAP_MAX']} "
             f"{config['STAR']['ADDITIONAL_OUTPUT']}"
+            f"{'--outReadsUnmapped Fastx --outSAMunmapped None' if config['STAR']['SAVE_UNMAPPED'] == 'FASTQ' else '--outSAMunmapped Within'}"
         )
     wrapper:
         "v3.3.6/bio/star/align"

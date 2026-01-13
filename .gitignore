@@ -1,2 +1,6 @@
 dataset/*
 local/env/conda
+.envrc
+*.sif
+*.simg
+local/container/

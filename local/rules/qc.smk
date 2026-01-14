@@ -5,7 +5,7 @@
 rule fastqc:
     """Run FastQC on raw sequencing reads."""
     input:
-        "fastq/{sample}.fastq.gz"
+        "fastq/{sample}_R1.fastq.gz"
     output:
         html="fastqc/{fastq_filtering}/{sample}_{read}_fastqc.html",
         zip="fastqc/{fastq_filtering}/{sample}_{read}_fastqc.zip"

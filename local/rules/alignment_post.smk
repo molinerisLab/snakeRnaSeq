@@ -18,9 +18,9 @@ rule bam2cram:
 rule get_bai:
     """Index a BAM file to create a .bai file."""
     input: 
-        "{file}.bam"
+        "star/{file}.bam"
     output: 
-        "{file}.bam.bai"
+        "star/{file}.bam.bai"
     shell: 
         "samtools index {input}"
 

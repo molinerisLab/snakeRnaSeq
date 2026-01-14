@@ -86,15 +86,15 @@ transcriptome_fasta_path = f"{config['REFERENCE_DIR']}/gencode.v{config['GENCODE
 if os.path.exists("Snakefile_versioned.sk"):
     include: "Snakefile_versioned.sk"
 
-include: "../../local/rules/alignment_post.smk" #DONE
-include: "../../local/rules/utils.smk" #DONE
-include: "../../local/rules/qc.smk" #DONE
-include: "../../local/rules/trim.smk" #DONE
-include: "../../local/rules/star_alignment.smk" #DONE
-include: "../../local/rules/bwa_alignment.smk" #DONE
+include: "../../local/rules/alignment_post.smk" 
+include: "../../local/rules/utils.smk" 
+include: "../../local/rules/qc.smk" 
+include: "../../local/rules/trim.smk" 
+include: "../../local/rules/star_alignment.smk" 
+include: "../../local/rules/bwa_alignment.smk" 
 include: "../../local/rules/count.smk"
-include: "../../local/rules/rseqc.smk" #DONE
-include: "../../local/rules/DGE.smk" #DONE
+include: "../../local/rules/rseqc.smk" 
+include: "../../local/rules/DGE.smk" 
 include: "../../local/rules/venn_heatmap.smk"
 include: "../../local/rules/metagenome.smk"
 include: "../../local/rules/Isoforms.smk"

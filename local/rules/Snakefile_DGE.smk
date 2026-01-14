@@ -204,13 +204,6 @@ rule tab2xlsx:
     shell: 
         "cat < {input} | tab2xlsx > {output}"
 
-rule gz2xlsx:
-    input: 
-        "{file}.gz"
-    output: 
-        "{file}.xlsx"
-    shell: 
-        "zcat < {input} | tab2xlsx > {output}"
 
 rule add_header:
     input: 

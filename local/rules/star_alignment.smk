@@ -1,12 +1,3 @@
-#TODO: disconnected from the rules below, check if still needed
-def choose_fastq_according_to_genome(wildcards, mate):
-    sample = wildcards['sample']  # Definisce 'sample' usando 'wildcards'
-    if config['GENCODE']['ASSEMBLY'] == "GRCh":
-        return f"fastq/{sample}_R{mate}_001.fastq.gz"
-    # elif wildcards['genome'] == "CHM":
-    #     return f"star_GRCh/{sample}_unmapped_R{mate}.fastq.gz"
-    else:
-        raise Exception(f"Genome not valid: {config['GENOME']}")
 
 if config["LAYOUT"] == "SINGLE":
      ruleorder: generate_unmapped_single > generate_unmapped_R1

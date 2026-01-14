@@ -12,7 +12,6 @@ TMPDIR: "/mnt/nvme_raid0/tmp"
 CORES: 6
 DOCKER_DATA_DIR: "/home"
 RAW_DATA_DIR: "fastq"                             # Unified fastq location
-OUTPUT_DIR: "/home/aleone/snakeRnaSeq/dataset/v1"  # Unified output location
 
 # ========================
 # EXPERIMENT INFO
@@ -29,8 +28,8 @@ TRIMMER: "fastp"  # fastp | trim_galore
 # ========================
 
 GENCODE:
-  SPECIES: "hsapiens"      # hsapiens | mmusculus | mmusculus_hsapiens_combined
-  VERSION: "29"            # 32 | M23
+  SPECIES: "mmusculus"      # hsapiens | mmusculus | mmusculus_hsapiens_combined
+  VERSION: "M27"            # 32 | M23
   GENOME: "GRCh38.primary_assembly" # GRCh38.primary_assembly | GRCm38.primary_assembly
   ASSEMBLY: "M29"
   ANNOTATION: "basic.annotation" # primary_assembly.annotation | basic.annotation
@@ -185,8 +184,6 @@ CONTAMINANT_INFO:
 REFERENCE_DIR: "/home/reference_data/bioinfotree/task/gencode/dataset/hsapiens"
 GENOME_ASSEMBLY: "GRCh38.p14"
 GENCODE_RELEASE: "46"
-
-GENOME_VERSION: GRCh38.p14
 
 VERSION: "46"
 

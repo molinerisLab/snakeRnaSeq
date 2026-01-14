@@ -1,4 +1,4 @@
-use-singularity: False
+use-singularity: True
 cores: 8
 keep-going: True
 singularity-args: "-B /home/nobackup/molinerislab/Isella/FASTQ/ \

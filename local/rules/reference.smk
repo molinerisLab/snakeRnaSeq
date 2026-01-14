@@ -10,7 +10,7 @@ FTP_PREFIX="http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_" + config["SPECI
 
 #rule all:
 #	input:
-#		config["GENOME_VERSION"]+".primary_assembly.genome.fa",
+#		config["GENOME_ASSEMBLY"]+".primary_assembly.genome.fa",
 #		"primary_assembly.annotation.gtf",
 #		"basic.annotation.gtf",
 #		"rseqc.HouseKeepingGenes.bed.gz",
@@ -20,12 +20,12 @@ FTP_PREFIX="http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_" + config["SPECI
 
 rule all_reference:
   input:
-    config["GENOME_VERSION"]+".primary_assembly.genome.fa",
+    config["GENOME_ASSEMBLY"]+".primary_assembly.genome.fa",
     "basic.annotation.gtf.gz",
     "primary_assembly.annotation.gtf.gz",
     "rseqc.HouseKeepingGenes.bed.gz",
     "primary_assembly.annotation.rRNA_complete.bed",
-    config["GENOME_VERSION"]+".primary_assembly.star_index/"+config["STAR_VERSION"]+"/SA"
+    config["GENOME_ASSEMBLY"]+".primary_assembly.star_index/"+config["STAR_VERSION"]+"/SA"
 
 
 #rule print_config:
@@ -60,9 +60,9 @@ rule all_reference:
 # Generate the zipped file
 rule wget_fa_gz:
     output:
-        config["GENOME_VERSION"]+".primary_assembly.genome.fa.gz"
+        config["GENOME_ASSEMBLY"]+".primary_assembly.genome.fa.gz"
     shell:
-        "wget -O {output} -c "+FTP_PREFIX+config["GENOME_VERSION"]+".primary_assembly.genome.fa.gz"
+        "wget -O {output} -c "+FTP_PREFIX+config["GENOME_ASSEMBLY"]+".primary_assembly.genome.fa.gz"
 
 # Unzip the file
 rule gunzip_fa:
@@ -83,7 +83,7 @@ rule annotation:
 # Generate this file :$(HSAPIENS_VERSION)/rseqc.HouseKeepingGenes.bed.gz and $(MMUSCULUS_VERSION)/rseqc.HouseKeepingGenes.bed.gz
 rule reseqc_HouseKeepingGenes:
     input:
-        "../../../local/share/data/rseqc.HouseKeepingGenes."+config["GENOME_VERSION"]+".bed.gz"
+        "../../../local/share/data/rseqc.HouseKeepingGenes."+config["GENOME_ASSEMBLY"]+".bed.gz"
     output:
         "rseqc.HouseKeepingGenes.bed.gz"
     shell:
@@ -171,10 +171,10 @@ rule repeat_rmsk_bed_gz: #This rule wor with awk
 
 rule star_index:
 	input:
-		genome=config["GENOME_VERSION"]+".primary_assembly.genome.fa",
+		genome=config["GENOME_ASSEMBLY"]+".primary_assembly.genome.fa",
 		annot="primary_assembly.annotation.gtf"
 	output:
-		config["GENOME_VERSION"]+".primary_assembly.star_index/{STAR_VERSION}/SA"
+		config["GENOME_ASSEMBLY"]+".primary_assembly.star_index/{STAR_VERSION}/SA"
 	threads: 12
 	shell:"""
 		#STAR_VERSION=$(STAR --version 2>/dev/null);\

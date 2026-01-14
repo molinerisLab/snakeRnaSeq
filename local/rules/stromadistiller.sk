@@ -12,3 +12,32 @@ rule featurecounts_mouse:
 		perl -lne 'print if $.==2 || s/^M_//' {input} > {output}
 	"""
 	#there are 2 header row in the input file, we discard the first
+
+
+def featurecounts_input(wildcards):
+	#retval=[]
+	for sample in SAMPLES:
+		yield("BAM/{s}.bam".format(s=sample, w=wildcards))
+
+
+rule featurecounts:
+	input: 
+		featurecounts_input
+	output: 
+		counts="{fastq_filtering}.featurecounts",
+		summary="{fastq_filtering}.featurecounts.summary"
+	params: 
+		gtf = REFERENCE_COUNT_GTF,
+		params = FEATURECOUNTS_PARAM,
+		TMPDIR = TMPDIR
+	threads: 12
+	shell:"""
+		featureCounts -o {output.counts} -a {params.gtf} {params.params} --tmpDir {params.TMPDIR} -T {threads} {input}
+	"""
+
+rule featurecounts_H_or_M:
+	input: "{fastq_filtering}.featurecounts"
+	output: "{fastq_filtering}.featurecounts.{species_HM}"
+	shell:"""
+		perl -lane 'BEGIN{{$,="\\t"}} print if $.<=2; if($F[0] =~ s/^{wildcards.species_HM}_//){{ $F[1]=~s/^{wildcards.species_HM}//; $F[1]=~s/;{wildcards.species_HM}/;/g;  print @F}}' {input} > {output}
+	"""

@@ -141,27 +141,36 @@ rule multiqc_fastq:
 # -------------- #
 
 rule star_index:
-	input:
-		genome_fasta=GENCODE_GENOME_FASTA,
-		annotation_gff=GENCODE_ANNOTATION_GTF
+    input:
+        genome_fasta = GENCODE_GENOME_FASTA,
+        annotation_gff = GENCODE_ANNOTATION_GTF
+    output:
+        expand(
+            STAR_GENOME_DIR + "/{f}",
+            f=[
+                "Genome",
+                "SA",
+                "SAindex",
+                "chrLength.txt",
+                "genomeParameters.txt"
+            ]
+        )
+    threads: config["CORES"]
+    params:
+        genome_dir = STAR_GENOME_DIR,
+        sjdb_overhang = config["SJDB"]
+    shell:
+        """
+        mkdir -p {params.genome_dir}
+        STAR \
+          --runThreadN {threads} \
+          --runMode genomeGenerate \
+          --genomeDir {params.genome_dir} \
+          --genomeFastaFiles {input.genome_fasta} \
+          --sjdbGTFfile {input.annotation_gff} \
+          --sjdbOverhang {params.sjdb_overhang}
+        """
 
-	output:
-		touch(STAR_GENOME_DIR+"/SA")
-	params:
-		threads=config["CORES"],
-		genome_dir=STAR_GENOME_DIR,
-		genome_fasta=GENCODE_GENOME_FASTA,
-		annotation_gff=GENCODE_ANNOTATION_GTF,
-		star_index_params=config["SJDB"]
-	shell: """
-		mkdir -p {params.genome_dir};
-		STAR --runThreadN {params.threads} \
-			--runMode genomeGenerate \
-			--genomeDir {params.genome_dir} \
-			--genomeFastaFiles {input.genome_fasta} \
-			--sjdbGTFfile {input.annotation_gff} \
-			--sjdbOverhang {params.star_index_params} ;
-		"""
 
 rule ALL_star:
 	input:
@@ -188,28 +197,63 @@ rule ALL_star:
 
 rule star_align_pe:
     input:
-        fq1 = config['FASTQ_FILTERING'] + "/{sample}_R1.fastq.gz",
-        fq2 = config['FASTQ_FILTERING'] + "/{sample}_R2.fastq.gz"
+        fq1 = config["FASTQ_FILTERING"] + "/{sample}_R1.fastq.gz",
+        fq2 = config["FASTQ_FILTERING"] + "/{sample}_R2.fastq.gz",
     output:
-        aln = "star/{sample}.bam",
-        log = "star/{sample}.Log.out",
-        sj  = "star/{sample}.SJ.out.tab"
-    threads: config["CORES"]
+        aln       = "star/{sample}.bam",
+        log       = "star/{sample}.Log.out",
+        log_final = "star/{sample}.Log.final.out",
+        sj        = "star/{sample}.SJ.out.tab",
+    threads: config.get("STAR", {}).get("THREADS", min(int(config.get("CORES", 1)), 2))
     params:
         genome_dir = STAR_GENOME_DIR,
-        tmpdir = config["TMPDIR"] + "/star_{sample}"
+        tmpdir = config["TMPDIR"] + "/star_{sample}",
+        out_sam_type = config["STAR"]["OUT_SAM_TYPE"],
+        out_filter_multimap_nmax = config["STAR"]["OUT_FILTER_MULTIMAP_NMAX"],
+        out_filter_multimap_score_range = config["STAR"]["MULTIMAP_SCORE_RANGE"],
+        filter_mismatch = config["STAR"]["FILTER_MISMATCH"],
+        additional_output = config["STAR"]["ADDITIONAL_OUTPUT"],
+        bam_sort_ram = config.get("STAR", {}).get("BAMSORT_RAM", 10_000_000_000),
     shell:
         r"""
-        mkdir -p {params.tmpdir}
+        set -euo pipefail
+
+        mkdir -p "{params.tmpdir}" star
+        run_temp="$(mktemp -d -p "{params.tmpdir}" "{wildcards.sample}.XXXXXX")"
+
+        success=0
+        cleanup() {{
+            if [[ "$success" -eq 1 ]]; then
+                rm -rf -- "$run_temp"
+            else
+                echo "STAR failed; keeping temp dir for debugging: {params.tmpdir}" >&2
+                echo "Run dir: $run_temp" >&2
+            fi
+        }}
+        trap cleanup EXIT
+
         STAR \
-            --genomeDir {params.genome_dir} \
+            --genomeDir "{params.genome_dir}" \
             --runThreadN {threads} \
-            --readFilesIn {input.fq1} {input.fq2} \
+            --readFilesIn "{input.fq1}" "{input.fq2}" \
             --readFilesCommand zcat \
-            --outFileNamePrefix {params.tmpdir}/{wildcards.sample}. \
-            --outSAMtype BAM SortedByCoordinate \
-            {config[STAR][OPTIONS]}
-        mv {params.tmpdir}/{wildcards.sample}.Aligned.sortedByCoord.out.bam {output.aln}
+            --outFileNamePrefix "$run_temp/{wildcards.sample}." \
+            --outTmpDir "$run_temp/{wildcards.sample}._STARtmp" \
+            --outSAMtype {params.out_sam_type} \
+            --limitBAMsortRAM {params.bam_sort_ram} \
+            --outBAMsortingThreadN 1 \
+            --outSAMunmapped Within \
+            --outFilterMultimapNmax {params.out_filter_multimap_nmax} \
+            --outFilterMultimapScoreRange {params.out_filter_multimap_score_range} \
+            {params.filter_mismatch} \
+            {params.additional_output}
+
+        mv "$run_temp/{wildcards.sample}.Aligned.sortedByCoord.out.bam" "{output.aln}"
+        mv "$run_temp/{wildcards.sample}.Log.out" "{output.log}"
+        mv "$run_temp/{wildcards.sample}.Log.final.out" "{output.log_final}"
+        mv "$run_temp/{wildcards.sample}.SJ.out.tab" "{output.sj}"
+
+        success=1
         """
 
 

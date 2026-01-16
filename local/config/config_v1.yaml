@@ -31,7 +31,7 @@ GENCODE:
   SPECIES: "mmusculus"      # hsapiens | mmusculus | mmusculus_hsapiens_combined
   VERSION: "M27"            # 32 | M23
   GENOME: "GRCh38.primary_assembly" # GRCh38.primary_assembly | GRCm38.primary_assembly
-  ASSEMBLY: "M29"
+  ASSEMBLY: "29"
   ANNOTATION: "basic.annotation" # primary_assembly.annotation | basic.annotation
 
 # ========================
@@ -59,7 +59,7 @@ STAR:
   ALIGN_INTRON_MAX: 1000000
   ALIGN_MATES_GAP_MAX: 1000000
   # Additional Parameters
-  sjdbOverhang: 100
+  sjdbOverhang: 149
   limitSjdbInsertNsj: 1000000
   SAVE_UNMAPPED: "BAM" # BAM | FASTQ 
   INDEX:
@@ -194,7 +194,6 @@ UCSC_VERSION: hg38
 #TODO: unify STAR version in config.yaml and in the rules, currently duplicated
 STAR_VERSION: 2.7.11b
 
-STAR_sjdbOverhang: 149
 
 #TODO: put them in the featurecounts section above
 # featurecounts param ---

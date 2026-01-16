@@ -81,9 +81,10 @@ rule annotation:
     shell:
         "wget -O {output} -c "+FTP_PREFIX+"gencode.v"+config["VERSION"]+".{wildcards.annotation}.gtf.gz"
 # Generate this file :$(HSAPIENS_VERSION)/rseqc.HouseKeepingGenes.bed.gz and $(MMUSCULUS_VERSION)/rseqc.HouseKeepingGenes.bed.gz
+
 rule reseqc_HouseKeepingGenes:
     input:
-        "../../../local/share/data/rseqc.HouseKeepingGenes."+config["GENOME_ASSEMBLY"]+".bed.gz"
+        GENCODE_DIR+"/rseqc.HouseKeepingGenes.bed.gz"
     output:
         "rseqc.HouseKeepingGenes.bed.gz"
     shell:
@@ -190,7 +191,7 @@ rule star_index:
 		#  exit 1\
 		#fi\
 		mkdir -p $(dirname {output});\
-		STAR --runThreadN {threads} --runMode genomeGenerate --genomeDir $(dirname {output}) --genomeFastaFiles {input.genome} --sjdbGTFfile {input.annot} --sjdbOverhang {config[STAR_sjdbOverhang]}
+		STAR --runThreadN {threads} --runMode genomeGenerate --genomeDir $(dirname {output}) --genomeFastaFiles {input.genome} --sjdbGTFfile {input.annot} --sjdbOverhang {config[STAR][sjdbOverhang]}
 	"""
 
 #baw/GRCh38.p14.primary_assembly.genome.bwtsw.sa

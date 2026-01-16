@@ -218,7 +218,7 @@ rule star_second_pass:
     output:
         bam         = "Results/pass2/{sample}/Aligned.sortedByCoord.out.bam",
         gene_counts = "Results/pass2/{sample}/ReadsPerGene.out.tab"
-    threads: 16
+    threads: 8
     conda: "transcript_env.yaml"
     params:
         out_samtype = config["STAR"]["OUT_SAM_TYPE"],
@@ -263,7 +263,7 @@ rule star_twopass_basic_se:
         gene_counts= "star_2pass/{sample}/ReadsPerGene.out.tab",
         log        = "star_2pass/{sample}/Log.out",
         log_final  = "star_2pass/{sample}/Log.final.out"
-    threads: 16
+    threads: 8
     conda: "transcript_env.yaml"
     params:
         genome_dir   = config['STAR']['INDEX']['GRCh'],
@@ -303,7 +303,7 @@ rule star_twopass_basic_pe:
         gene_counts= "star_2pass/{sample}/ReadsPerGene.out.tab",
         log        = "star_2pass/{sample}/Log.out",
         log_final  = "star_2pass/{sample}/Log.final.out"
-    threads: 16
+    threads: 8
     conda: "transcript_env.yaml"
     params:
         genome_dir   = config['STAR']['INDEX']['GRCh'],

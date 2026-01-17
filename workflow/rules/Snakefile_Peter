@@ -234,6 +234,7 @@ rule star_align_pe:
 
         STAR \
             --genomeDir "{params.genome_dir}" \
+			--genomeLoad LoadAndKeep \
             --runThreadN {threads} \
             --readFilesIn "{input.fq1}" "{input.fq2}" \
             --readFilesCommand zcat \

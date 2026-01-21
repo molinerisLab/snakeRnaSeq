@@ -174,7 +174,7 @@ rule star_index:
 
 rule ALL_star:
 	input:
-		expand("star/{sample}.bam", sample=SAMPLES)
+		expand(config["NOBACKUP"] + "/star/{sample}.bam", sample=SAMPLES)
 
 
 # rule star_pe_multi:
@@ -200,11 +200,13 @@ rule star_align_pe:
         fq1 = config["FASTQ_FILTERING"] + "/{sample}_R1.fastq.gz",
         fq2 = config["FASTQ_FILTERING"] + "/{sample}_R2.fastq.gz",
     output:
-        aln       = "star/{sample}.bam",
-        log       = "star/{sample}.Log.out",
-        log_final = "star/{sample}.Log.final.out",
-        sj        = "star/{sample}.SJ.out.tab",
-    threads: config.get("STAR", {}).get("THREADS", min(int(config.get("CORES", 1)), 2))
+        aln= config["NOBACKUP"] + "/star/{sample}.bam",
+        # aln= "star/{sample}.bam",
+        log= "star/{sample}.Log.out",
+        log_final= "star/{sample}.Log.final.out",
+        sj= "star/{sample}.SJ.out.tab",
+    # threads: config["CORES"]
+    threads: config.get("STAR", {}).get("THREADS", min(int(config.get("CORES", 1)), 4))
     params:
         genome_dir = STAR_GENOME_DIR,
         tmpdir = config["TMPDIR"] + "/star_{sample}",
@@ -213,14 +215,12 @@ rule star_align_pe:
         out_filter_multimap_score_range = config["STAR"]["MULTIMAP_SCORE_RANGE"],
         filter_mismatch = config["STAR"]["FILTER_MISMATCH"],
         additional_output = config["STAR"]["ADDITIONAL_OUTPUT"],
-        bam_sort_ram = config.get("STAR", {}).get("BAMSORT_RAM", 10_000_000_000),
+        bam_sort_ram = config.get("STAR", {}).get("BAMSORT_RAM", 10000000000), # removed
     shell:
         r"""
         set -euo pipefail
-
         mkdir -p "{params.tmpdir}" star
         run_temp="$(mktemp -d -p "{params.tmpdir}" "{wildcards.sample}.XXXXXX")"
-
         success=0
         cleanup() {{
             if [[ "$success" -eq 1 ]]; then
@@ -231,7 +231,6 @@ rule star_align_pe:
             fi
         }}
         trap cleanup EXIT
-
         STAR \
             --genomeDir "{params.genome_dir}" \
 			--genomeLoad LoadAndKeep \
@@ -248,12 +247,10 @@ rule star_align_pe:
             --outFilterMultimapScoreRange {params.out_filter_multimap_score_range} \
             {params.filter_mismatch} \
             {params.additional_output}
-
         mv "$run_temp/{wildcards.sample}.Aligned.sortedByCoord.out.bam" "{output.aln}"
         mv "$run_temp/{wildcards.sample}.Log.out" "{output.log}"
-        mv "$run_temp/{wildcards.sample}.Log.final.out" "{output.log_final}"
+		mv "$run_temp/{wildcards.sample}.Log.final.out" "{output.log_final}"
         mv "$run_temp/{wildcards.sample}.SJ.out.tab" "{output.sj}"
-
         success=1
         """
 

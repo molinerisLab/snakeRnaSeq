@@ -3,6 +3,7 @@ TMPDIR: /mnt/nvme_raid0/tmp
 CORES: 6
 CONDA_ROOT: /opt/conda/miniconda3
 DOCKER_DATA_DIR: /home
+NOBACKUP: /home/nobackup/molinerislab/mosquito/bam_saizonou
 
 
 sample: ["DA01", "DA02", "DA03", "BU01", "BU02", "BU03", "BP02", "BP03", "BP04", "KIS01", "KIS02", "KIS03", "DU01", "DU02", "DU03", "BD01", "BD02", "BD03", "DP01", "DP02", "DP03", "DD01", "DD03", "DD02"]

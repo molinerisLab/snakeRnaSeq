@@ -239,7 +239,7 @@ def get_rseqc_url(version):
 
 rule download_rseqc_housekeeping:
     output:
-        f"dataset/{VERSION}/rseqc.HouseKeepingGenes.bed.gz"
+        f"{GENCODE_DIR}/rseqc.HouseKeepingGenes.bed.gz"
     params:
         url = get_rseqc_url(VERSION)
     shell:

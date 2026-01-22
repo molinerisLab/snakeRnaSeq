@@ -79,6 +79,17 @@ rule all:
         "multiqc_report.html",
         "multiqc_report.rseqc.html",
         "usable_reads.txt.xlsx" 
+        
+rule all_isoform:
+    input:
+        # Kallisto Outputs
+        "transcripts_tpm.tsv", # The merged output
+        # StringTie Outputs
+        "stringtie/merged/merged.gtf", # The merged assembly
+        expand("stringtie/{sample}/quant/abund.tab", sample=SAMPLES),
+        "stringtie/gene_count_matrix.csv", # (See point 3 below)
+        # Spladder Outputs
+        "spladder/quantification/spladder/genes_graph_conf3.quant.pickle"
 
 rule all_multiqc:
     input:

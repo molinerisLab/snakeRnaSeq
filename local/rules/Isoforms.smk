@@ -184,9 +184,9 @@ rule stringtie_quantify:
 #################
 rule index_bam:
     input:
-        "Results/pass2_{genome}/{sample}/Aligned.sortedByCoord.out.bam"
+        "Results/pass2/{sample}/Aligned.sortedByCoord.out.bam"
     output:
-        "Results/pass2_{genome}/{sample}/Aligned.sortedByCoord.out.bam.bai"
+        "Results/pass2/{sample}/Aligned.sortedByCoord.out.bam.bai"
     threads: 1
     shell:
         "samtools index {input}"

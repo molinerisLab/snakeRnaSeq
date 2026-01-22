@@ -89,7 +89,7 @@ rule all_multiqc:
 
 rule all_fastq_trimmed:
     input:
-        expand("fastq/fastq_trimmed//{sample}_R1.fastq.gz",sample=SAMPLES)
+        expand("fastq/fastq_trimmed/{sample}_R1.fastq.gz",sample=SAMPLES)
 
 rule ALL_infer_experiment:
     input: 

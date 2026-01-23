@@ -292,3 +292,102 @@ rule sambamba_index:
             -t {threads} \
             {input}
         """
+rule majiq_gff3:
+    input:
+        gff3 = config["gff3"]
+    output:
+        sg = directory("results/majiq/builder/init_splicegraph")
+    threads: 1
+    shell:
+        """
+        majiq-build gff3 {input.gff3} \
+            --output {output.sg}
+        """
+
+
+rule majiq_sj:
+    input:
+        bam = "sambamba/{sample}.sorted.bam",
+    output:
+        sj = "results/majiq/sj/{sample}.sj"
+    params:
+        outdir = "results/majiq/sj"
+    threads: 4
+    shell:
+        """
+        majiq-build sj {input.bam} \
+            --output {params.outdir} \
+            --nproc {threads}
+        """
+
+rule majiq_build:
+    input:
+        init_sg = rules.majiq_gff3.output.sg,
+        sjs = expand("results/majiq/sj/{sample}.sj", sample=SAMPLES)
+    output:
+        final_sg = directory("results/majiq/builder/splicegraph")
+    params:
+        min_experiments = 0.5
+    threads: 8
+    shell:
+        """
+        majiq-build update {input.init_sg} {input.sjs} \
+            --output {output.final_sg} \
+            --min-experiments {params.min_experiments} \
+            --nproc {threads}
+        """
+
+rule majiq_psi_coverage:
+    input:
+        sg = rules.majiq_build.output.final_sg,
+        sj = "results/majiq/sj/{sample}.sj"
+    output:
+        cov = "results/majiq/coverage/{sample}.majiq" 
+    threads: 4
+    shell:
+        """
+        majiq psi-coverage {input.sg} {output.cov} {input.sj} \
+            --nproc {threads}
+        """
+
+rule majiq_psi:
+    input:
+        cov = "results/majiq/coverage/{sample}.majiq",
+        sg = rules.majiq_build.output.final_sg
+    output:
+        outdir = directory("results/majiq/psi/{sample}")
+    params:
+        name = "{sample}"
+    threads: 4
+    shell:
+        """
+        majiq psi {input.cov} \
+            --splicegraph {input.sg} \
+            --output {output.outdir} \
+            --name {params.name} \
+            --nproc {threads}
+        """
+
+rule majiq_deltapsi:
+    input:
+        grp1 = lambda wildcards: expand("results/majiq/coverage/{s}.majiq", 
+                                        s=config["comparisons"][wildcards.comp]["group1"]),
+        grp2 = lambda wildcards: expand("results/majiq/coverage/{s}.majiq", 
+                                        s=config["comparisons"][wildcards.comp]["group2"]),
+        sg = rules.majiq_build.output.final_sg
+    output:
+        outdir = directory("results/majiq/deltapsi/{comp}")
+    params:
+        name1 = lambda wildcards: config["comparisons"][wildcards.comp]["names"][0],
+        name2 = lambda wildcards: config["comparisons"][wildcards.comp]["names"][1]
+    threads: 4
+    shell:
+        """
+        majiq deltapsi \
+            -grp1 {input.grp1} \
+            -grp2 {input.grp2} \
+            --names {params.name1} {params.name2} \
+            --splicegraph {input.sg} \
+            --output {output.outdir} \
+            --nproc {threads}
+        """

@@ -57,7 +57,7 @@ include: "../../local/rules/Isoforms.smk"
 include: "../../local/rules/reference.smk"
   
 ###############
-# Ruleorder  #
+#   Ruleorder   #
 ###############
 
 if config["LAYOUT"] == "SINGLE":
@@ -92,6 +92,12 @@ rule all_isoform:
         "stringtie/gene_count_matrix.csv", # (See point 3 below)
         # Spladder Outputs
         "spladder/quantification/spladder/genes_graph_conf3.quant.pickle"
+
+rule all_majiq:
+    input:
+        expand("results/majiq/psi/{sample}_psi.voila", sample=SAMPLES),
+        expand("results/majiq/deltapsi/{comp}.deltapsi.tsv", comp=config["comparisons"])
+
 
 rule all_multiqc:
     input:

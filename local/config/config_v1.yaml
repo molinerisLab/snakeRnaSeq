@@ -31,7 +31,7 @@ GENCODE:
   SPECIES: "mmusculus"      # hsapiens | mmusculus | mmusculus_hsapiens_combined
   VERSION: "M27"            # 32 | M23
   GENOME: "GRCh38.primary_assembly" # GRCh38.primary_assembly | GRCm38.primary_assembly
-  ASSEMBLY: "29"
+  ASSEMBLY: "M29"
   ANNOTATION: "basic.annotation" # primary_assembly.annotation | basic.annotation
 
 # ========================
@@ -211,3 +211,15 @@ braken_level: "S"
 kraken:
   exclude_classified: True
   include_children: True
+
+
+################
+# MAJIQ CONFIG #
+################
+
+gff3: "/home/reference_data/bioinfotree/task/gencode/dataset/mmusculus/M27/GRCm39.primary_assembly.basic.annotation.gff3"
+comparisons :
+  - "WT_ND_vs_KO_ND"
+  - "WT_HFD_vs_KO_HFD"
+  - "KO_ND_vs_KO_HFD"
+  - "WT_ND_vs_WT_HFD" 

@@ -28,7 +28,7 @@ import os
 # Config  #
 ###########
 
-container: "/home/aleone/snakeRnaSeq/local/container/transcript_analysis.sif"   
+container: "library://aleone/mycontainers/snakernaseq:1.0"
 configfile: "config.yaml"
 
 

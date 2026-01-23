@@ -1,9 +1,6 @@
 use-singularity: True
 cores: 8
 keep-going: True
-singularity-args: "-B /home/nobackup/molinerislab/Isella/FASTQ/ \
-                   -B /home/reference_data/bioinfotree/task/gencode/dataset/hsapiens/46/GRCh38.p14.star_index/2.7.11b \
-                   -B /home/reference_data/bioinfotree/task/gencode/dataset/hsapiens/46/ \
-                   -B /home/reference_data/bioinfotree/
-                   -B /home/aleone/snakeRnaSeq \
-                   -B /mnt/nvme_raid0/tmp"
+singularity-args: "-B /path/to/bind1
+                   -B /path/to/bind2
+                   "

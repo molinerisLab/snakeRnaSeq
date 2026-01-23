@@ -4,7 +4,7 @@ set -e  # Exit on error
 set -u  # Exit on undefined variable
 
 # Use provided name or default to transcript_analysis.sif
-CONTAINER_NAME="${1:-transcript_analysis.sif}"
+CONTAINER_NAME="${1:-snakeRNASeq.sif}"
 
 if [ -f "${CONTAINER_NAME}" ]; then
     echo "Container already exists: ${CONTAINER_NAME}. Skipping build."

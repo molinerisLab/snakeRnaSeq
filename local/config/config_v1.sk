@@ -2,12 +2,42 @@
 # Samples  #
 ############
 
-SAMPLES, = glob_wildcards("fastq/{sample}_R1.fastq.gz")
+import glob
+import re
+import os
+
+RAW_DATA_DIR = "fastq/"
 EXCLUDE_DIRS = ['fastq_trimmed', 'unmapped', 'unclassified', 'ribo.ex']
-SAMPLES = [s for s in SAMPLES if not any(s.startswith(d) or f'/{d}/' in s for d in EXCLUDE_DIRS)]
+
+# 1. Get all fastq.gz files using standard glob
+files = glob.glob(os.path.join(RAW_DATA_DIR, "*.fastq.gz"))
+
+SAMPLES = set()
+
+for filepath in files:
+    filename = os.path.basename(filepath)
+    
+    # 2. Exclusion Logic: Skip files residing in or containing excluded terms
+    if any(d in filepath for d in EXCLUDE_DIRS):
+        continue
+
+    # 3. Regex to handle variable naming
+    # Looks for: (SampleName) + _R1 or _R2 + (optional suffix like _001) + .fastq.gz
+    match = re.search(r'(.+?)_R[12](?:_[^/]+)?\.fastq\.gz', filename)
+
+    if match:
+        # Case A: It matches the Paired-End pattern (e.g., test_R1_001.fastq.gz)
+        SAMPLES.add(match.group(1))
+    else:
+        # Case B: It does not contain _R1/_R2, treat as Single-End (e.g., test.fastq.gz)
+        # Simply strip the extension
+        sample_name = filename.replace(".fastq.gz", "")
+        SAMPLES.add(sample_name)
+
+# Convert set back to a sorted list
+SAMPLES = sorted(list(SAMPLES))
 
 print("Detected samples:", SAMPLES)
-RAW_DATA_DIR = "fastq/"
 
 ###################
 # Reference root  #
@@ -44,4 +74,4 @@ LTPM_PRIOR_COUNT = 0.0001
 ##############
 reference_fasta_path     = f"{config['REFERENCE_DIR']}/{config['GENOME_ASSEMBLY']}.genome.fa"
 annotation_gtf_path      = f"{config['REFERENCE_DIR']}/46/primary_assembly.annotation.gtf" #TODO: make dynamic 46
-transcriptome_fasta_path = f"{config['REFERENCE_DIR']}/gencode.v{config['GENCODE_RELEASE']}.transcripts.fa"
+transcriptome_fasta_path = f"{config['REFERENCE_DIR']}/gencode.v{config['GENCODE']['VERSION']}.transcripts.fa"

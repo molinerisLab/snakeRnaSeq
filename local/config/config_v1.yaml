@@ -27,9 +27,8 @@ TRIMMER: "fastp"  # fastp | trim_galore
 
 GENCODE:
   SPECIES: "mmusculus"      # hsapiens | mmusculus | mmusculus_hsapiens_combined
-  VERSION: "M27"            # 32 | M23
+  VERSION: "M29"            # 32 | M23
   GENOME: "GRCh38.primary_assembly" # GRCh38.primary_assembly | GRCm38.primary_assembly
-  ASSEMBLY: "M29"
   ANNOTATION: "basic.annotation" # primary_assembly.annotation | basic.annotation
 
 # ========================

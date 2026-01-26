@@ -1,12 +1,11 @@
 #############################
 ### Salmon quantification ###
 #############################
-REFERENCE_DIR = config["REFERENCE_DIR"]
 
 rule salmon_quant:
     input:
         fq = lambda wc: f"fastq/fastq_trimmed/{wc.sample}.fastq.gz",
-        index = f"{REFERENCE_DIR}/salmon_index"
+        index = f"{GENCODE_DIR}/salmon_index"
     output:
         "salmon/{sample}/quant.sf"
     threads: 16
@@ -76,7 +75,7 @@ rule bam_to_fastq:
 rule kallisto_quant:
     input:
         fq = lambda wc: f"fastq/fastq_trimmed/{wc.sample}_R1.fastq.gz",
-        index = f"{REFERENCE_DIR}/46/kallisto_index/index_with_mask.idx" #TODO: make dynamic 46
+        index = f"{GENCODE_DIR}/kallisto_index/index_with_mask.idx" 
     output:
         "kallisto/{sample}/abundance.tsv"
     threads: 8
@@ -294,7 +293,7 @@ rule sambamba_index:
         """
 rule majiq_gff3:
     input:
-        gff3 = config["gff3"]
+        gff3 = gff3
     output:
         sg = directory("results/majiq/builder/init_splicegraph")
     threads: 1

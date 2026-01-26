@@ -25,7 +25,7 @@ rule all_reference:
     "primary_assembly.annotation.gtf.gz",
     "rseqc.HouseKeepingGenes.bed.gz",
     "primary_assembly.annotation.rRNA_complete.bed",
-    config["GENOME_ASSEMBLY"]+".primary_assembly.star_index/"+config["STAR"]["VERSION"]+"/SA"
+    config["GENOME_ASSEMBLY"]+".primary_assembly.star_index/"+STAR_VERSION+"/SA"
 
 
 #rule print_config:

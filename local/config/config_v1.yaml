@@ -8,10 +8,9 @@
 # GENERAL SETUP
 # ========================
 
-TMPDIR: "/mnt/nvme_raid0/tmp"
-CORES: 6
+TMPDIR: "/tmp"  # Temporary directory for intermediate files: set accordingly 
+CORES: 6                             # Number of cores to use
 DOCKER_DATA_DIR: "/home"
-RAW_DATA_DIR: "fastq"                             # Unified fastq location
 
 # ========================
 # EXPERIMENT INFO
@@ -19,7 +18,6 @@ RAW_DATA_DIR: "fastq"                             # Unified fastq location
 
 LAYOUT: "SINGLE"  # SINGLE | PAIRED 
 STRANDED: "2"    # 0 -> unstranded, 1 -> forward, 2 -> reverse
-FASTQ_FILTERING: "fastq"
 aligner: "star"  # star | bwa
 TRIMMER: "fastp"  # fastp | trim_galore
 

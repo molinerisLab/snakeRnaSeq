@@ -7,8 +7,8 @@ rule fastqc:
     input:
         "fastq/{sample}_R1.fastq.gz"
     output:
-        html="fastqc/{fastq_filtering}/{sample}_{read}_fastqc.html",
-        zip="fastqc/{fastq_filtering}/{sample}_{read}_fastqc.zip"
+        html="fastqc/{sample}_{read}_fastqc.html",
+        zip="fastqc/{sample}_{read}_fastqc.zip"
     threads: 2
     wrapper:
         "v3.3.6/bio/fastqc"
@@ -16,8 +16,8 @@ rule fastqc:
 rule multiqc_fastq:
     """Aggregate FastQC results into a single MultiQC report."""
     input:
-        fastqc_html=expand("fastqc/{fastq_filtering}/{s}_{p}_fastqc.html", s=SAMPLES, p=("R1","R2"), fastq_filtering=config["FASTQ_FILTERING"]),
-        fastqc_zip=expand("fastqc/{fastq_filtering}/{s}_{p}_fastqc.zip",  s=SAMPLES, p=("R1","R2"), fastq_filtering=config["FASTQ_FILTERING"])
+        fastqc_html=expand("fastqc/{s}_{p}_fastqc.html", s=SAMPLES, p=("R1","R2")),
+        fastqc_zip=expand("fastqc/{s}_{p}_fastqc.zip",  s=SAMPLES, p=("R1","R2"))
     output:
         "multiqc_report.html"
     params:
@@ -35,7 +35,7 @@ rule multiqc_report_rseqc:
         expand("rseqc/{sample}.pos.DupRate.xls", sample=SAMPLES),
         expand("rseqc/{sample}.read_distribution.txt", sample=SAMPLES),
         expand("rseqc/{sample}.bam_stat.txt", sample=SAMPLES),
-        expand("fastqc/{fastq_filtering}/{sample}_R1_fastqc.html", sample=SAMPLES, fastq_filtering=config["FASTQ_FILTERING"])
+        expand("fastqc/{sample}_R1_fastqc.html", sample=SAMPLES)
     output:
         "multiqc_report.rseqc.html"
     params:
@@ -47,8 +47,8 @@ rule multiqc_report_rseqc:
 rule multiqc_alignment:
     """Aggregate alignment stats (STAR, BAM) and FastQC."""
     input:
-        fastqc_html=expand("fastqc/{fastq_filtering}/{sample}_{read}_fastqc.html",fastq_filtering=config["FASTQ_FILTERING"],read=("R1", "R2"), sample=SAMPLES),
-        fastqc_zip=expand("fastqc/{fastq_filtering}/{sample}_{read}_fastqc.zip",fastq_filtering=config["FASTQ_FILTERING"], read=("R1", "R2"), sample=SAMPLES),
+        fastqc_html=expand("fastqc/{sample}_{read}_fastqc.html",read=("R1", "R2"), sample=SAMPLES),
+        fastqc_zip=expand("fastqc/{sample}_{read}_fastqc.zip", read=("R1", "R2"), sample=SAMPLES),
         # Inject the ALIGNER variable into the path
         bam=expand("{aligner}/{sample}.bam", aligner=config["aligner"], sample=SAMPLES),
         bai=expand("{aligner}/{sample}.bam.bai", aligner=config["aligner"], sample=SAMPLES)

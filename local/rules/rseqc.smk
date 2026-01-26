@@ -135,9 +135,6 @@ rule get_inner_distance:
         inner_distance.py -i {input} -o rseqc/{wildcards.file} -r {params.bed_ref}
         """
 
-# ALL.skewness: $(addprefix ./rseqc/$(FASTQ_FILTERING)/, $(addsuffix .geneBodyCoverage.txt,$(SAMPLES)))
-# 	matrix_reduce './rseqc/$(FASTQ_FILTERING)/*.geneBodyCoverage.txt' \
-# 	| fasta2tab | grep -v Percentile | cut -f 1,3- | tab2fasta | tr "\t" "\n" | fasta2tab | stat_base -o -g -k > $@
 rule ALL_skewness:
     input:
         expand("rseqc/{sample}.geneBodyCoverage.txt", sample=SAMPLES)
@@ -208,26 +205,22 @@ rule get_read_distribution:
         read_distribution.py  -i {input.bam} -r {input.bed_ref} > {output}
         """
 
-# rseqc/$(FASTQ_FILTERING)/ALL.read_distribution.tagskb_matrix: $(addprefix rseqc/$(FASTQ_FILTERING)/,$(addsuffix .read_distribution.txt, $(SAMPLES))) 
-# 	matrix_reduce 'rseqc/$(FASTQ_FILTERING)/*.read_distribution.txt' | fasta2tab | perl -ne 's/_S\\d+(\\s)/\1/; print if !m/===/ and !m/Group/ and !m/Total/' | perl -lpe 's/\\s+/\t/g' | cut -f 1,2,5 | tab2matrix > $@
 rule read_distribution_matrix:
     input:
-        expand("rseqc/{samples}.read_distribution.txt", filter = config['FASTQ_FILTERING'], samples = SAMPLES)
+        expand("rseqc/{samples}.read_distribution.txt",  samples = SAMPLES)
     output:
-        "rseqc/{FASTQ_FILTERING}/ALL.read_distribution.tagskb_matrix"
+        "rseqc/ALL.read_distribution.tagskb_matrix"
     shell:
         """
         matrix_reduce '{input}' | fasta2tab | perl -ne 's/_S\\d+(\\s)/\1/; print if !m/===/ and !m/Group/ and !m/Total/' \
         | perl -lpe 's/\\s+/\t/g' | cut -f 1,2,5 | tab2matrix > {output}
         """
 
-# rseqc/$(FASTQ_FILTERING)/ALL.read_distribution.tagskb_tab_norm: $(addprefix rseqc/$(FASTQ_FILTERING)/,$(addsuffix .read_distribution.txt, $(SAMPLES)))
-# 	matrix_reduce 'rseqc/$(FASTQ_FILTERING)/*.read_distribution.txt' | fasta2tab | perl -lne 'BEGIN{$$,="\t"} $$T=$$1 if m/Total Tags\\s+(\\d+)/; s/_S\\d+(\\s)/\1/; s/\\s+/\t/g; @F=split("\t",$$_); print $$F[0],$$F[1],$$F[4],$$F[4]/$$T if !m/===/ and !m/Group/ and !m/Total/' > $@
 rule norm_read_distribution_matrix:
     input:
-        expand("rseqc/{samples}.read_distribution.txt", filter = config['FASTQ_FILTERING'], samples = SAMPLES)
+        expand("rseqc/{samples}.read_distribution.txt",  samples = SAMPLES)
     output:
-        "rseqc/{FASTQ_FILTERING}/ALL.read_distribution.tagskb_tab_norm"
+        "rseqc/ALL.read_distribution.tagskb_tab_norm"
     shell:
         """
         matrix_reduce '{input}' | fasta2tab | perl -lne 'BEGIN{{$,="\t"}} $T=$1 if m/Total Tags\\s+(\\d+)/; s/_S\\d+(\\s)/\1/; s/\\s+/\t/g; @F=split("\t",$_); print $F[0],$F[1],$F[4],$F[4]/$T if !m/===/ and !m/Group/ and !m/Total/' > {output}

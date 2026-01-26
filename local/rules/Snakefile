@@ -133,7 +133,7 @@ rule all_fastq_unmapped:
 rule all_star_sp:
     input:
         expand("Results/pass2/{sample}/{suffix}",
-               genome=[config["GENCODE"]["ASSEMBLY"]],
+               genome=[config["GENCODE"]["VERSION"]],
                sample=SAMPLES,
                suffix=["Aligned.sortedByCoord.out.bam", "ReadsPerGene.out.tab"])
 

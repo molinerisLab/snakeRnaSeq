@@ -18,7 +18,6 @@ FEATURECOUNTS_PARAM: -t exon -g gene_name
 #strandnes and paired-end handled in config.smk
 # -O allowMultiOverlap
 
-FASTQ_FILTERING: fastq
 
 # GENCODE ---
 GENCODE:

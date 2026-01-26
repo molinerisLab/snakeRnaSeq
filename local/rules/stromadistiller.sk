@@ -29,7 +29,7 @@ rule featurecounts:
 	params: 
 		gtf = REFERENCE_COUNT_GTF,
 		params = FEATURECOUNTS_PARAM,
-		TMPDIR = TMPDIR
+		TMPDIR = config["TMPDIR"]
 	threads: 12
 	shell:"""
 		featureCounts -o {output.counts} -a {params.gtf} {params.params} --tmpDir {params.TMPDIR} -T {threads} {input}

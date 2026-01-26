@@ -40,7 +40,7 @@ REFERENCE_ROOT=os.environ.get("REFERENCE_ROOT")
 # Genecode  #
 #############
 
-GENCODE_DIR=REFERENCE_ROOT+"/bioinfotree/task/gencode/dataset/"+config["GENCODE"]["SPECIES"]+"/"+config["GENCODE"]["VERSION"]
+GENCODE_DIR=REFERENCE_ROOT+"/dataset/"+config["GENCODE"]["SPECIES"]+"/"+config["GENCODE"]["VERSION"]
 GENCODE_GENOME_FASTA=GENCODE_DIR+"/"+config["GENCODE"]["GENOME"]+".genome.fa"
 GENCODE_ANNOTATION_GTF=GENCODE_DIR+"/"+config["GENCODE"]["ANNOTATION"]+".gtf"
 gff3 = GENCODE_DIR+"/"+config["GENCODE"]["ANNOTATION"]+".basic.annotation.gff3"

@@ -9,7 +9,7 @@ elif config["LAYOUT"] == "PAIRED":
 rule star_align_se:
     input:
         fq1 = "fastq/fastq_trimmed/{sample}_R1.fastq.gz",
-        idx = config['STAR']['INDEX'][config['GENCODE']['ASSEMBLY']]
+        idx = config['STAR']['INDEX'][config['GENCODE']['VERSION']]
     output:
         aln = "star/{sample}.bam",
         log = "star/{sample}.Log.out",
@@ -48,7 +48,7 @@ rule star_align_pe:
     input:
         fq1 = "fastq/fastq_trimmed/{sample}_R1.fastq.gz",
         fq2 = "fastq/fastq_trimmed/{sample}_R2.fastq.gz",
-        idx = config['STAR']['INDEX'][config['GENCODE']['ASSEMBLY']]
+        idx = config['STAR']['INDEX'][config['GENCODE']['VERSION']]
     output:
         aln = "star/{sample}.bam",
         log = "star/{sample}.Log.out",

@@ -12,7 +12,7 @@ rule align_pe_bwa:
         bam="aligned_bwa/{sample}.aligned.bam"
     params:
         reference="/home/molinerislab/NeriMetagenome/Reference_genome/bwa/GRCh38.p14.genome.fa", 
-        threads=20  
+        threads=4  
     log:
         "aligned_bwa/logs/{sample}_bwa.log"
     shell:
@@ -32,7 +32,7 @@ rule align_se_bwa:
         bam="aligned_bwa/{sample}.aligned.bam"
     params:
         reference="/home/molinerislab/NeriMetagenome/Reference_genome/bwa/GRCh38.p14.genome.fa", 
-        threads=20  
+        threads=4  
     log:
         "aligned_bwa/logs/{sample}_bwa.log"
     shell:

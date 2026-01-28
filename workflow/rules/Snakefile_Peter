@@ -53,8 +53,8 @@ if config["LAYOUT"] == "SINGLE":
 elif config["LAYOUT"] == "PAIRED":
 	ruleorder: fastp_pe > fastp_se
 	ruleorder: trim_galore_pe > trim_galore_se
-	# ruleorder: star_pe_multi > star_align_se
-	# ruleorder: star_align_pe > star_pe_multi
+	ruleorder: star_pe_multi > star_align_se
+	ruleorder: star_align_pe > star_pe_multi
 	ruleorder: star_align_pe > star_align_se
 
 # STAR ---
@@ -177,22 +177,22 @@ rule ALL_star:
 		expand(config["NOBACKUP"] + "/star/{sample}.bam", sample=SAMPLES)
 
 
-# rule star_pe_multi:
-# 	input:
-# 		fq1=config['FASTQ_FILTERING']+"/{sample}_R1.fastq.gz",
-# 		fq2=config['FASTQ_FILTERING']+"/{sample}_R2.fastq.gz",
-# 		idx=lambda wildcards: config['STAR']['INDEX']['MOSQ']
-# 	output:
-# 		aln="""star/{sample}.bam""",
-# 		log="""star/{sample}.Log.out""",
-# 		sj="""star/{sample}.SJ.out.tab"""
-# 	log:
-# 		"star/{sample}.log",
-# 	params:
-# 		extra=lambda wildcards: f"""--outSAMtype BAM SortedByCoordinate --outSAMunmapped Within --chimOutType WithinBAM {config['STAR']['OPTIONS']}""",
-# 	threads: config["CORES"],
-# 	wrapper:
-# 		"v3.3.6/bio/star/align"
+rule star_pe_multi:
+	input:
+		fq1=config['FASTQ_FILTERING']+"/{sample}_R1.fastq.gz",
+		fq2=config['FASTQ_FILTERING']+"/{sample}_R2.fastq.gz",
+		idx=lambda wildcards: config['STAR']['INDEX']['MOSQ']
+	output:
+		aln="""star/{sample}.bam""",
+		log="""star/{sample}.Log.out""",
+		sj="""star/{sample}.SJ.out.tab"""
+	log:
+		"star/{sample}.log",
+	params:
+		extra=lambda wildcards: f"""--outSAMtype BAM SortedByCoordinate --outSAMunmapped Within --chimOutType WithinBAM {config['STAR']['OPTIONS']}""",
+	threads: config["CORES"],
+	wrapper:
+		"v3.3.6/bio/star/align"
 
 
 rule star_align_pe:
@@ -862,6 +862,22 @@ rule matrix_exp_condition:
         bawk '{{print $2, $1, $3}}' {input} | tab2matrix -r GeneID | gzip > {output}
     """
 
+
+rule gene_families:
+    input:
+        all_contrasts=config["VOLCANO"]["ALL_CONTRASTS_FILE"],
+        gff=config["GENCODE"]["GFF"]
+    output:
+        config["VOLCANO"]["FAMILY_MAP_FILE"]
+    shell:
+        r"""
+        Rscript scripts/gene_families \
+          --all_contrasts {input.all_contrasts} \
+          --gff {input.gff} \
+          --out {output} \
+          --gene_col {config[VOLCANO][COLUMNS][gene]}
+        """
+
 # ----- #
 # RSeQC #
 # ----- #
@@ -1084,7 +1100,7 @@ rule featurecounts_mouse:
 
 rule pca_plot:
     input:
-        counts = "GEP.count.gz",
+        counts = "GEP.count.exp_filter.ltmm.gz",
         metadata = "metadata.txt",
         script = "/home/molinerislab/mosquitos/workflow/scripts/pca_plot.R"
     output:
@@ -1130,28 +1146,6 @@ rule heatmap_png:
 # -------------#
 
 # Generate all volcano plots
-rule all_volcano_plots:
-    input:
-        expand("{contrast}.pdf", contrast=config["VOLCANO"]["CONTRASTS"]),
-        expand("{contrast}.png", contrast=config["VOLCANO"]["CONTRASTS"]),
-        expand("{contrast}.Rds", contrast=config["VOLCANO"]["CONTRASTS"])
-    
-rule volcano_plot:
-    input:
-        "DGE/deseq2.toptable_clean.contrast_{contrast}.gz"
-    output:
-        pdf = "{contrast}.pdf",
-        png = "{contrast}.png",
-        rds = "{contrast}.Rds"
-    params:
-        script = "volcano_plot.R",
-        lfc_cutoff = config["VOLCANO"]["LFC_CUTOFF"],
-        padj_cutoff = config["VOLCANO"]["PADJ_CUTOFF"],
-        title = lambda wc: config["VOLCANO"]["TITLES"][wc.contrast]
-    shell:
-        """
-        Rscript {params.script} {input} {output.pdf} {output.png} {output.rds} {params.lfc_cutoff} {params.padj_cutoff} "{params.title}"
-        """
 
 rule volcano_combined:
     input:
@@ -1162,7 +1156,7 @@ rule volcano_combined:
         png = "all_contrasts.png",
         rds = "all_contrasts.Rds"
     params:
-        script = "volcano_plot_combined.R",
+        script = "scripts/volcano_plot_combined.R",
         lfc_cutoff = config["VOLCANO"]["LFC_CUTOFF"],
         padj_cutoff = config["VOLCANO"]["PADJ_CUTOFF"]
     shell:
@@ -1170,6 +1164,21 @@ rule volcano_combined:
         Rscript {params.script} {input} {output.pdf} {output.png} {output.rds} {params.lfc_cutoff} {params.padj_cutoff}
         """
 
+#--------------------------
+
+rule volcano_multiplot:
+    input:
+        all_contrasts= config["VOLCANO"]["ALL_CONTRASTS_FILE"],
+        annotation= config["VOLCANO"]["FAMILY_MAP_FILE"],
+        cfg= "config.yaml",
+        script= "scripts/volcano_multiplot"
+    output:
+        pdf= config["VOLCANO"]["OUTPUT"]["pdf"],
+        png= config["VOLCANO"]["OUTPUT"]["png"]
+    shell:
+        r"""
+        Rscript {input.script} --config {input.cfg} --out_pdf {output.pdf} --out_png {output.png}
+        """
 
 # -------------- #
 # META           #

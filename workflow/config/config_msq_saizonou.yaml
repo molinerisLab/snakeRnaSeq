@@ -35,6 +35,7 @@ GENCODE:
     VERSION: "68"
     GENOME: VectorBase-68_AgambiaePEST_Genome
     ANNOTATION: VectorBase-68_AgambiaePEST
+    GFF: /home/reference_data/bioinfotree/task/mosquito/VectorBase-68_AgambiaePEST.gff
 
     # SPECIES: hsapiens
     # hsapiens | mmusculus | mmusculus_hsapiens_combined
@@ -111,16 +112,65 @@ HEATMAP:
   # leave empty to have no clusters
   # add -n to show row (gene) names
 
+
 # DGE VOLCANO PLOT ---
 VOLCANO:
   CONTRASTS:
-    - susceptible_vs_resistant
-    - susceptible_vs_unexposed
-    - resistant_vs_unexposed
+    - BD_vs_KIS
+    - BP_vs_KIS
+    - DA_vs_KIS
+    - DD_vs_KIS
+    - DP_vs_KIS
+
   TITLES:
-    susceptible_vs_resistant: "Susceptible vs Resistant"
-    susceptible_vs_unexposed: "Susceptible vs Unexposed"
-    resistant_vs_unexposed: "Resistant vs Unexposed"
+  # panel titles
+    BD_vs_KIS: "BD vs KIS"
+    BP_vs_KIS: "BP vs KIS"
+    DA_vs_KIS: "DA vs KIS"
+    DD_vs_KIS: "DD vs KIS"
+    DP_vs_KIS: "DP vs KIS"
+
+  # thresholds
   LFC_CUTOFF: 1
   PADJ_CUTOFF: 0.05
+  ALL_CONTRASTS_FILE: "DGE/deseq2.toptable_clean.ALL_contrast.mark_seqc.header_added.gz"
 
+  # Generated mapping (GeneID -> family) will be written here
+  FAMILY_MAP_FILE: "/home/reference_data/bioinfotree/task/mosquito/gene_families.tsv"
+
+  # Column names in ALL_CONTRASTS_FILE
+  COLUMNS:
+    contrast: "contrast"
+    gene: "GeneID"
+    log2fc: "logFC"
+    fdr: "Pvalue_adj"
+
+  OUTPUT:
+    pdf: "plots/volcano_panels.pdf"
+    png: "plots/volcano_panels.png"
+    width_in: 10
+    height_in: 8
+    dpi: 300
+    y_cap: 30
+    min_fdr: 1.0e-300
+    point_size: 1.6
+    base_font_size: 14
+
+  COLORS:
+    COE: "red"
+    CP: "green"
+    CYP: "blue"
+    GST: "black"
+    SGP: "pink"
+    Other: "grey70"
+  
+  OTHER_LABEL: "Other"
+  COLOR_ORDER: ["COE","CP","CYP","GST","SGP","Other"]
+  LEGEND_NCOL: 2
+  LEGEND_POINT_MM: 3.2
+  
+  # Layout order and legend cell
+  LAYOUT:
+    order: ["BD_vs_KIS", "BP_vs_KIS", "DA_vs_KIS", "DD_vs_KIS", "DP_vs_KIS"]
+    rel_widths: [1, 1, 1.1]
+  

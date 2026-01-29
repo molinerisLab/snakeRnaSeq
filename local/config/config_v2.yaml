@@ -2,7 +2,6 @@
 TMPDIR: /mnt/nvme_raid0/tmp
 CORES: 6
 CONDA_ROOT: /opt/conda/miniconda3
-DOCKER_DATA_DIR: /home
 
 LAYOUT: PAIRED
 #LAYOUT: PAIRED
@@ -18,7 +17,6 @@ FEATURECOUNTS_PARAM: -t exon -g gene_name
 #strandnes and paired-end handled in config.smk
 # -O allowMultiOverlap
 
-FASTQ_FILTERING: fastp
 
 # GENCODE ---
 GENCODE:

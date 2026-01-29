@@ -191,12 +191,7 @@ rule ltmm:
 # 4. DOWNSTREAM CLEANUP
 # =============================================================================
 
-	# for s in $(SAMPLES); do\
-	# 	[ -e STAR/$(FASTQ_FILTERING)/$${s}.STAR/Aligned.sortedByCoord.out.bam ] && echo rm STAR/$(FASTQ_FILTERING)/$${s}.STAR/Aligned.out.bam;\
-	# 	[ -e STAR/$(FASTQ_FILTERING)/$${s}.STAR/Aligned.sortedByCoord.out.bam ] && [ -e STAR/$(FASTQ_FILTERING)/$${s}.STAR/Aligned.sortedByCoord.out.ribo.ex.bam ] && echo rm STAR/$(FASTQ_FILTERING)/$${s}.STAR/Aligned.sortedByCoord.out.ribo.ex.bam;\
-	# 	[ -e STAR/$(FASTQ_FILTERING)/$${s}.STAR/Aligned.sortedByCoord.out.ribo.in.bam ] && rm STAR/$(FASTQ_FILTERING)/$${s}.STAR/Aligned.sortedByCoord.out.ribo.in.bam;\
-	# 	[ -e STAR/$(FASTQ_FILTERING)/$${s}.STAR/Aligned.sortedByCoord.out.ribo.junk.bam ] && rm STAR/$(FASTQ_FILTERING)/$${s}.STAR/Aligned.sortedByCoord.out.ribo.junk.bam;\
-	# done;
+
 
 rule clean_bam_downstream:
     shell:

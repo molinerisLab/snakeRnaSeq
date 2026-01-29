@@ -27,15 +27,13 @@ rule tab2xls:
         "tab2xls < {input} > {output}"
 
 
-rule fastqc:
+rule fastqc: 
     input:
-        "{path}.fastq.gz"
+        "{path}.fastq"
     output:
         fastqc_html="fastqc/{path}_fastqc.html",
         fastqc_zip="fastqc/{path}_fastqc.zip"
     threads: config["CORES"]
-    container: 
-        "docker://quay.io/biocontainers/fastqc:0.11.3--0"
     shell:"""
         mkdir -p $(dirname {output.fastqc_html})
         fastqc -t {threads} -o `dirname {output.fastqc_html}` {input}

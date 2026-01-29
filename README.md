@@ -8,9 +8,9 @@ a) git clone the following repository:
 ```bash
 git clone -b develop --single-branch [https://github.com/molinerisLab/snakeRNASeq.git](https://github.com/molinerisLab/snakeRNASeq.git)
 ```
-b) 📜 Clone the GENCODE repo 
+b) 📜 Clone the SnakeReferences repository: 
 ```bash
-https://bitbucket.org/irccit/gencode
+git clone -b develop https://github.com/molinerisLab/SnakeReferences.git
 ```
 ---
 ## ⚙️ Singularity and Snakemake configuration

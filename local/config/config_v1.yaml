@@ -8,18 +8,15 @@
 # GENERAL SETUP
 # ========================
 
-TMPDIR: "/mnt/nvme_raid0/tmp"
-CORES: 6
-DOCKER_DATA_DIR: "/home"
-RAW_DATA_DIR: "fastq"                             # Unified fastq location
+TMPDIR: "/tmp"  # Temporary directory for intermediate files: set accordingly 
+CORES: 6                             # Number of cores to use
 
 # ========================
 # EXPERIMENT INFO
 # ========================
 
-LAYOUT: "SINGLE"  # SINGLE | PAIRED 
+LAYOUT: "PAIRED"  # SINGLE | PAIRED 
 STRANDED: "2"    # 0 -> unstranded, 1 -> forward, 2 -> reverse
-FASTQ_FILTERING: "fastq"
 aligner: "star"  # star | bwa
 TRIMMER: "fastp"  # fastp | trim_galore
 
@@ -28,19 +25,17 @@ TRIMMER: "fastp"  # fastp | trim_galore
 # ========================
 
 GENCODE:
-  SPECIES: "mmusculus"      # hsapiens | mmusculus | mmusculus_hsapiens_combined
-  VERSION: "M27"            # 32 | M23
-  GENOME: "GRCh38.primary_assembly" # GRCh38.primary_assembly | GRCm38.primary_assembly
-  ASSEMBLY: "29"
+  SPECIES: "hsapiens"      # hsapiens | mmusculus | mmusculus_hsapiens_combined
+  VERSION: "46"            # 32 | M23
+  GENOME: "GRCh38.p14" # GRCh38.primary_assembly | GRCm38.primary_assembly
   ANNOTATION: "basic.annotation" # primary_assembly.annotation | basic.annotation
 
+GENOME_ASSEMBLY: "GRCh38.p14"
 # ========================
 # ALIGNMENT (STAR)
 # ========================
 
 STAR:
-  VERSION: "2.7.11b"
-  
   # Input / Output
   OUT_SAM_TYPE: "BAM SortedByCoordinate"
   readFilesCommand: "zcat"
@@ -62,11 +57,7 @@ STAR:
   sjdbOverhang: 149
   limitSjdbInsertNsj: 1000000
   SAVE_UNMAPPED: "BAM" # BAM | FASTQ 
-  INDEX:
-    GRCh: "/home/reference_data/bioinfotree/task/gencode/dataset/hsapiens/46/GRCh38.p14.star_index/2.7.11b"
-    CHM: "/home/reference_data/bioinfotree/task/gencode/dataset/hsapiens/T2T-CHM13v2.0/GCF_009914755.1_T2T-CHM13v2.0.star_index/2.7.11a"
-    M29: "/home/reference_data/bioinfotree/task/gencode/dataset/mmusculus/M29/GRCm39.primary_assembly.star_index/2.7.11a"
-
+  
 # ========================
 # TRIMMING
 # ========================
@@ -180,20 +171,12 @@ CONTAMINANT_INFO:
   split_by_value: [""]
   multiple_files: FALSE
 
-
-REFERENCE_DIR: "/home/reference_data/bioinfotree/task/gencode/dataset/hsapiens"
-GENOME_ASSEMBLY: "GRCh38.p14"
-GENCODE_RELEASE: "46"
-
 VERSION: "46"
 
 SPECIES: human
 
 UCSC_VERSION: hg38
  
-#TODO: unify STAR version in config.yaml and in the rules, currently duplicated
-STAR_VERSION: 2.7.11b
-
 
 #TODO: put them in the featurecounts section above
 # featurecounts param ---
@@ -211,3 +194,13 @@ braken_level: "S"
 kraken:
   exclude_classified: True
   include_children: True
+
+
+################
+# MAJIQ CONFIG #
+################
+comparisons :
+  - "WT_ND_vs_KO_ND"
+  - "WT_HFD_vs_KO_HFD"
+  - "KO_ND_vs_KO_HFD"
+  - "WT_ND_vs_WT_HFD" 

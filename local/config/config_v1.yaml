@@ -10,7 +10,6 @@
 
 TMPDIR: "/tmp"  # Temporary directory for intermediate files: set accordingly 
 CORES: 6                             # Number of cores to use
-DOCKER_DATA_DIR: "/home"
 
 # ========================
 # EXPERIMENT INFO
@@ -28,7 +27,7 @@ TRIMMER: "fastp"  # fastp | trim_galore
 GENCODE:
   SPECIES: "hsapiens"      # hsapiens | mmusculus | mmusculus_hsapiens_combined
   VERSION: "46"            # 32 | M23
-  GENOME: "GRCh38.p14.primary_assembly" # GRCh38.primary_assembly | GRCm38.primary_assembly
+  GENOME: "GRCh38.p14" # GRCh38.primary_assembly | GRCm38.primary_assembly
   ANNOTATION: "basic.annotation" # primary_assembly.annotation | basic.annotation
 
 GENOME_ASSEMBLY: "GRCh38.p14"

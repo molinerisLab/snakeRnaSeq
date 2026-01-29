@@ -269,7 +269,7 @@ rule star_twopass_basic_se:
         genome_dir   = STAR_GENOME_DIR,
         read_cmd     = config["STAR"]["readFilesCommand"],
         out_prefix   = "star_2pass/{sample}/",
-        gtf          = annotation_gtf_path,
+        gtf          = GENCODE_ANNOTATION_GTF,
         sjdbOverhang = config["STAR"]["sjdbOverhang"]
     shell:
         """
@@ -310,7 +310,7 @@ rule star_twopass_basic_pe:
         read_cmd     = config["STAR"]["readFilesCommand"],
         out_prefix   = "star_2pass/{sample}/",
         twopass1readsN = config["STAR"].get("twopass1readsN", -1),
-        gtf          = annotation_gtf_path,
+        gtf          = GENCODE_ANNOTATION_GTF,
         sjdbOverhang = config["STAR"]["sjdbOverhang"]
     shell:
         """

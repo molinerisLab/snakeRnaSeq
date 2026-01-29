@@ -120,7 +120,7 @@ rule merge_kallisto_transcripts:
 rule stringtie_assemble:
     input:
         bam = lambda wc: f"Results/pass2/{wc.sample}/Aligned.sortedByCoord.out.bam",
-        gtf = annotation_gtf_path
+        gtf = GENCODE_ANNOTATION_GTF
     output:
         "stringtie/{sample}/transcripts.gtf"
     threads: 8
@@ -137,7 +137,7 @@ rule stringtie_assemble:
 rule stringtie_merge:
     input:
         gtfs = expand("stringtie/{sample}/transcripts.gtf", sample=SAMPLES),
-        gtf  = annotation_gtf_path
+        gtf  = GENCODE_ANNOTATION_GTF
     output:
         merged = "stringtie/merged/merged.gtf"
     params:
@@ -200,7 +200,7 @@ rule spladder_build:
     input:
         bam = "Results/pass2/{sample}/Aligned.sortedByCoord.out.bam",
         bai = "Results/pass2/{sample}/Aligned.sortedByCoord.out.bam.bai",
-        gtf = annotation_gtf_path
+        gtf = GENCODE_ANNOTATION_GTF
     output:
         "spladder/{sample}/spladder/genes_graph_conf3.pickle"
     threads: 8

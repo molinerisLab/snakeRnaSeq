@@ -99,18 +99,18 @@ rule get_dup_rate:
         """
 
 
-rule gene_body_coverage: 
-    input: 
-        bam = "star/{path}.bam", 
-        house_keepers = GENCODE_DIR + "/rseqc.HouseKeepingGenes.bed.gz",
-        bai = "star/{path}.bai"
-    output:
-        "rseqc/{path}.geneBodyCoverage.txt"
-    shell: 
-        """
-        mkdir -p `dirname {output}`;
-        geneBody_coverage.py -i {input.bam} -r <(zcat {input.house_keepers}) -o rseqc/{wildcards.path}
-        """
+# rule gene_body_coverage: 
+#     input: 
+#         bam = "star/{path}.bam", 
+#         house_keepers = GENCODE_DIR + "/rseqc.HouseKeepingGenes.bed.gz",
+#         bai = "star/{path}.bai"
+#     output:
+#         "rseqc/{path}.geneBodyCoverage.txt"
+#     shell: 
+#         """
+#         mkdir -p `dirname {output}`;
+#         geneBody_coverage.py -i {input.bam} -r <(zcat {input.house_keepers}) -o rseqc/{wildcards.path}
+#         """
 
 
 
@@ -145,7 +145,7 @@ rule ALL_skewness:
 # 	mkdir -p `dirname $@`
 # 	read_distribution.py  -i $< -r $^2 > $@
 
-rule gene_body_coverage: 
+rule gene_body_coverage:  # Renamed to avoid duplicate
     input: 
         bam = "star/{path}.bam",
         bai = "star/{path}.bai",
@@ -153,7 +153,7 @@ rule gene_body_coverage:
     output:
         text = "rseqc/{path}.geneBodyCoverage.txt",
         rscript = "rseqc/{path}.geneBodyCoverage.r"
-        shell: 
+    shell: 
         """
         mkdir -p `dirname {output.text}`;
         geneBody_coverage.py -i {input.bam} -r <(zcat {input.house_keepers}) -o rseqc/{wildcards.path};
@@ -166,7 +166,8 @@ rule read_distribution:
         rseqc_ref_bed=RSEQC_REF_BED
     output:
         text="rseqc/{sample}.read_distribution.txt"
-    shell:"""
+    shell:
+        """
         mkdir -p `dirname {output}`; 
         read_distribution.py -i {input.bam} -r {input.rseqc_ref_bed} > {output.text}
 

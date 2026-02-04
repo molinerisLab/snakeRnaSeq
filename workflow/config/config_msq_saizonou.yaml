@@ -122,6 +122,9 @@ VOLCANO:
     - DD_vs_KIS
     - DP_vs_KIS
 
+    # - DU_vs_KIS
+    # - BU_vs_KIS
+
   TITLES:
   # panel titles
     BD_vs_KIS: "BD vs KIS"
@@ -129,6 +132,9 @@ VOLCANO:
     DA_vs_KIS: "DA vs KIS"
     DD_vs_KIS: "DD vs KIS"
     DP_vs_KIS: "DP vs KIS"
+
+    # DU_vs_KIS: "DU vs KIS"
+    # BU_vs_KIS: "BU vs KIS"
 
   # thresholds
   LFC_CUTOFF: 1
@@ -172,5 +178,6 @@ VOLCANO:
   # Layout order and legend cell
   LAYOUT:
     order: ["BD_vs_KIS", "BP_vs_KIS", "DA_vs_KIS", "DD_vs_KIS", "DP_vs_KIS"]
+    # order: ["DU_vs_KIS", "BU_vs_KIS"]
     rel_widths: [1, 1, 1.1]
   

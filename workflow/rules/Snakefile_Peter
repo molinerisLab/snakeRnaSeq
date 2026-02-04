@@ -1171,7 +1171,7 @@ rule volcano_multiplot:
         all_contrasts= config["VOLCANO"]["ALL_CONTRASTS_FILE"],
         annotation= config["VOLCANO"]["FAMILY_MAP_FILE"],
         cfg= "config.yaml",
-        script= "scripts/volcano_multiplot"
+        script= "scripts/volcano_multiplot1"
     output:
         pdf= config["VOLCANO"]["OUTPUT"]["pdf"],
         png= config["VOLCANO"]["OUTPUT"]["png"]

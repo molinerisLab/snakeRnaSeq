@@ -113,6 +113,61 @@ HEATMAP:
   # add -n to show row (gene) names
 
 
+# PCA PLOT ---
+# PCA:
+#   COUNTS_SEP: "\t"
+#   METADATA_SEP: "\t"
+#   SAMPLE_COLUMN: "sample"
+#   DESIGN: "~ condition"
+
+#   TITLE: "PCA of RNA-seq Gene Expression Profiles"
+
+#   WIDTH: 6
+#   HEIGHT: 4.5
+#   DPI: 300
+
+#   COLOR_BY: "condition"
+#   SHAPE_BY: null # set to null for single-factor PCA or "batch" for multi-factor
+#   ADD_ELLIPSE: true
+#   ELLIPSE_TYPE: "norm"   # "norm" or "t"
+
+#   LEVELS:
+#   # Optional ordering
+#     condition: ["resistant", "susceptible", "unexposed"]
+#     batch: ["batch1", "batch2"]
+
+#   LABELS:
+#     condition:
+#       resistant: "Resistant"
+#       susceptible: "Susceptible"
+#       unexposed: "Unexposed"
+
+#   COLORS:
+#     resistant: "#E41A1C"
+#     susceptible: "#377EB8"
+#     unexposed: "#4DAF4A"
+
+#   SHAPES:
+#   # for SHAPE_BY variable
+#     batch1: 16
+#     batch2: 17
+
+
+PCA:
+  COLOR_BY: "condition"
+  SHAPE_BY: null       # set to null for single-factor PCA or "batch" for multi-factor
+  NTOP: 500
+  LABEL_POINTS: false      # true to show sample labels
+
+  TITLE: "PCA of Gene Expression Profiles"
+
+  LABELS:
+    condition:
+      resistant: "Resistant"
+      susceptible: "Susceptible"
+      unexposed: "Unexposed"
+      
+
 # DGE VOLCANO PLOT ---
 VOLCANO:
   CONTRASTS:
@@ -163,12 +218,13 @@ VOLCANO:
     base_font_size: 14
 
   COLORS:
+    Other: "grey70"
     COE: "red"
     CP: "green"
     CYP: "blue"
     GST: "black"
     SGP: "pink"
-    Other: "grey70"
+    
   
   OTHER_LABEL: "Other"
   COLOR_ORDER: ["COE","CP","CYP","GST","SGP","Other"]

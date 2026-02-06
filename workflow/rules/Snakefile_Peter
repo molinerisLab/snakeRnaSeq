@@ -1100,16 +1100,23 @@ rule featurecounts_mouse:
 
 rule pca_plot:
     input:
-        counts = "GEP.count.exp_filter.ltmm.gz",
-        metadata = "metadata.txt",
-        script = "/home/molinerislab/mosquitos/workflow/scripts/pca_plot.R"
+        counts="GEP.count.gz",
+        metadata="metadata.txt",
+        script="/home/molinerislab/mosquitos/workflow/scripts/pca_plot1.R",
+        config="config.yaml"
     output:
-        png = "plots/PCA_plot.png",
-        pdf = "plots/PCA_plot.pdf"
+        png="plots/PCA_plot.png",
+        pdf="plots/PCA_plot.pdf"
     shell:
         """
-        Rscript {input.script} {input.counts} {input.metadata} {output.png} {output.pdf}
+        Rscript {input.script} \
+            --counts {input.counts} \
+            --metadata {input.metadata} \
+            --config {input.config} \
+            --png {output.png} \
+            --pdf {output.pdf}
         """
+
 
 # ---------#
 # Heatmap  #
@@ -1171,7 +1178,7 @@ rule volcano_multiplot:
         all_contrasts= config["VOLCANO"]["ALL_CONTRASTS_FILE"],
         annotation= config["VOLCANO"]["FAMILY_MAP_FILE"],
         cfg= "config.yaml",
-        script= "scripts/volcano_multiplot1"
+        script= "/home/molinerislab/mosquitos/workflow/scripts/volcano_multiplot.R"
     output:
         pdf= config["VOLCANO"]["OUTPUT"]["pdf"],
         png= config["VOLCANO"]["OUTPUT"]["png"]

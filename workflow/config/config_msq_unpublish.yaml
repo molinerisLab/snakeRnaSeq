@@ -181,33 +181,22 @@ PCA:
 
 VOLCANO:
   CONTRASTS:
-    - BD_vs_KIS
-    - BP_vs_KIS
-    - DA_vs_KIS
-    - DD_vs_KIS
-    - DP_vs_KIS
-
-    # - DU_vs_KIS
-    # - BU_vs_KIS
+    - susceptible_vs_resistant
+    - susceptible_vs_unexposed
+    - resistant_vs_unexposed
 
   TITLES:
   # panel titles
-    BD_vs_KIS: "BD vs KIS"
-    BP_vs_KIS: "BP vs KIS"
-    DA_vs_KIS: "DA vs KIS"
-    DD_vs_KIS: "DD vs KIS"
-    DP_vs_KIS: "DP vs KIS"
-
-    # DU_vs_KIS: "DU vs KIS"
-    # BU_vs_KIS: "BU vs KIS"
+    susceptible_vs_resistant: "Susceptible vs Resistant"
+    susceptible_vs_unexposed: "Susceptible vs Unexposed"
+    resistant_vs_unexposed: "Resistant vs Unexposed"
 
   # thresholds
   LFC_CUTOFF: 1
   PADJ_CUTOFF: 0.05
   ALL_CONTRASTS_FILE: "DGE/deseq2.toptable_clean.ALL_contrast.mark_seqc.header_added.gz"
-
   # Generated mapping (GeneID -> family) will be written here
-  FAMILY_MAP_FILE: "/home/reference_data/bioinfotree/task/mosquito/gene_families.tsv"
+  FAMILY_MAP_FILE: "gene_families.tsv"
 
   # Column names in ALL_CONTRASTS_FILE
   COLUMNS:
@@ -228,21 +217,19 @@ VOLCANO:
     base_font_size: 14
 
   COLORS:
-    COE: "red"
-    CP: "green"
-    CYP: "blue"
-    GST: "black"
-    SGP: "pink"
-    Other: "grey70"
-  
-  OTHER_LABEL: "Other"
+    FAMILIES: ["COE","CP","CYP","GST","SGP"]
+    PALETTE: "Dark2"        # any RColorBrewer palette
+    # Other options: "Set1", "Accent", "Paired" etc.
+    OTHER_LABEL: "Other"
+    OTHER_COLOR: "grey70"
+
   COLOR_ORDER: ["COE","CP","CYP","GST","SGP","Other"]
+
   LEGEND_NCOL: 2
   LEGEND_POINT_MM: 3.2
   
   # Layout order and legend cell
   LAYOUT:
-    order: ["BD_vs_KIS", "BP_vs_KIS", "DA_vs_KIS", "DD_vs_KIS", "DP_vs_KIS"]
-    # order: ["DU_vs_KIS", "BU_vs_KIS"]
+    order: [susceptible_vs_resistant, susceptible_vs_unexposed, resistant_vs_unexposed]
     rel_widths: [1, 1, 1.1]
 

@@ -195,7 +195,6 @@ VOLCANO:
   LFC_CUTOFF: 1
   PADJ_CUTOFF: 0.05
   ALL_CONTRASTS_FILE: "DGE/deseq2.toptable_clean.ALL_contrast.mark_seqc.header_added.gz"
-
   # Generated mapping (GeneID -> family) will be written here
   FAMILY_MAP_FILE: "/home/reference_data/bioinfotree/task/mosquito/gene_families.tsv"
 
@@ -218,16 +217,13 @@ VOLCANO:
     base_font_size: 14
 
   COLORS:
-    Other: "grey70"
-    COE: "red"
-    CP: "green"
-    CYP: "blue"
-    GST: "black"
-    SGP: "pink"
-    
-  
-  OTHER_LABEL: "Other"
+    FAMILIES: ["COE","CP","CYP","GST","SGP"]
+    PALETTE: "Dark2"        # any RColorBrewer palette
+    OTHER_LABEL: "Other"
+    OTHER_COLOR: "grey70"
+
   COLOR_ORDER: ["COE","CP","CYP","GST","SGP","Other"]
+
   LEGEND_NCOL: 2
   LEGEND_POINT_MM: 3.2
   
@@ -236,4 +232,3 @@ VOLCANO:
     order: ["BD_vs_KIS", "BP_vs_KIS", "DA_vs_KIS", "DD_vs_KIS", "DP_vs_KIS"]
     # order: ["DU_vs_KIS", "BU_vs_KIS"]
     rel_widths: [1, 1, 1.1]
-  

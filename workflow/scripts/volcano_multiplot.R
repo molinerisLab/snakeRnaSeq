@@ -5,6 +5,7 @@ suppressPackageStartupMessages({
   library(data.table)
   library(ggplot2)
   library(grid)
+  library(RColorBrewer)
 })
 
 # -----------------------------
@@ -57,31 +58,71 @@ stop_missing_cols <- function(df, cols, where = "") {
 }
 
 # -----------------------------
-# COLORS parsing
+# Automatic COLOR handling
 # -----------------------------
-colors_raw <- vc$COLORS
-if (is.null(colors_raw) || is.null(names(colors_raw)) || any(names(colors_raw) == "")) {
-  stop("VOLCANO.COLORS must be a YAML mapping with names (e.g. COE: 'red').")
+
+colors_cfg <- vc$COLORS
+
+if (is.null(colors_cfg$FAMILIES) || is.null(colors_cfg$PALETTE)) {
+  stop("VOLCANO.COLORS must contain FAMILIES and PALETTE fields.")
 }
 
-colors <- setNames(
-  vapply(names(colors_raw), function(k) as.character(colors_raw[[k]]), character(1)),
-  names(colors_raw)
-)
+families <- as.character(unlist(colors_cfg$FAMILIES))
+palette_name <- as.character(colors_cfg$PALETTE)
 
-other_label <- if (!is.null(vc$OTHER_LABEL)) as.character(vc$OTHER_LABEL) else "Other"
-
-if (!(other_label %in% names(colors))) {
-  stop(sprintf("VOLCANO.COLORS must include OTHER_LABEL '%s'.", other_label))
+other_label <- if (!is.null(colors_cfg$OTHER_LABEL)) {
+  as.character(colors_cfg$OTHER_LABEL)
+} else {
+  "Other"
 }
 
-# Optional legend/factor order
+other_color <- if (!is.null(colors_cfg$OTHER_COLOR)) {
+  as.character(colors_cfg$OTHER_COLOR)
+} else {
+  "grey70"
+}
+
+n_fam <- length(families)
+
+# ---- Determine palette type ----
+if (palette_name %in% rownames(brewer.pal.info)) {
+
+  max_colors <- brewer.pal.info[palette_name, "maxcolors"]
+
+  # Validation
+  if (n_fam > max_colors) {
+    stop(sprintf(
+      "Palette '%s' supports maximum %d colors but %d families were requested.\nChoose a larger palette (e.g. Set3) or reduce FAMILIES.",
+      palette_name, max_colors, n_fam
+    ))
+  }
+
+  palette_vals <- brewer.pal(max(n_fam, 3), palette_name)[1:n_fam]
+
+} else if (palette_name %in% c("viridis","magma","plasma","cividis","inferno")) {
+
+  if (!requireNamespace("viridisLite", quietly = TRUE)) {
+    stop("viridisLite package required for viridis palettes.")
+  }
+
+  palette_vals <- viridisLite::viridis(n_fam, option = palette_name)
+
+} else {
+  stop(sprintf("Unknown palette '%s'. Use RColorBrewer or viridis palettes.", palette_name))
+}
+
+# Build named color vector
+colors <- setNames(palette_vals, families)
+colors[[other_label]] <- other_color
+
+# Optional manual order
 if (!is.null(vc$COLOR_ORDER)) {
   ord <- as.character(unlist(vc$COLOR_ORDER))
   ord <- ord[ord %in% names(colors)]
   ord <- c(ord, setdiff(names(colors), ord))
   colors <- colors[ord]
 }
+
 
 # -----------------------------
 # Read data
@@ -154,42 +195,49 @@ extract_legend_grob <- function(p) {
 
 make_volcano <- function(d, title, show_legend = FALSE) {
 
-  legend_ncol <- if (!is.null(vc$LEGEND_NCOL)) as.integer(vc$LEGEND_NCOL) else 1
+  n_categories <- length(colors)
+  legend_ncol <- if (!is.null(vc$LEGEND_NCOL)) {
+  as.integer(vc$LEGEND_NCOL)
+  } else {
+  ceiling(n_categories / 4)   # auto wrap: ~4 rows max
+  }
+  # legend_ncol <- if (!is.null(vc$LEGEND_NCOL)) as.integer(vc$LEGEND_NCOL) else 1
   legend_pt   <- if (!is.null(vc$LEGEND_POINT_MM)) as.numeric(vc$LEGEND_POINT_MM) else 4
 
-  p <- ggplot(d, aes(x = log2fc, y = neglog10_fdr)) +
-    geom_point(aes(color = family),
+  d_other <- d[d$family == other_label, , drop = FALSE]
+  d_high  <- d[d$family != other_label, , drop = FALSE]
+
+  p <- ggplot() +
+    # background genes first
+    geom_point(data = d_other, aes(x = log2fc, y = neglog10_fdr, color = family),
+               size = as.numeric(vc$OUTPUT$point_size), alpha = 0.6)+
+    # highlighted families on top
+    geom_point(data = d_high, aes(x = log2fc, y = neglog10_fdr, color = family),
                size = as.numeric(vc$OUTPUT$point_size)) +
     geom_hline(yintercept = -log10(as.numeric(vc$PADJ_CUTOFF)), linetype = "dashed") +
-    geom_vline(xintercept = 0, linetype = "solid") +
+    geom_vline(xintercept = 0) +
     geom_vline(xintercept = c(-as.numeric(vc$LFC_CUTOFF),
                               as.numeric(vc$LFC_CUTOFF)), linetype = "dashed") +
-    scale_color_manual(values = colors,
-                       breaks = names(colors),
-                       limits = names(colors),
-                       drop = FALSE) +
-    scale_y_continuous(limits = c(0, y_cap),
-                       breaks = seq(0, y_cap, by = 10)) +
+    scale_color_manual(
+      values = colors,
+      drop = FALSE
+    ) +
+    guides(
+      color = guide_legend(
+        ncol = legend_ncol,
+        override.aes = list(size = legend_pt)
+      )
+    ) +
     labs(
       title = title,
       x = expression(log[2](FC)),
-      y = expression(-log[10](FDR)),
-      color = NULL
+      y = expression(-log[10](FDR))
     ) +
     theme_bw(base_size = as.numeric(vc$OUTPUT$base_font_size)) +
     theme(
-      plot.title = element_text(hjust = 0.5, face = "bold"),
-      panel.grid.minor = element_blank(),
+      # plot.title = element_text(hjust = 0.5, face = "bold"),
       legend.position = if (show_legend) "right" else "none"
     )
-
-  if (show_legend) {
-    p <- p +
-      guides(color = guide_legend(
-        ncol = legend_ncol,
-        override.aes = list(size = legend_pt)
-      ))
-  }
 
   p
 }

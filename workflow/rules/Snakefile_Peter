@@ -866,12 +866,13 @@ rule matrix_exp_condition:
 rule gene_families:
     input:
         all_contrasts=config["VOLCANO"]["ALL_CONTRASTS_FILE"],
-        gff=config["GENCODE"]["GFF"]
+        gff=config["GENCODE"]["GFF"],
+        script= "/home/molinerislab/mosquitos/workflow/scripts/gene_families.R"
     output:
         config["VOLCANO"]["FAMILY_MAP_FILE"]
     shell:
         r"""
-        Rscript scripts/gene_families \
+        Rscript {input.script} \
           --all_contrasts {input.all_contrasts} \
           --gff {input.gff} \
           --out {output} \
@@ -1102,7 +1103,7 @@ rule pca_plot:
     input:
         counts="GEP.count.gz",
         metadata="metadata.txt",
-        script="/home/molinerislab/mosquitos/workflow/scripts/pca_plot1.R",
+        script="/home/molinerislab/mosquitos/workflow/scripts/pca_plot.R",
         config="config.yaml"
     output:
         png="plots/PCA_plot.png",
@@ -1116,7 +1117,6 @@ rule pca_plot:
             --png {output.png} \
             --pdf {output.pdf}
         """
-
 
 # ---------#
 # Heatmap  #
@@ -1163,7 +1163,7 @@ rule volcano_combined:
         png = "all_contrasts.png",
         rds = "all_contrasts.Rds"
     params:
-        script = "scripts/volcano_plot_combined.R",
+        script = "/home/molinerislab/mosquitos/workflow/scripts/volcano_multiplot.R",
         lfc_cutoff = config["VOLCANO"]["LFC_CUTOFF"],
         padj_cutoff = config["VOLCANO"]["PADJ_CUTOFF"]
     shell:

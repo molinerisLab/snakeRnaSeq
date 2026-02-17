@@ -150,10 +150,7 @@ rule usable_reads_all:
 		"matrix_reduce -t 'star/*.usable_reads' "
 		"| translate -a -r {input.ribo_ex_matrix} 1"
 		"| bawk 'BEGIN{{print \"sample\",\"tot\",\"unmap\",\"ribo\",\"non_ribo_multi_map\",\"non_ribo_uniq_map\",\"Assigned\",\"Unassigned_Ambiguity\",\"Unassigned_NoFeatures\"}} {{print}}' > {output}"
-# GEP.count.gz: $(FASTQ_FILTERING).featurecounts.ribo.ex.count.gz
-# 	zgrep -v '^#' $< | cut -f 1,7- \
-# 	| perl -pe 'if($$.==1){s|STAR/fastq/||g; s|.STAR[^\s]+.bam||g; s|_S\d+(\s)|\1|g}' \
-# 	| gzip > $@
+
 
 
 rule get_Gep:
@@ -216,9 +213,6 @@ rule expressed_genes:
         zcat {input} | matrix2tab | bawk '$3>{params.expressed}  {{print $1}}' | symbol_count |bawk '$2>={params.min_sample}'> {output}
     """
 
-# gene_len: $(FASTQ_FILTERING).featurecounts.ribo.ex.count.gz
-# 	echo -e "Geneid\tlength" > $@
-# 	zgrep -v '^#' $< | cut -f 1,6 | unhead -n 1 >> $@
 
 rule gene_length:
     input: 

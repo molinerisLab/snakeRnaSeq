@@ -30,6 +30,8 @@ import os
 
 container: "library://aleone/mycontainers/snakernaseq:1.0"
 configfile: "config.yaml"
+if os.path.exists("Snakefile_versioned.sk"):
+    include: "Snakefile_versioned.sk"
 
 
 ############
@@ -52,10 +54,9 @@ include: "../../local/rules/DGE.smk"
 include: "../../local/rules/venn_heatmap.smk"
 include: "../../local/rules/metagenome.smk"
 include: "../../local/rules/Isoforms.smk"
-include: "../../local/rules/reference.smk"
   
 ###############
-# Ruleorder  #
+#   Ruleorder   #
 ###############
 
 if config["LAYOUT"] == "SINGLE":
@@ -91,6 +92,12 @@ rule all_isoform:
         # Spladder Outputs
         "spladder/quantification/spladder/genes_graph_conf3.quant.pickle"
 
+rule all_majiq:
+    input:
+        expand("results/majiq/psi/{sample}_psi.voila", sample=SAMPLES),
+        expand("results/majiq/deltapsi/{comp}.deltapsi.tsv", comp=config["comparisons"])
+
+
 rule all_multiqc:
     input:
         "multiqc_report.html",
@@ -125,7 +132,7 @@ rule all_fastq_unmapped:
 rule all_star_sp:
     input:
         expand("Results/pass2/{sample}/{suffix}",
-               genome=[config["GENCODE"]["ASSEMBLY"]],
+               genome=[config["GENCODE"]["VERSION"]],
                sample=SAMPLES,
                suffix=["Aligned.sortedByCoord.out.bam", "ReadsPerGene.out.tab"])
 

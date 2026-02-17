@@ -15,7 +15,7 @@ rule kraken_paired_ends:
         out="koutputs/{sample}.kraken2",
         unclassified1="unclassified/{sample}_unclassified_1.fq",
         unclassified2="unclassified/{sample}_unclassified_2.fq"
-    threads: 32
+    threads: 6
     shell: """
         kraken2 --db {config[kraken_db]} \
             --threads {threads} \
@@ -33,7 +33,7 @@ rule kraken_nr_paired_ends:
     output: 
         report="kreports_nr/{sample}.k2report", 
         out="koutputs_nr/{sample}.kraken2"
-    threads: 32
+    threads: 6
     shell: """
         kraken2 --db {config[kraken_db_nr]} {config[kraken_options]} \
             --threads {threads} \
@@ -49,7 +49,7 @@ rule kraken_single_end:
     output: 
         report="kreports/{sample}.k2report", 
         out="koutputs/{sample}.kraken2"
-    threads: 32
+    threads: 6
     shell:
         """
         kraken2 --db {config[kraken_db]} {config[kraken_options]} \

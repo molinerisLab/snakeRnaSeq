@@ -9,7 +9,7 @@ elif config["LAYOUT"] == "PAIRED":
 rule star_align_se:
     input:
         fq1 = "fastq/fastq_trimmed/{sample}_R1.fastq.gz",
-        idx = config['STAR']['INDEX'][config['GENCODE']['ASSEMBLY']]
+        idx = STAR_GENOME_DIR
     output:
         aln = "star/{sample}.bam",
         log = "star/{sample}.Log.out",
@@ -48,7 +48,7 @@ rule star_align_pe:
     input:
         fq1 = "fastq/fastq_trimmed/{sample}_R1.fastq.gz",
         fq2 = "fastq/fastq_trimmed/{sample}_R2.fastq.gz",
-        idx = config['STAR']['INDEX'][config['GENCODE']['ASSEMBLY']]
+        idx = STAR_GENOME_DIR
     output:
         aln = "star/{sample}.bam",
         log = "star/{sample}.Log.out",
@@ -155,7 +155,7 @@ rule star_align_first_pass:
                 f"fastq/fastq_trimmed/{wc.sample}_R1.fastq.gz"
             ]
         ),
-        idx=lambda wc: config['STAR']['INDEX']['GRCh'],
+        idx= STAR_GENOME_DIR
     output:
         sj           = "Results/pass1/{sample}/SJ.out.tab",
         log          = "Results/pass1/{sample}/Log.out",
@@ -213,7 +213,7 @@ rule star_second_pass:
                 f"fastq/fastq_trimmed/{wc.sample}_R1.fastq.gz"
             ]
         ),
-        idx=config['STAR']['INDEX']['GRCh'],
+        idx=STAR_GENOME_DIR,
         sj=lambda wc: f"Results/pass1/merged_filtered_SJ.out.tab"
     output:
         bam         = "Results/pass2/{sample}/Aligned.sortedByCoord.out.bam",
@@ -256,7 +256,7 @@ rule star_twopass_basic_se:
     """
     input:
         fq = lambda wc: f"fastq/fastq_trimmed/{wc.sample}_R1.fastq.gz",
-        idx = config['STAR']['INDEX']['GRCh'],
+        idx = STAR_GENOME_DIR,
     output:
         bam        = "star_2pass/{sample}/Aligned.sortedByCoord.out.bam",
         sj         = "star_2pass/{sample}/SJ.out.tab",
@@ -266,10 +266,10 @@ rule star_twopass_basic_se:
     threads: 8
     conda: "transcript_env.yaml"
     params:
-        genome_dir   = config['STAR']['INDEX']['GRCh'],
+        genome_dir   = STAR_GENOME_DIR,
         read_cmd     = config["STAR"]["readFilesCommand"],
         out_prefix   = "star_2pass/{sample}/",
-        gtf          = annotation_gtf_path,
+        gtf          = GENCODE_ANNOTATION_GTF,
         sjdbOverhang = config["STAR"]["sjdbOverhang"]
     shell:
         """
@@ -296,7 +296,7 @@ rule star_twopass_basic_pe:
     input:
         fq1 = lambda wc: f"fastq/fastq_trimmed/{wc.sample}_R1.fastq.gz",
         fq2 = lambda wc: f"fastq/fastq_trimmed/{wc.sample}_R2.fastq.gz",
-        idx = config['STAR']['INDEX']['GRCh'],
+        idx = STAR_GENOME_DIR,
     output:
         bam        = "star_2pass/{sample}/Aligned.sortedByCoord.out.bam",
         sj         = "star_2pass/{sample}/SJ.out.tab",
@@ -306,11 +306,11 @@ rule star_twopass_basic_pe:
     threads: 8
     conda: "transcript_env.yaml"
     params:
-        genome_dir   = config['STAR']['INDEX']['GRCh'],
+        genome_dir   = STAR_GENOME_DIR,
         read_cmd     = config["STAR"]["readFilesCommand"],
         out_prefix   = "star_2pass/{sample}/",
         twopass1readsN = config["STAR"].get("twopass1readsN", -1),
-        gtf          = annotation_gtf_path,
+        gtf          = GENCODE_ANNOTATION_GTF,
         sjdbOverhang = config["STAR"]["sjdbOverhang"]
     shell:
         """

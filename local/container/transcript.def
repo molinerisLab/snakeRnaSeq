@@ -9,46 +9,66 @@ From: ubuntu:22.04
     export LC_ALL=C
     export MAMBA_ROOT_PREFIX=/transcript/mamba
     export PATH=/transcript/mamba/envs/transcript_env/bin:$PATH
+    # Ensure runtime libraries are found
+    export LD_LIBRARY_PATH=/transcript/mamba/envs/transcript_env/lib:$LD_LIBRARY_PATH
 
 %post
     export DEBIAN_FRONTEND=noninteractive
 
     mkdir -p /transcript
 
+    # 1. Install system build dependencies
+    # Added 'pkg-config' to help CMake find libraries
     apt-get update && apt-get install -y \
-        curl \
-        cmake \
-        gcc g++ \
-        build-essential \
-        libgomp1 \
-        libboost-all-dev \
-        vim \
-        ssh-client \
-        wget \
-        unzip \
-        git \
-        gawk \
-        libz-dev \
-        libbz2-dev \
-        liblzma-dev \
-        libncurses5-dev \
-        libcurl4-openssl-dev \
-        libssl-dev \
-        bzip2 \
-        ca-certificates \
+        curl cmake gcc g++ build-essential \
+        libgomp1 libboost-all-dev vim ssh-client \
+        wget unzip git gawk bzip2 ca-certificates \
+        libz-dev libbz2-dev liblzma-dev \
+        libncurses5-dev libcurl4-openssl-dev libssl-dev \
+        libzstd-dev pkg-config \
         && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-    ######## Install micromamba (official installer – works everywhere) ########
+    ######## Install micromamba ########
     curl -Ls https://micro.mamba.pm/install.sh | bash
     export PATH=/root/.local/bin:$PATH
 
     ######## Create the micromamba environment ########
+    # Ensure 'htslib' and 'zstd' are in your transcript_env.yaml!
     /root/.local/bin/micromamba create -y \
         -n transcript_env \
         -f /transcript/transcript_env.yaml \
         --root-prefix /transcript/mamba
 
     chmod -R a+rX /transcript
+
+    ######## Install MAJIQ Manually ########
+    export ENV_PATH="/transcript/mamba/envs/transcript_env"
+    export PATH="$ENV_PATH/bin:$PATH"
+
+    # 2. Set strict paths for CMake and Pkg-Config
+    export CMAKE_PREFIX_PATH="$ENV_PATH:$ENV_PATH/lib/cmake"
+    export PKG_CONFIG_PATH="$ENV_PATH/lib/pkgconfig"
+    
+    # Standard compiler flags
+    export CFLAGS="-I$ENV_PATH/include"
+    export LDFLAGS="-L$ENV_PATH/lib"
+    
+    # HTSLIB specific flags
+    export HTSLIB_LIBRARY_DIR="$ENV_PATH/lib"
+    export HTSLIB_INCLUDE_DIR="$ENV_PATH/include"
+
+    # 3. Clone and Install
+    # Cloning manually avoids the 'Metadata mismatch' error caused by pip's build isolation
+    echo "Cloning MAJIQ Academic..."
+    cd /transcript
+    git clone https://bitbucket.org/biociphers/majiq_academic.git
+    cd majiq_academic
+    
+    echo "Installing MAJIQ..."
+    # We use --no-build-isolation to force it to use our conda packages (zstd, etc)
+    # We use --no-deps because conda already handles most dependencies, 
+    # but strictly speaking, letting pip check them is fine.
+    pip install .
 
 %files
     transcript_env.yaml /transcript/
@@ -57,6 +77,7 @@ From: ubuntu:22.04
     #!/bin/bash
     export MAMBA_ROOT_PREFIX=/transcript/mamba
     export PATH=/transcript/mamba/envs/transcript_env/bin:$PATH
+    export LD_LIBRARY_PATH=/transcript/mamba/envs/transcript_env/lib:$LD_LIBRARY_PATH
     exec "$@"
 
 %startscript

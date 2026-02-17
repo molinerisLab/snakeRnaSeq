@@ -1,10 +1,45 @@
+# -------------- #
+# Generic rules  #
+# -------------- #
 
-# =============================================================================
-# 1. BAM/CRAM/SAM MANIPULATION
-# =============================================================================
+rule tab2xlsx:
+    input: 
+        "{file}"
+    output: 
+        "{file}.xlsx"
+    shell: 
+        "cat < {input} | tab2xlsx > {output}"
+
+rule gz2xlsx:
+    input: 
+        "{file}.gz"
+    output: 
+        "{file}.xlsx"
+    shell: 
+        "zcat < {input} | tab2xlsx > {output}"
+
+rule tab2xls:
+    input: 
+        "{file}"
+    output: 
+        "{file}.xls"
+    shell: 
+        "tab2xls < {input} > {output}"
+
+
+rule fastqc: 
+    input:
+        "{path}.fastq"
+    output:
+        fastqc_html="fastqc/{path}_fastqc.html",
+        fastqc_zip="fastqc/{path}_fastqc.zip"
+    threads: config["CORES"]
+    shell:"""
+        mkdir -p $(dirname {output.fastqc_html})
+        fastqc -t {threads} -o `dirname {output.fastqc_html}` {input}
+    """
 
 rule bam2cram:
-    """Convert BAM to CRAM using a reference genome for better compression."""
     input: 
         "{file}.bam"
     output: 
@@ -15,17 +50,31 @@ rule bam2cram:
     shell: 
         "samtools view -@ {params.threads} -T {params.genome} -C -o {output} {input}"
 
-rule get_bai:
-    """Index a BAM file to create a .bai file."""
+rule add_header:
     input: 
-        "star/{file}.bam"
+        "{path}.gz"
     output: 
-        "star/{file}.bam.bai"
+        "{path}.header_added.gz"
+    shell: 
+        "(bawk -M {input} | cut -f 2 | transpose; zcat {input} ) | gzip > {output}"
+
+rule header_add:
+    input: 
+        "{file}"
+    output: 
+        "{file}.header_added"
+    shell: 
+        "(bawk -M {input} | cut -f 2 | transpose; cat {input} ) > {output}"
+
+rule get_bai:
+    input: 
+        "{file}.bam"
+    output: 
+        "{file}.bam.bai"
     shell: 
         "samtools index {input}"
 
 rule get_bam_id:
-    """Extract unique read IDs from a BAM file."""
     input: 
         "{file}.bam"
     output: 
@@ -33,24 +82,7 @@ rule get_bam_id:
     shell: 
         "samtools view {input} | cut -f 1 | bsort -S8% | uniq > {output}"
 
-rule bam2bed:
-    """Convert BAM alignments to BED format using bedtools."""
-    input: 
-        "{file}.bam"
-    output: 
-        "{file}.bed"
-    shell: 
-        "bedtools bamtobed -splitD < {input} | bsort -k1,1V -k2,2n > {output}"
-
-# =============================================================================
-# 2. BIGWIG AND BEDGRAPH (VISUALIZATION)
-# =============================================================================
-
-if not 'BIGWIG_BIN_SIZE' in globals():
-    BIGWIG_BIN_SIZE = 5
-
 rule get_bw:
-    """Generate a BigWig track from a BAM file."""
     input: 
         bam = "{file}.bam",
         bai = "{file}.bam.bai"
@@ -62,8 +94,11 @@ rule get_bw:
     shell: 
         "bamCoverage --binSize={params.bin_size} -b {input.bam} -o {output} --numberOfProcessors={params.threads}"
 
+
+if not 'BIGWIG_BIN_SIZE' in globals():
+    BIGWIG_BIN_SIZE = 5
+
 rule get_norm_bw:
-    """Generate a CPM-normalized BigWig track."""
     input: 
         bam = "{file}.bam",
         bai = "{file}.bam.bai"
@@ -76,7 +111,6 @@ rule get_norm_bw:
         "bamCoverage --binSize={params.bin_size}  --normalizeUsing=CPM -b {input.bam} -o {output} --numberOfProcessors={params.threads}"
 
 rule get_bw_binsize:
-    """Generate a BigWig track with variable bin size."""
     input: 
         bam = "{file}.bam",
         bai = "{file}.bam.bai"
@@ -89,7 +123,6 @@ rule get_bw_binsize:
         "bamCoverage --binSize={params.bin_size} -b {input.bam} -o {output} --numberOfProcessors={params.threads}"
 
 rule get_norm_bw_binsize:
-    """Generate a CPM-normalized BigWig track with variable bin size."""
     input: 
         bam = "{file}.bam",
         bai = "{file}.bam.bai"
@@ -101,8 +134,15 @@ rule get_norm_bw_binsize:
     shell: 
         "bamCoverage --binSize={params.bin_size}  --normalizeUsing=CPM -b {input.bam} -o {output} --numberOfProcessors={params.threads}"
 
+rule bam2bed:
+    input: 
+        "{file}.bam"
+    output: 
+        "{file}.bed"
+    shell: 
+        "bedtools bamtobed -splitD < {input} | bsort -k1,1V -k2,2n > {output}"
+
 rule get_bedgraph_ranges:
-    """Extract start-end ranges from a bedGraph file."""
     input: 
         "{file}.bedGraph"
     output: 
@@ -114,7 +154,6 @@ if not "GFF3_MIN_WINDOW_READS" in globals():
     GFF3_MIN_WINDOW_READS = 0
 
 rule get_gff3:
-    """Convert bedGraph to GFF3 format, filtering by min window reads."""
     input: 
         bedGraph = "{file}.bedGraph",
         ranges = "{file}.bedGraph.ranges"
@@ -136,7 +175,6 @@ if not "BEDGRAPH_FILTER" in globals():
     BEDGRAPH_FILTER = 100
 
 rule get_filtered_bed:
-    """Filter bedGraph entries and merge adjacent regions."""
     input: 
         "{file}.bedGraph"
     output: 
@@ -149,12 +187,15 @@ rule get_filtered_bed:
         | expandsets 2 | stat_base -o -g -b | tr ";" "\t" > {output}
         """
 
-# =============================================================================
-# 3. NORMALIZATION AND R-BASED SCRIPTS (EDGER)
-# =============================================================================
+rule get_fa:
+    input: 
+        "{file}.fastq.gz"
+    output: 
+        "{file}.fa.gz"
+    shell: 
+        "zcat {input} | fastq2tab | enumerate_rows | cut -f 1,3 | tab2fasta -s | gzip > {output}"
 
 rule tmm:
-    """Calculate TMM normalization factors and CPM counts using edgeR."""
     input:
         "{file}.gz"
     output: 
@@ -171,7 +212,6 @@ rule tmm:
     """
 
 rule ltmm:
-    """Calculate TMM normalization factors and Log2-CPM counts using edgeR."""
     input: 
         "{file}.gz"
     output: 
@@ -185,38 +225,4 @@ rule ltmm:
             write.table(cpm(y, normalized.lib.sizes=TRUE, log=TRUE), "{output}.tmp", sep="\t", quote=F, col.names=NA, row.names = T)'
         (echo -n "Geneid"; cat {output}.tmp) | gzip > {output}
         rm {output}.tmp
-    """
-
-# =============================================================================
-# 4. DOWNSTREAM CLEANUP
-# =============================================================================
-
-
-
-rule clean_bam_downstream:
-    shell:
-        """
-        if [[ $(ls star/*.srt.mapq.*bam) ]]; then
-            echo ""
-            echo "clean downstream processed bam"
-            echo ""
-            for i in $(ls bam/*.srt.mapq.*bam); do
-                echo rm $i
-                rm $i
-            done
-        else
-            echo "no downstream processed bam files found"
-        fi
-
-        if [[ $(ls bam/*.srt.mapq.*bam.bai) ]]; then
-            echo ""
-            echo "clean downstream processed bai"
-            echo ""
-            for i in $(ls bam/*.srt.mapq.*bam.bai); do
-                echo rm $i
-                rm $i
-            done
-        else
-            echo "no downstream processed bai files found"
-        fi
     """

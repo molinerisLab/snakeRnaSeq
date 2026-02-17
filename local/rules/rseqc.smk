@@ -145,7 +145,7 @@ rule ALL_skewness:
 # 	mkdir -p `dirname $@`
 # 	read_distribution.py  -i $< -r $^2 > $@
 
-rule gene_body_coverage:  # Renamed to avoid duplicate
+rule gene_body_coverage: 
     input: 
         bam = "star/{path}.bam",
         bai = "star/{path}.bai",

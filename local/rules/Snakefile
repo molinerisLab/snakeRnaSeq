@@ -28,8 +28,8 @@ import os
 # Config  #
 ###########
 
-container: "/home/aleone/snakeRnaSeq/local/container/transcript_analysis.sif"   
-configfile: "config.yaml"
+container: "library://aleone/mycontainers/snakernaseq:1.0"
+
 if os.path.exists("Snakefile_versioned.sk"):
     include: "Snakefile_versioned.sk"
 

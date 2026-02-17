@@ -117,7 +117,7 @@ rule generate_unmapped_R1:
     output:
         "fastq/unmapped/{sample}_unmapped_R1.fastq.gz"
     conda: "transcript_env.yaml"
-    shell:"""
+    shell: """
         samtools view -f 76 {input} | bawk '{{print "@"$1; print $10; print "+"; print $11}}' | gzip > {output}
     """
     # 76=4+8+64 = read unmapped AND mate unmapped AND first in pair, i.e., discard reads that are unmapped but that have mate mapped
@@ -179,6 +179,7 @@ rule star_align_first_pass:
             --limitSjdbInsertNsj {params.limitSjdb} \
             --outFileNamePrefix {params.tmpdir}/ \
             --outSAMtype None
+            --
         """
 
 

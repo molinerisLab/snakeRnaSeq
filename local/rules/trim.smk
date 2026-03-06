@@ -13,23 +13,45 @@ elif config["TRIMMER"] == "trim_galore" and config["LAYOUT"] == "PAIRED":
 
 rule fastp_se:
     input:
-        "fastq/{sample}_R1.fastq.gz"
+        sample="fastq/{sample}_R1.fastq.gz"
     output:
         trimmed="fastq/fastq_trimmed/{sample}_R1.fastq.gz",
-        #unpaired1="fastq/fastq_trimmed/se/{sample}.u1.fastq",
-        #merged="fastq/fastq_trimmed/pe/{sample}.merged.fastq",
-        #failed="fastq/fastq_trimmed/pe/{sample}.failed.fastq",
         html="fastq/fastq_trimmed/{sample}.html",
         json="fastq/fastq_trimmed/{sample}.json"
     threads: 6
     log:
         "fastq/fastq_trimmed/{sample}.log.txt"
-    params:
-        #adapters_r1="--adapter_sequence=AGATCGGAAGAGCACACGTCTGAACTCCAGTCA" 
-    conda: "transcript_env.yaml"
-    wrapper:
-        "v3.3.6/bio/fastp"
+    conda: 
+        "transcript_env.yaml"
+    shell:
+        """
+        fastp \
+            --in1 {input.sample} \
+            --out1 {output.trimmed} \
+            --thread {threads} \
+            --html {output.html} \
+            --json {output.json} \
+            2> {log}
+        """
 
+#rule fastp_se:
+#    input:
+#        "fastq/{sample}_R1.fastq.gz"
+#    output:
+#        trimmed="fastq/fastq_trimmed/{sample}_R1.fastq.gz",
+#        #unpaired1="fastq/fastq_trimmed/se/{sample}.u1.fastq",
+#        #merged="fastq/fastq_trimmed/pe/{sample}.merged.fastq",
+#        #failed="fastq/fastq_trimmed/pe/{sample}.failed.fastq",
+#        html="fastq/fastq_trimmed/{sample}.html",
+#        json="fastq/fastq_trimmed/{sample}.json"
+#    threads: 6
+#    log:
+#        "fastq/fastq_trimmed/{sample}.log.txt"
+#    params:
+#        #adapters_r1="--adapter_sequence=AGATCGGAAGAGCACACGTCTGAACTCCAGTCA" 
+#    conda: "transcript_env.yaml"
+#    wrapper:
+#        "v3.3.6/bio/fastp"
 rule fastp_pe:
     input:
         sample=["fastq/{sample}_R1.fastq.gz", "fastq/{sample}_R2.fastq.gz"]

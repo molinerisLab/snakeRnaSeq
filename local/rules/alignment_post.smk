@@ -16,11 +16,10 @@ rule bam2cram:
         "samtools view -@ {params.threads} -T {params.genome} -C -o {output} {input}"
 
 rule get_bai:
-    """Index a BAM file to create a .bai file."""
     input: 
-        "star/{file}.bam"
+        "Results/pass2/{file}/Aligned.sortedByCoord.out.bam"
     output: 
-        "star/{file}.bam.bai"
+        "Results/pass2/{file}/Aligned.sortedByCoord.out.bam.bai"
     shell: 
         "samtools index {input}"
 

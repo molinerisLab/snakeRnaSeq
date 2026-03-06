@@ -1,9 +1,10 @@
 use-singularity: True
 cores: 8
 keep-going: True
-singularity-args: "-B /home/nobackup/molinerislab/Isella/FASTQ/ \
-                   -B /home/reference_data/bioinfotree/task/gencode/dataset/hsapiens/46/GRCh38.p14.star_index/2.7.11b \
-                   -B /home/reference_data/bioinfotree/task/gencode/dataset/hsapiens/46/ \
-                   -B /home/reference_data/bioinfotree/
-                   -B /home/aleone/snakeRnaSeq \
-                   -B /mnt/nvme_raid0/tmp"
+singularity-args: "-B /mnt/oncog/software/snakeRnaSeq \
+                   -B /mnt/oncog/analysis/cell_bank/dataset/v2 \
+                   -B /mnt/bioionfotree/task/gencode \
+                   -B /mnt/oncog/data/raw_data/cell_bank \
+                   -B /mnt/oncog/data/raw_data/illumina_novaseq/260213_NS500140_0754_AHKHWLBGXT/Alignment_1/20260214_080525/Fastq \
+                   -B /mnt/oncog/software/SnakeReferences
+                   -B /mnt/oncog/software/snakeRnaSeq/dataset/v1/profiles/majiq_license_academic_official.lic"

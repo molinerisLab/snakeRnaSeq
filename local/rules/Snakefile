@@ -19,7 +19,7 @@
 #                                                               \_____/--<
 
 ###########
-# Import  #
+# Import  # 
 ###########
 
 import os
@@ -28,7 +28,8 @@ import os
 # Config  #
 ###########
 
-container: "/home/aleone/snakeRnaSeq/local/container/transcript_analysis.sif"   
+#container: "library://aleone/mycontainers/snakernaseq:2.0"
+container: "../v1/.snakemake/singularity/97866a7cce4999a4e7d4c6263b37f487.simg"
 configfile: "config.yaml"
 if os.path.exists("Snakefile_versioned.sk"):
     include: "Snakefile_versioned.sk"
@@ -46,7 +47,7 @@ include: "../../local/rules/alignment_post.smk"
 include: "../../local/rules/utils.smk" 
 include: "../../local/rules/qc.smk" 
 include: "../../local/rules/trim.smk" 
-include: "../../local/rules/star_alignment.smk" 
+include: "../../local/rules/star_alignment.smk"
 include: "../../local/rules/bwa_alignment.smk" 
 include: "../../local/rules/count.smk"
 include: "../../local/rules/rseqc.smk" 
@@ -73,6 +74,22 @@ ruleorder: featurecounts > split_bam_ribo
 ##############
 # Rules ALL  #
 ##############
+rule rename_fastq: 
+    output: 
+        expand("fastq/{sample}_R1.fastq.gz", sample=SAMPLES),
+    shell: 
+     """
+     ../../local/src/rename_fastq.py
+     """
+
+rule all_split: 
+    input:
+        expand("featureCounts/featurecounts.ribo.ex.count.gz"),
+        expand("featureCounts/fastq.featurecounts.ribo.ex.count.gz.summary_matrix.reduced")
+
+rule all_bai:
+    input:
+        expand("Results/pass2/{file}/Aligned.sortedByCoord.out.bam.bai", file=SAMPLES)
 
 rule all:
     input: 
@@ -152,12 +169,11 @@ rule all_kallisto:
 
 rule all_spladder:
     input:
-        expand("spladder/merged/spladder/genes_graph_conf3.merge_graph.pickle", sample=SAMPLES),
-        expand("spladder/quantification/spladder/genes_graph_conf3.quant.pickle", sample=SAMPLES)
+        expand("out_spladder/spladder/genes_graph_conf3.{sample}.pickle", sample=SAMPLES)
 
 rule all_stringtie:
     input:
-        expand("stringtie/{sample}/quant/abund.tab", sample=SAMPLES)
+        "transcript_count_matrix.csv"
 
 rule all_samb_sort:
     input:

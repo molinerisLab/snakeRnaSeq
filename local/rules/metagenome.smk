@@ -268,7 +268,7 @@ rule megahit_assembly:
         "fastq/unmapped/{sample}_unmapped.fastq.gz"
     output:
         assembly="Megahit/{sample}_assembly/final.contigs.fa",
-        split_dir=directory("Megahit/{sample}_assembly/split_fasta")
+        split_dir="Megahit/{sample}_assembly/split_fasta"
     params:
         outdir="Megahit/{sample}_assembly",
     threads: 8

@@ -15,23 +15,9 @@ rule tab2xlsx:
     shell: 
         "cat < {input} | tab2xlsx > {output}"
 
-rule gz2xlsx:
-    """Decompress a gzipped tab file and convert to Excel (.xlsx)."""
-    input: 
-        "{file}.gz"
-    output: 
-        "{file}.xlsx"
-    shell: 
-        "zcat < {input} | tab2xlsx > {output}"
 
-rule tab2xls:
-    """Convert a TSV/Tab file to the older Excel (.xls) format."""
-    input: 
-        "{file}"
-    output: 
-        "{file}.xls"
-    shell: 
-        "tab2xls < {input} > {output}"
+
+
 
 
 # =============================================================================
@@ -68,3 +54,5 @@ rule get_fa:
         "{file}.fa.gz"
     shell: 
         "zcat {input} | fastq2tab | enumerate_rows | cut -f 1,3 | tab2fasta -s | gzip > {output}"
+
+

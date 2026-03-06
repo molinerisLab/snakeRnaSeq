@@ -2,13 +2,6 @@
 # Generic rules  #
 # -------------- #
 
-rule tab2xlsx:
-    input: 
-        "{file}"
-    output: 
-        "{file}.xlsx"
-    shell: 
-        "cat < {input} | tab2xlsx > {output}"
 
 rule gz2xlsx:
     input: 
@@ -68,9 +61,9 @@ rule header_add:
 
 rule get_bai:
     input: 
-        "{file}.bam"
+        "Results/pass2/{file}.bam"
     output: 
-        "{file}.bam.bai"
+        "Results/pass2/{file}.bam.bai"
     shell: 
         "samtools index {input}"
 

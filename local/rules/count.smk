@@ -3,28 +3,39 @@
 # ------------------------------- #
 ruleorder: featurecounts > split_bam_ribo
 
+rule split_bam_HM: 
+    input: 
+        bam = "Results/pass2/{sample}/Aligned.sortedByCoord.out.bam"
+    output:
+        "Results/pass2/{sample}/Aligned.sortedByCoord.out.H.bam", 
+        "Results/pass2/{sample}/Aligned.sortedByCoord.out.M.bam"
+    shell: 
+        """
+        samtools view -h Aligned.sortedByCoord.out.bam | awk -F'\t' '$1 ~ /^@/ || $3 ~ /^M/' | samtools view -b - > Aligned.sortedByCoord.out.M.bam \
+        samtools view -h Aligned.sortedByCoord.out.bam | awk -F'\t' '$1 ~ /^@/ || $3 ~ /^H/' | samtools view -b - > Aligned.sortedByCoord.out.H.bam
+
+
 rule split_bam_ribo:
 	input:
-		bam="{path}.bam",
-		bam_idx="{path}.bam.bai",
+		bam="Results/pass2/{sample}/Aligned.sortedByCoord.out.bam",
+		bam_idx="Results/pass2/{sample}/Aligned.sortedByCoord.out.bam.bai",
 		ribosome_bed=GENCODE_DIR+"/primary_assembly.annotation.rRNA_complete.bed"
 	output:
-		ribo_ex="{path}.ribo.ex.bam",
-		ribo_in="{path}.ribo.in.bam",
-		ribo_log="{path}.summary"
+		ribo_ex="Results/pass2/{sample}/Aligned.sortedByCoord.out.ribo.ex.bam",
+		ribo_in="Results/pass2/{sample}/Aligned.sortedByCoord.out.ribo.in.bam",
+		ribo_log="Results/pass2/{sample}/Aligned.sortedByCoord.out.summary"
 	shell:
-		"mkdir -p `dirname {output}`; "
-		"split_bam.py -i {input.bam} -r {input.ribosome_bed} -o {wildcards.path}.ribo > {wildcards.path}.summary"
+		"split_bam.py -i {input.bam} -r {input.ribosome_bed} -o Results/pass2/{wildcards.sample}/Aligned.sortedByCoord.out.ribo > Results/pass2/{wildcards.sample}/Aligned.sortedByCoord.out.summary"
 
 
 
 rule featurecounts:
 	input:
-		bam="{path}.bam",
+		bam="Results/pass2/{sample}/Aligned.sortedByCoord.out.ribo.ex.bam",
 		annotation_gtf=GENCODE_ANNOTATION_GTF
 	output:
-		counts="{path}.bam.featurecounts.count",
-		summary="{path}.bam.featurecounts.count.summary"
+		counts="featureCounts/{sample}.out.ribo.ex.bam.featurecounts.count",
+		summary="featureCounts/{sample}.out.ribo.ex.bam.featurecounts.count.summary"
 	# conda:
 	# 	"../../local/env/subread_v2.0.3.yaml"
 	params:
@@ -32,26 +43,24 @@ rule featurecounts:
 		tmpdir=config["TMPDIR"],
 		params=FEATURECOUNTS_PARAM
 	shell:
-		"featureCounts "
-		"{input.bam} "
-		"-o {output.counts} "
-		"-a {input.annotation_gtf} "
-		#"-t exon "
-		#"-g gene_name "
-		#"-s 2 "
-		#"-p -C " ==> paired-end layout
-		"{params.params} "
-		"--tmpDir {params.tmpdir} "
-		"-T {params.cores} "
+	    """
+		mkdir -p featureCounts
+		featureCounts {input.bam} \
+		-o {output.counts} \
+		-a {input.annotation_gtf} \
+		{params.params} \
+		--tmpDir {params.tmpdir} \
+		-T {params.cores}
+            """
 
 rule featurecounts_ribo_ex:
 	input:
-		file_all=expand("star/{sample}.ribo.ex.bam.featurecounts.count", sample=SAMPLES),
-		file_translate=expand("star/{sample}.ribo.ex.bam.featurecounts.count", sample=SAMPLES[0])
+		file_all=expand("featureCounts/{sample}.out.ribo.ex.bam.featurecounts.count", sample=SAMPLES),
+		file_translate=expand("featureCounts/{sample}.out.ribo.ex.bam.featurecounts.count", sample=SAMPLES[0])
 	output:
-		"featurecounts.ribo.ex.count.gz"
+		"featureCounts/featurecounts.ribo.ex.count.gz"
 	shell: """
-		matrix_reduce '*.ribo.ex.bam.featurecounts.count' -l '{input.file_all}' \
+		matrix_reduce 'featureCounts/*.ribo.ex.bam.featurecounts.count' -l '{input.file_all}' \
 		| grep -v '^#' \
 		| fasta2tab \
 		| bawk '$2!="Geneid" {{print $2,$1,$8}}' \
@@ -62,29 +71,30 @@ rule featurecounts_ribo_ex:
 
 rule featurecounts_ribo_ex_summary:
 	input:
-		expand("star/{sample}.ribo.ex.bam.featurecounts.count.summary", sample=SAMPLES)
+		expand("featureCounts/{sample}.out.ribo.ex.bam.featurecounts.count.summary", sample=SAMPLES)
 	output:
-		"fastq.featurecounts.ribo.ex.count.gz.summary_matrix"
+		"featureCounts/fastq.featurecounts.ribo.ex.count.gz.summary_matrix"
 	#container:
 	#	"../../local/share/images/bit.wip-rnaseq.0.8.sif"
 	#conda:
 	#	"../../local/bioinfotree.yaml"
 	shell:
-		"matrix_reduce -t 'star/*.ribo.ex.bam.featurecounts.count.summary' "
+		"matrix_reduce -t 'featureCounts/*.ribo.ex.bam.featurecounts.count.summary' "
 		"| grep -v Status "
 		"| tab2matrix -r Sample > {output}"
 
 rule featurecounts_ribo_ex_summary_matrix:
 	input:
-		"fastq.featurecounts.ribo.ex.count.gz.summary_matrix"
+		"featureCounts/fastq.featurecounts.ribo.ex.count.gz.summary_matrix"
 	output:
-		"fastq.featurecounts.ribo.ex.count.gz.summary_matrix.reduced"
+		"featureCounts/fastq.featurecounts.ribo.ex.count.gz.summary_matrix.reduced"
 #	conda:
 #		"../../local/env/bioinfotree.yaml"
 	shell:
 		"matrix2tab {input} "
 		"| bawk '$2==\"Unassigned_Ambiguity\" || $2==\"Assigned\" || $2==\"Unassigned_NoFeatures\"' "
 		"| tab2matrix -r Sample > {output}"
+
 
 rule read_count:
 	input:

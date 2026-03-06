@@ -122,14 +122,16 @@ rule stringtie_assemble:
         bam = lambda wc: f"Results/pass2/{wc.sample}/Aligned.sortedByCoord.out.bam",
         gtf = GENCODE_ANNOTATION_GTF
     output:
-        "stringtie/{sample}/transcripts.gtf"
-    threads: 8
+        transcripts = "stringtie/{sample}/transcripts.gtf",
+        gene_abund = "stringtie/{sample}/gene_abund.tab"
+    threads: 4
     shell:
         """
         mkdir -p stringtie/{wildcards.sample}
         stringtie {input.bam} \
             -G {input.gtf} \
-            -o {output} \
+            -o {output.transcripts} \
+            -A {output.gene_abund} \
             -p {threads}
         """
 
@@ -139,12 +141,11 @@ rule stringtie_merge:
         gtfs = expand("stringtie/{sample}/transcripts.gtf", sample=SAMPLES),
         gtf  = GENCODE_ANNOTATION_GTF
     output:
-        merged = "stringtie/merged/merged.gtf"
+        merged = "stringtie/merged.gtf"
     params:
-        mergelist = "stringtie/merged/mergelist.txt"
+        mergelist = "stringtie/mergelist.txt"
     shell:
         """
-        mkdir -p stringtie/merged
         printf "%s\n" {input.gtfs} > {params.mergelist}
 
         stringtie --merge \
@@ -157,104 +158,100 @@ rule stringtie_merge:
 rule stringtie_quantify:
     input:
         bam    = lambda wc: f"Results/pass2/{wc.sample}/Aligned.sortedByCoord.out.bam",
-        merged = "stringtie/merged/merged.gtf"
+        merged = "stringtie/merged.gtf"
     output:
-        quant = "stringtie/{sample}/quant/abund.tab"
-    params:
-        outdir = "stringtie/{sample}/quant"
-    threads: 8
+        quant = "stringtie/{sample}/abund_merged.tab", gtf = "stringtie/{sample}/quant_merged.gtf"
+    threads: 4
     shell:
         """
-        mkdir -p {params.outdir}
         stringtie {input.bam} \
             -e -B \
             -G {input.merged} \
-            -o {params.outdir}/transcripts.gtf \
+            -o {output.gtf} \
             -A {output.quant} \
             -p {threads}
         """
 
-
-
-
-
-#################
-### BAM index ###
-#################
-rule index_bam:
+rule stringtie_prepDE:
     input:
-        "Results/pass2/{sample}/Aligned.sortedByCoord.out.bam"
+#        gtfs = expand("stringtie/{sample}/quant_merged.gtf", sample=SAMPLES),
+        gtfs = [ancient(f"stringtie/{sample}/quant_merged.gtf") for sample in SAMPLES]
+
     output:
-        "Results/pass2/{sample}/Aligned.sortedByCoord.out.bam.bai"
-    threads: 1
+        transcript_count_matrix = "transcript_count_matrix.csv"
+    params:
+        prepDEinput    = "stringtie/prepDE_input.txt"
+    threads: 4
     shell:
-        "samtools index {input}"
+        r"""
+        > {params.prepDEinput}
+
+        for gtf in {input.gtfs}; do
+            sample_nam=$(basename $(dirname $gtf))
+            dir=$(realpath $(dirname $gtf))
+            echo -e "${{sample_nam}}\t${{gtf}}" >> {params.prepDEinput}
+        done
+
+        python ../../local/src/prepDE.py -i {params.prepDEinput}
+        """
+
+#################
+### Rename BAM ###
+#################
+
 
 
 ######################
 ### Spladder Rules ###
 ######################
-
+rule change_bamname: 
+    shell: 
+        """
+        ../../local/src/create_bamlist.sh Results/bam_pass2_renamed 
+        """
 
 rule spladder_build:
     input:
-        bam = "Results/pass2/{sample}/Aligned.sortedByCoord.out.bam",
-        bai = "Results/pass2/{sample}/Aligned.sortedByCoord.out.bam.bai",
+        bam = "Results/bam_pass2_renamed/{sample}.bam",
+        bai = "Results/bam_pass2_renamed/{sample}.bam.bai",
         gtf = GENCODE_ANNOTATION_GTF
     output:
-        "spladder/{sample}/spladder/genes_graph_conf3.pickle"
-    threads: 8
+        "out_spladder/spladder/genes_graph_conf3.{sample}.pickle"
+    threads: 3
     shell:
         """
-        mkdir -p spladder/{wildcards.sample}
+        mkdir -p out_spladder
         spladder build \
-            -o spladder/{wildcards.sample} \
+            -o out_spladder \
             -a {input.gtf} \
             -b {input.bam} \
             --confidence 3 \
-            --ignore-mismatches \
+            --merge-strat single \
+            --no-extract-ase \
+	    --ignore-mismatches \
             --parallel {threads}
         """
 
 
+        
 
-rule spladder_merge:
-    input:
-        graphs = expand(
-            "spladder/{sample}/spladder/genes_graph_conf3.pickle",
-            sample=SAMPLES
-        )
-    output:
-        "spladder/merged/spladder/genes_graph_conf3.merge_graph.pickle"
-    shell:
-        """
-        mkdir -p spladder/merged
+    
 
-        spladder merge \
-            -o spladder/merged \
-            -g {input.graphs}
-        """
+#rule spladder_merge:
+#    input: 
+#        gtf = GENCODE_ANNOTATION_GTF
+#        
+#    output: 
+#    shell: 
+#        """
+#        spladder build \ 
+#            -o out_spladder \ 
+#            -a {input.gtf}
+#            -b alignment.txt
 
 
-rule spladder_quant:
-    input:
-        graph = "spladder/merged/spladder/genes_graph_conf3.merge_graph.pickle",
-        bams  = expand(
-            "Results/pass2/{sample}/Aligned.sortedByCoord.out.bam",
-            sample=SAMPLES
-        )
-    output:
-        "spladder/quantification/spladder/genes_graph_conf3.quant.pickle"
-    threads: 8
-    shell:
-        """
-        mkdir -p spladder/quantification
-        spladder quantify \
-            -o spladder/quantification \
-            -g {input.graph} \
-            -b {input.bams} \
-            --parallel {threads}
-        """
+#rule spladder_quant:
+
 
 
 
@@ -291,102 +288,38 @@ rule sambamba_index:
             -t {threads} \
             {input}
         """
-rule majiq_gff3:
+
+###############
+# Majiq Rules #
+###############
+rule all_Majiq_SJ:
+    input:
+        expand("Majiq/SJ/{sample}.sj", sample=SAMPLES)
+
+rule majiq_zar_generate:
     input:
         gff3 = gff3
     output:
-        sg = directory("results/majiq/builder/init_splicegraph")
-    threads: 1
-    shell:
-        """
-        majiq-build gff3 {input.gff3} \
-            --output {output.sg}
-        """
-
-
-rule majiq_sj:
-    input:
-        bam = "sambamba/{sample}.sorted.bam",
-    output:
-        sj = "results/majiq/sj/{sample}.sj"
-    params:
-        outdir = "results/majiq/sj"
+        "Majiq/annotations/sg.zarr"
     threads: 4
     shell:
         """
-        majiq-build sj {input.bam} \
-            --output {params.outdir} \
-            --nproc {threads}
+        mkdir -p Majiq/annotations
+        export MAJIQ_LICENSE_FILE="/mnt/oncog/software/snakeRnaSeq/dataset/v1/profiles/majiq_license_academic_official.lic"
+        majiq-v3 gff3 {input.gff3}  {output}
         """
 
-rule majiq_build:
-    input:
-        init_sg = rules.majiq_gff3.output.sg,
-        sjs = expand("results/majiq/sj/{sample}.sj", sample=SAMPLES)
-    output:
-        final_sg = directory("results/majiq/builder/splicegraph")
-    params:
-        min_experiments = 0.5
-    threads: 8
-    shell:
-        """
-        majiq-build update {input.init_sg} {input.sjs} \
-            --output {output.final_sg} \
-            --min-experiments {params.min_experiments} \
-            --nproc {threads}
-        """
 
-rule majiq_psi_coverage:
-    input:
-        sg = rules.majiq_build.output.final_sg,
-        sj = "results/majiq/sj/{sample}.sj"
-    output:
-        cov = "results/majiq/coverage/{sample}.majiq" 
+
+rule majiq_SJ: 
+    input: 
+        bam=lambda wc: f"Results/pass2/{wc.sample}/Aligned.sortedByCoord.out.bam",
+        zarr= "Majiq/annotations/sg.zarr"
+    output: 
+        sj= "Majiq/SJ/{sample}.sj"
     threads: 4
     shell:
         """
-        majiq psi-coverage {input.sg} {output.cov} {input.sj} \
-            --nproc {threads}
-        """
-
-rule majiq_psi:
-    input:
-        cov = "results/majiq/coverage/{sample}.majiq",
-        sg = rules.majiq_build.output.final_sg
-    output:
-        outdir = directory("results/majiq/psi/{sample}")
-    params:
-        name = "{sample}"
-    threads: 4
-    shell:
-        """
-        majiq psi {input.cov} \
-            --splicegraph {input.sg} \
-            --output {output.outdir} \
-            --name {params.name} \
-            --nproc {threads}
-        """
-
-rule majiq_deltapsi:
-    input:
-        grp1 = lambda wildcards: expand("results/majiq/coverage/{s}.majiq", 
-                                        s=config["comparisons"][wildcards.comp]["group1"]),
-        grp2 = lambda wildcards: expand("results/majiq/coverage/{s}.majiq", 
-                                        s=config["comparisons"][wildcards.comp]["group2"]),
-        sg = rules.majiq_build.output.final_sg
-    output:
-        outdir = directory("results/majiq/deltapsi/{comp}")
-    params:
-        name1 = lambda wildcards: config["comparisons"][wildcards.comp]["names"][0],
-        name2 = lambda wildcards: config["comparisons"][wildcards.comp]["names"][1]
-    threads: 4
-    shell:
-        """
-        majiq deltapsi \
-            -grp1 {input.grp1} \
-            -grp2 {input.grp2} \
-            --names {params.name1} {params.name2} \
-            --splicegraph {input.sg} \
-            --output {output.outdir} \
-            --nproc {threads}
+        mkdir --p Majiq/SJ
+        majiq-v3 sj {input.bam} {input.zarr} --nthreads {threads} {output.sj}
         """

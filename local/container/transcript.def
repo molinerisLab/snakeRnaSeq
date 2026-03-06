@@ -70,8 +70,25 @@ From: ubuntu:22.04
     # but strictly speaking, letting pip check them is fine.
     pip install .
 
+    ######## Move and Setup your Custom Scripts ########
+    export ENV_BIN="/transcript/mamba/envs/transcript_env/bin"
+
+    cp /transcript/unhead_source "$ENV_BIN/unhead"
+    chmod +x "$ENV_BIN/unhead"
+
+    cp /transcript/tab2matrix_source "$ENV_BIN/tab2matrix"
+    chmod +x "$ENV_BIN/tab2matrix"
+
+    # Clean up temp files
+    rm /transcript/unhead_source /transcript/tab2matrix_source
+
+    # Final permissions check
+    chmod -R a+rX /transcript
+
 %files
     transcript_env.yaml /transcript/
+    unhead.sh /transcript/unhead_source
+    tab2matrix.py /transcript/tab2matrix_source
 
 %runscript
     #!/bin/bash

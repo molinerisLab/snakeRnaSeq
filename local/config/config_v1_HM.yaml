@@ -25,9 +25,9 @@ TRIMMER: "fastp"  # fastp | trim_galore
 # ========================
 
 GENCODE:
-  SPECIES: "hsapiens"      # hsapiens | mmusculus | mmusculus_hsapiens_combined
-  VERSION: "46"            # 32 | M23
-  GENOME: "GRCh38.primary_assembly" # GRCh38.primary_assembly | GRCm38.primary_assembly
+  SPECIES: "mmusculus_hsapiens_combined"      # hsapiens | mmusculus | mmusculus_hsapiens_combined
+  VERSION: "M38_46"            # 32 | M23
+  GENOME: "GRCh38_GRCm39.primary_assembly" # GRCh38.primary_assembly | GRCm38.primary_assembly
   ANNOTATION: "primary_assembly.annotation" # primary_assembly.annotation | basic.annotation
 
 GENOME_ASSEMBLY: "GRCh38.p14"

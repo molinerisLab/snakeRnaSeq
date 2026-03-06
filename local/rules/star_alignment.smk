@@ -39,7 +39,7 @@ rule star_align_se:
             f"--alignIntronMax {config['STAR']['ALIGN_INTRON_MAX']} "
             f"--alignMatesGapMax {config['STAR']['ALIGN_MATES_GAP_MAX']} "
             f"{config['STAR']['ADDITIONAL_OUTPUT']}"
-            f"{'--outReadsUnmapped Fastx --outSAMunmapped None' if config['STAR']['SAVE_UNMAPPED'] == 'FASTQ' else '--outSAMunmapped Within'}"
+#            f"{'--outReadsUnmapped Fastx --outSAMunmapped None' if config['STAR']['SAVE_UNMAPPED'] == 'FASTQ' else '--outSAMunmapped Within'}"
         )
     wrapper:
         "v3.3.6/bio/star/align"
@@ -77,7 +77,7 @@ rule star_align_pe:
             f"--alignIntronMax {config['STAR']['ALIGN_INTRON_MAX']} "
             f"--alignMatesGapMax {config['STAR']['ALIGN_MATES_GAP_MAX']} "
             f"{config['STAR']['ADDITIONAL_OUTPUT']}"
-            f"{'--outReadsUnmapped Fastx --outSAMunmapped None' if config['STAR']['SAVE_UNMAPPED'] == 'FASTQ' else '--outSAMunmapped Within'}"
+#            f"{'--outReadsUnmapped Fastx --outSAMunmapped None' if config['STAR']['SAVE_UNMAPPED'] == 'FASTQ' else '--outSAMunmapped Within'}"
         )
     wrapper:
         "v3.3.6/bio/star/align"
@@ -161,13 +161,17 @@ rule star_align_first_pass:
         log          = "Results/pass1/{sample}/Log.out",
         log_final    = "Results/pass1/{sample}/Log.final.out",
         log_progress = "Results/pass1/{sample}/Log.progress.out"
-    threads: 16
+    threads: 6
     conda: "transcript_env.yaml"
     params:
         tmpdir     = "Results/pass1/{sample}",
         read_cmd   = config["STAR"]["readFilesCommand"],
         limitSjdb  = config["STAR"]["limitSjdbInsertNsj"],
         fq_join    = lambda wc, input: " ".join(input.fq)
+#	OUT_FILTER_MISMATCH_NOVER_LMAX = config["STAR"]["OUT_FILTER_MISMATCH_NOVER_LMAX"],
+#	OUT_FILTER_MISMATCH_NMAX = config["STAR"]["OUT_FILTER_MISMATCH_NMAX"],
+#	MULTIMAP_SCORE_RANGE = config["STAR"]["MULTIMAP_SCORE_RANGE"],
+#	OUT_FILTER_MULTIMAP_NMAX = config["STAR"]["OUT_FILTER_MULTIMAP_NMAX"]
     shell:
         """
         mkdir -p {params.tmpdir}
@@ -194,7 +198,7 @@ rule merge_and_filter_sj:
         """
         mkdir -p $(dirname {output})
         cat {input} \
-          | awk '$5>=1 && $5<=6 && $6==0 && $7>2' \
+          | awk '$1!="chrM" && $5>=1 && $5<=6 && $6==0 && $7>2 && $9>=10 && $7>$8' \
           | sort -u \
           > {output}
         """
@@ -240,8 +244,11 @@ rule star_second_pass:
             --sjdbOverhang {params.sjdbOver} \
             --limitSjdbInsertNsj {params.limitSjdb} \
             --outFileNamePrefix {params.tmpdir}/ \
+            --quantMode {params.quant_mode} \
             --outSAMtype {params.out_samtype} \
-            --quantMode {params.quant_mode}
+	        --outFilterType BySJout \
+            --outSAMstrandField intronMotif \
+            --outSAMattributes All 
         """
 
 
@@ -263,7 +270,7 @@ rule star_twopass_basic_se:
         gene_counts= "star_2pass/{sample}/ReadsPerGene.out.tab",
         log        = "star_2pass/{sample}/Log.out",
         log_final  = "star_2pass/{sample}/Log.final.out"
-    threads: 8
+    threads: 6
     conda: "transcript_env.yaml"
     params:
         genome_dir   = STAR_GENOME_DIR,

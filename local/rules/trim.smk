@@ -1,32 +1,22 @@
 # =============================================================================
 # FASTP (QC AND TRIMMING)
 # =============================================================================
+from glob import glob
 
-if config["TRIMMER"] == "fastp" and config["LAYOUT"] == "SINGLE":
-    ruleorder: fastp_se > trim_galore_se > trim_galore_pe
-elif config["TRIMMER"] == "fastp" and config["LAYOUT"] == "PAIRED":
-    ruleorder: fastp_pe > trim_galore_pe > trim_galore_se
-elif config["TRIMMER"] == "trim_galore" and config["LAYOUT"] == "SINGLE":
-    ruleorder: trim_galore_se > fastp_se > fastp_pe
-elif config["TRIMMER"] == "trim_galore" and config["LAYOUT"] == "PAIRED":
-    ruleorder: trim_galore_pe > fastp_pe > fastp_se
+TRIMMER = config["TRIMMER"]
+LAYOUT = config["LAYOUT"]
+
 
 rule fastp_se:
     input:
         "fastq/{sample}_R1.fastq.gz"
     output:
-        trimmed="fastq/fastq_trimmed/{sample}_R1.fastq.gz",
-        #unpaired1="fastq/fastq_trimmed/se/{sample}.u1.fastq",
-        #merged="fastq/fastq_trimmed/pe/{sample}.merged.fastq",
-        #failed="fastq/fastq_trimmed/pe/{sample}.failed.fastq",
-        html="fastq/fastq_trimmed/{sample}.html",
-        json="fastq/fastq_trimmed/{sample}.json"
+        trimmed="fastq/fastq_trimmed/fastp/{sample}_R1.fastq.gz",
+        html="fastq/fastq_trimmed/fastp/{sample}.html",
+        json="fastq/fastq_trimmed/fastp/{sample}.json"
     threads: 6
     log:
-        "fastq/fastq_trimmed/{sample}.log.txt"
-    params:
-        #adapters_r1="--adapter_sequence=AGATCGGAAGAGCACACGTCTGAACTCCAGTCA" 
-    conda: "transcript_env.yaml"
+        "fastq/fastq_trimmed/fastp/{sample}.log.txt"
     wrapper:
         "v3.3.6/bio/fastp"
 
@@ -34,14 +24,11 @@ rule fastp_pe:
     input:
         sample=["fastq/{sample}_R1.fastq.gz", "fastq/{sample}_R2.fastq.gz"]
     output:
-        trimmed=["fastq/fastq_trimmed/{sample}_R1.fastq.gz", "fastq/fastq_trimmed/{sample}_R2.fastq.gz"],
-        html="fastq/fastq_trimmed/{sample}.html",
-        json="fastq/fastq_trimmed/{sample}.json"
+        trimmed=["fastq/fastq_trimmed/fastp/{sample}_R1.fastq.gz", "fastq/fastq_trimmed/fastp/{sample}_R2.fastq.gz"],
+        html="fastq/fastq_trimmed/fastp/{sample}.html",
+        json="fastq/fastq_trimmed/fastp/{sample}.json"
     log:
-        "fastq/fastq_trimmed/{sample}.log"
-    conda: "transcript_env.yaml"
-    params:
-        extra=""
+        "fastq/fastq_trimmed/fastp/{sample}.log"
     threads: 6
     wrapper:
         "v3.3.6/bio/fastp"
@@ -57,7 +44,7 @@ rule trim_galore_se:
     input:
         "fastq/{sample}_R1.fastq.gz"
     output:
-        "fastq/fastq_trimmed/{sample}_R1.fastq.gz"
+        "fastq/fastq_trimmed/trimgalore/{sample}_R1.fastq.gz"
     params:
         trim_galore_params=config["TRIM_GALORE"]["PARAM"],
         cores=config["CORES"]
@@ -78,8 +65,8 @@ rule trim_galore_pe:
         fastq_read1="fastq/{sample}_R1.fastq.gz",
         fastq_read2="fastq/{sample}_R2.fastq.gz"
     output:
-        fastq_read1="fastq/fastq_trimmed/{sample}_R1.fastq.gz",
-        fastq_read2="fastq/fastq_trimmed/{sample}_R2.fastq.gz"
+        fastq_read1="fastq/fastq_trimmed/trimgalore/{sample}_R1.fastq.gz",
+        fastq_read2="fastq/fastq_trimmed/trimgalore/{sample}_R2.fastq.gz"
     params:
         trim_galore_params=config["TRIM_GALORE"]["PARAM"],
         cores=config["CORES"]
@@ -92,3 +79,32 @@ rule trim_galore_pe:
         "{input}; "
         "mv trimgalore/{wildcards.sample}_R1_val_1.fq.gz {output.fastq_read1}; "
         "mv trimgalore/{wildcards.sample}_R2_val_2.fq.gz {output.fastq_read2}"
+
+
+##################################
+# Rule for linking fastq_trimmed #
+##################################
+
+if LAYOUT == "SINGLE":
+    rule link_trimmed_se:
+        input:
+           r1=f"fastq/fastq_trimmed/{TRIMMER}/{{sample}}_R1.fastq.gz"
+        output:
+           tr1="fastq/fastq_trimmed/{sample}_R1.fastq.gz"
+        wildcard_constraints:
+            sample="[^/]+"
+        shell:
+            "ln -srf {input.r1} {output.tr1}"
+
+elif LAYOUT == "PAIRED":
+    rule link_trimmed_pe:
+        input:
+            r1=f"fastq/fastq_trimmed/{TRIMMER}/{{sample}}_R1.fastq.gz",
+            r2=f"fastq/fastq_trimmed/{TRIMMER}/{{sample}}_R2.fastq.gz"
+        output:
+            tr1="fastq/fastq_trimmed/{sample}_R1.fastq.gz",
+            tr2="fastq/fastq_trimmed/{sample}_R2.fastq.gz"
+        wildcard_constraints:
+            sample="[^/]+"
+        shell:
+            "ln -srf {input.r1} {output.tr1}; ln -srf {input.r2} {output.tr2}"

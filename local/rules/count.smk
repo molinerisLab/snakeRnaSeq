@@ -3,16 +3,17 @@
 # ------------------------------- #
 ruleorder: featurecounts > split_bam_ribo
 
-rule split_bam_HM: 
-    input: 
-        bam = "Results/pass2/{sample}/Aligned.sortedByCoord.out.bam"
-    output:
-        "Results/pass2/{sample}/Aligned.sortedByCoord.out.H.bam", 
-        "Results/pass2/{sample}/Aligned.sortedByCoord.out.M.bam"
-    shell: 
-        """
-        samtools view -h Aligned.sortedByCoord.out.bam | awk -F'\t' '$1 ~ /^@/ || $3 ~ /^M/' | samtools view -b - > Aligned.sortedByCoord.out.M.bam \
-        samtools view -h Aligned.sortedByCoord.out.bam | awk -F'\t' '$1 ~ /^@/ || $3 ~ /^H/' | samtools view -b - > Aligned.sortedByCoord.out.H.bam
+#rule split_bam_HM:
+#    input: 
+#        bam = "Results/pass2/{wildcards.sample}/Aligned.sortedByCoord.out.bam"
+#    output:
+#        "Results/pass2/{sample}/Aligned.sortedByCoord.out.H.bam", 
+#        "Results/pass2/{sample}/Aligned.sortedByCoord.out.M.bam"
+#    shell: 
+#        """
+#        samtools view -h "Results/pass2/{sample}/Aligned.sortedByCoord.out.bam" | awk -F'\t' '$1 ~ /^@/ || $3 ~ /^M/' | samtools view -b - > "Results/pass2/{sample}/Aligned.sortedByCoord.out.M.bam" \
+#        samtools view -h "Results/pass2/{sample}/Aligned.sortedByCoord.out.bam" | awk -F'\t' '$1 ~ /^@/ || $3 ~ /^H/' | samtools view -b - > "Results/pass2/{sample}/Aligned.sortedByCoord.out.H.bam"
+#        """
 
 
 rule split_bam_ribo:
@@ -27,7 +28,122 @@ rule split_bam_ribo:
 	shell:
 		"split_bam.py -i {input.bam} -r {input.ribosome_bed} -o Results/pass2/{wildcards.sample}/Aligned.sortedByCoord.out.ribo > Results/pass2/{wildcards.sample}/Aligned.sortedByCoord.out.summary"
 
+###### Prova Anna HM
 
+rule split_bam_riboex_HM:
+    input:
+        bam = "Results/pass2/{sample}/Aligned.sortedByCoord.out.ribo.ex.bam"
+    output:
+        H = "Results/pass2/{sample}/Aligned.sortedByCoord.out.ribo.ex.H.bam",
+        M = "Results/pass2/{sample}/Aligned.sortedByCoord.out.ribo.ex.M.bam"
+    shell:
+        """
+        samtools view -h {input.bam} | awk -F'\t' '$1 ~ /^@/ || $3 ~ /^H/' | samtools view -b - > {output.H}
+        samtools view -h {input.bam} | awk -F'\t' '$1 ~ /^@/ || $3 ~ /^M/' | samtools view -b - > {output.M}
+        """
+
+rule featurecounts_HM:
+        input:
+                bamH="Results/pass2/{sample}/Aligned.sortedByCoord.out.ribo.ex.H.bam",
+                annotation_gtf_H="splitted_human.gtf",
+                bamM="Results/pass2/{sample}/Aligned.sortedByCoord.out.ribo.ex.M.bam",
+                annotation_gtf_M="splitted_mouse.gtf"
+        output:
+                countsH="featureCounts/{sample}.out.ribo.ex.H.bam.featurecounts.count",
+                summaryH="featureCounts/{sample}.out.ribo.ex.H.bam.featurecounts.count.summary",
+                countsM="featureCounts/{sample}.out.ribo.ex.M.bam.featurecounts.count",
+                summaryM="featureCounts/{sample}.out.ribo.ex.M.bam.featurecounts.count.summary"
+        params:
+                cores=config["CORES"],
+                tmpdir=config["TMPDIR"],
+                params=FEATURECOUNTS_PARAM
+        shell:
+            """
+                mkdir -p featureCounts
+                featureCounts {input.bamH} \
+                -o {output.countsH} \
+                -a {input.annotation_gtf_H} \
+                {params.params} \
+                --tmpDir {params.tmpdir} \
+                -T {params.cores}
+                featureCounts {input.bamM} \
+                -o {output.countsM} \
+                -a {input.annotation_gtf_M} \
+                {params.params} \
+                --tmpDir {params.tmpdir} \
+                -T {params.cores}
+            """
+
+rule featurecounts_H_reduce:
+        input:
+                file_all=expand("featureCounts/{sample}.out.ribo.ex.H.bam.featurecounts.count", sample=SAMPLES),
+                file_translate=expand("featureCounts/{sample}.out.ribo.ex.H.bam.featurecounts.count", sample=SAMPLES[0])
+        output:
+                "featureCounts/featurecounts.ribo.ex.H.count.gz"
+        shell: """
+                matrix_reduce 'featureCounts/*.ribo.ex.H.bam.featurecounts.count' -l '{input.file_all}' \
+                | grep -v '^#' \
+                | fasta2tab \
+                | bawk '$2!="Geneid" {{print $2,$1,$8}}' \
+                | tab2matrix -r Geneid \
+                | translate -a <(cut -f -6 {input.file_translate} | unhead) 1 \
+                | gzip > {output}
+                """
+
+rule featurecounts_M_reduce:
+        input:
+                file_all=expand("featureCounts/{sample}.out.ribo.ex.M.bam.featurecounts.count", sample=SAMPLES),
+                file_translate=expand("featureCounts/{sample}.out.ribo.ex.M.bam.featurecounts.count", sample=SAMPLES[0])
+        output:
+                "featureCounts/featurecounts.ribo.ex.M.count.gz"
+        shell: """
+                matrix_reduce 'featureCounts/*.ribo.ex.M.bam.featurecounts.count' -l '{input.file_all}' \
+                | grep -v '^#' \
+                | fasta2tab \
+                | bawk '$2!="Geneid" {{print $2,$1,$8}}' \
+                | tab2matrix -r Geneid \
+                | translate -a <(cut -f -6 {input.file_translate} | unhead) 1 \
+                | gzip > {output}
+                """
+
+rule featurecounts_ribo_ex_summary_H:
+        input:
+                summH = expand("featureCounts/{sample}.out.ribo.ex.H.bam.featurecounts.count.summary", sample=SAMPLES),
+        output:
+                summgzH = "featureCounts/fastq.featurecounts.ribo.ex.H.count.gz.summary_matrix",
+        shell:
+                "matrix_reduce -t 'featureCounts/*.out.ribo.ex.H.bam.featurecounts.count.summary' "
+                "| grep -v Status "
+                "| tab2matrix -r Sample > {output}"
+
+rule featurecounts_ribo_ex_summary_M:
+        input:
+                summM = expand("featureCounts/{sample}.out.ribo.ex.M.bam.featurecounts.count.summary", sample=SAMPLES)
+        output:
+                summgzM = "featureCounts/fastq.featurecounts.ribo.ex.M.count.gz.summary_matrix"
+        shell:
+                "matrix_reduce -t 'featureCounts/*.out.ribo.ex.M.bam.featurecounts.count.summary' "
+                "| grep -v Status "
+                "| tab2matrix -r Sample > {output}"
+
+rule featurecounts_ribo_ex_summary_matrix_HM:
+        input:
+                summH  = "featureCounts/fastq.featurecounts.ribo.ex.H.count.gz.summary_matrix",
+                summM = "featureCounts/fastq.featurecounts.ribo.ex.M.count.gz.summary_matrix"
+        output:
+                reducedH = "featureCounts/fastq.featurecounts.ribo.ex.H.count.gz.summary_matrix.reduced",
+                reducedM = "featureCounts/fastq.featurecounts.ribo.ex.M.count.gz.summary_matrix.reduced"
+        shell:
+            """
+                matrix2tab {input.summH} \
+                | bawk '$2==\"Unassigned_Ambiguity\" || $2==\"Assigned\" || $2==\"Unassigned_NoFeatures\"' \
+                | tab2matrix -r Sample > {output.reducedH}
+                matrix2tab {input.summM} \
+                | bawk '$2==\"Unassigned_Ambiguity\" || $2==\"Assigned\" || $2==\"Unassigned_NoFeatures\"' \
+                | tab2matrix -r Sample > {output.reducedM}
+            """
+
+####### fine prova Anna HM
 
 rule featurecounts:
 	input:
@@ -52,6 +168,7 @@ rule featurecounts:
 		--tmpDir {params.tmpdir} \
 		-T {params.cores}
             """
+
 
 rule featurecounts_ribo_ex:
 	input:

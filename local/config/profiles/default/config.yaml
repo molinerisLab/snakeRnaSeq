@@ -6,5 +6,5 @@ singularity-args: "-B /mnt/oncog/software/snakeRnaSeq \
                    -B /mnt/bioionfotree/task/gencode \
                    -B /mnt/oncog/data/raw_data/cell_bank \
                    -B /mnt/oncog/data/raw_data/illumina_novaseq/260213_NS500140_0754_AHKHWLBGXT/Alignment_1/20260214_080525/Fastq \
-                   -B /mnt/oncog/software/SnakeReferences
+                   -B /mnt/oncog/software/SnakeReferences \
                    -B /mnt/oncog/software/snakeRnaSeq/dataset/v1/profiles/majiq_license_academic_official.lic"

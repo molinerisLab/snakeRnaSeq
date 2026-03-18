@@ -87,6 +87,17 @@ rule all_split:
         expand("featureCounts/featurecounts.ribo.ex.count.gz"),
         expand("featureCounts/fastq.featurecounts.ribo.ex.count.gz.summary_matrix.reduced")
 
+rule all_split_bam_HM:
+    input:
+        expand("Results/pass2/{sample}/Aligned.sortedByCoord.out.ribo.ex.H.bam", sample=SAMPLES),
+        expand("Results/pass2/{sample}/Aligned.sortedByCoord.out.ribo.ex.M.bam", sample=SAMPLES)
+
+
+rule split_bam_ribo_all:
+    input:
+        expand("Results/pass2/{sample}/Aligned.sortedByCoord.out.ribo.ex.bam", sample=SAMPLES)
+
+
 rule all_bai:
     input:
         expand("Results/pass2/{file}/Aligned.sortedByCoord.out.bam.bai", file=SAMPLES)
@@ -145,7 +156,6 @@ rule all_fastq_unmapped:
         expand("fastq_unmapped/{sample}_R1.fastq.gz", sample=SAMPLES),
         expand("fastq_unmapped/{sample}_R2.fastq.gz", sample=SAMPLES)
 
-
 rule all_star_sp:
     input:
         expand("Results/pass2/{sample}/{suffix}",
@@ -153,15 +163,30 @@ rule all_star_sp:
                sample=SAMPLES,
                suffix=["Aligned.sortedByCoord.out.bam", "ReadsPerGene.out.tab"])
 
-rule all_merge_filter_sj:
+rule all_star_sp_genomeload:
     input:
-        expand("Results/pass1/merged_filtered_SJ.out.tab")
+        "Results/genome_unloaded.flag"
 
 
 rule all_star_twopass_basic:
     input:
         expand("star_2pass/{sample}/Aligned.sortedByCoord.out.bam",
                sample=SAMPLES)
+
+#rule all_featurecounts_HM:
+#    input:
+#        expand("featureCounts/{sample}.out.ribo.ex.H.bam.featurecounts.count", sample=SAMPLES),
+#        expand("featureCounts/{sample}.out.ribo.ex.H.bam.featurecounts.count.summary", sample=SAMPLES),
+#        expand("featureCounts/{sample}.out.ribo.ex.M.bam.featurecounts.count", sample=SAMPLES),
+#        expand("featureCounts/{sample}.out.ribo.ex.M.bam.featurecounts.count.summary", sample=SAMPLES)
+#nb questa sopra funziona 
+
+rule all_featurecounts_HM:
+    input:
+        "featureCounts/featurecounts.ribo.ex.H.count.gz",
+        "featureCounts/featurecounts.ribo.ex.M.count.gz",
+        "featureCounts/fastq.featurecounts.ribo.ex.H.count.gz.summary_matrix.reduced",
+        "featureCounts/fastq.featurecounts.ribo.ex.M.count.gz.summary_matrix.reduced"
 
 rule all_kallisto:
     input:
@@ -171,9 +196,9 @@ rule all_spladder:
     input:
         expand("out_spladder/spladder/genes_graph_conf3.{sample}.pickle", sample=SAMPLES)
 
-rule all_stringtie:
+rule all_stringtie_H:
     input:
-        "transcript_count_matrix.csv"
+        "stringtie/human/transcript_count_matrix.csv"
 
 rule all_samb_sort:
     input:

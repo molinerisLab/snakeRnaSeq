@@ -140,8 +140,19 @@ rule generate_unmapped_R2:
 
 
 # ==============================================
-# STAR DOUBLE PASS ALIGNMENT (if needed)
+# STAR DOUBLE PASS ALIGNMENT USING ALL SJ OUT 
 # ==============================================
+
+rule load_star_genome:
+    input:
+        idx = STAR_GENOME_DIR
+    output:
+        flag = touch("Results/genome_loaded.flag")
+    conda: "transcript_env.yaml"
+    shell:
+        """
+        STAR --genomeDir {input.idx} --genomeLoad LoadAndExit
+        """
 
 rule star_align_first_pass:
     input:
@@ -155,54 +166,59 @@ rule star_align_first_pass:
                 f"fastq/fastq_trimmed/{wc.sample}_R1.fastq.gz"
             ]
         ),
-        idx= STAR_GENOME_DIR
+        idx= STAR_GENOME_DIR,
+        mem_flag = "Results/genome_loaded.flag"
     output:
         sj           = "Results/pass1/{sample}/SJ.out.tab",
         log          = "Results/pass1/{sample}/Log.out",
         log_final    = "Results/pass1/{sample}/Log.final.out",
-        log_progress = "Results/pass1/{sample}/Log.progress.out"
-    threads: 6
+        log_progress = "Results/pass1/{sample}/Log.progress.out",
+    threads: 3
     conda: "transcript_env.yaml"
     params:
         tmpdir     = "Results/pass1/{sample}",
         read_cmd   = config["STAR"]["readFilesCommand"],
-        limitSjdb  = config["STAR"]["limitSjdbInsertNsj"],
-        fq_join    = lambda wc, input: " ".join(input.fq)
-#	OUT_FILTER_MISMATCH_NOVER_LMAX = config["STAR"]["OUT_FILTER_MISMATCH_NOVER_LMAX"],
-#	OUT_FILTER_MISMATCH_NMAX = config["STAR"]["OUT_FILTER_MISMATCH_NMAX"],
-#	MULTIMAP_SCORE_RANGE = config["STAR"]["MULTIMAP_SCORE_RANGE"],
-#	OUT_FILTER_MULTIMAP_NMAX = config["STAR"]["OUT_FILTER_MULTIMAP_NMAX"]
+        fq_join    = lambda wc, input: " ".join(input.fq),
+        sjdbOver    = config["STAR"]["sjdbOverhang"],
+        multiscorerange = config["STAR"]["MULTIMAP_SCORE_RANGE"],
+        outfiltermismatch = config["STAR"]["OUT_FILTER_MISMATCH_NMAX"],
+        outfiltermultimapnmax = config["STAR"]["OUT_FILTER_MULTIMAP_NMAX"],
+        outfiltermismatchnover = config["STAR"]["OUT_FILTER_MISMATCH_NOVER_LMAX"],
     shell:
         """
         mkdir -p {params.tmpdir}
         STAR \
             --runThreadN {threads} \
+            --genomeLoad LoadAndKeep \
             --genomeDir {input.idx} \
             --readFilesIn {params.fq_join} \
             --readFilesCommand {params.read_cmd} \
-            --limitSjdbInsertNsj {params.limitSjdb} \
             --outFileNamePrefix {params.tmpdir}/ \
+            --sjdbOverhang {params.sjdbOver} \
+            --outFilterMultimapScoreRange {params.multiscorerange} \
+            --outFilterMismatchNoverLmax {params.outfiltermismatchnover} \
+            --outFilterMismatchNmax {params.outfiltermismatch} \
+            --outFilterMultimapNmax {params.outfiltermultimapnmax} \
             --outSAMtype None
         """
 
 
         
-rule merge_and_filter_sj:
+rule filter_sj:
     input:
         expand("Results/pass1/{sample}/SJ.out.tab",
                sample= SAMPLES)
     output:
-        "Results/pass1/merged_filtered_SJ.out.tab"
+        sj_filtered = "Results/pass1/{sample}/SJ_filtered.out.tab"
     conda: "transcript_env.yaml"
+    threads: 3
     shell:
         """
-        mkdir -p $(dirname {output})
         cat {input} \
-          | awk '$1!="chrM" && $5>=1 && $5<=6 && $6==0 && $7>2 && $9>=10 && $7>$8' \
+          | awk '$1!="HchrM" && $1!="MchrM" && $5>0 && $6==0 && $7>2' \
           | sort -u \
-          > {output}
+          > {output.sj_filtered}
         """
-
 
 
 rule star_second_pass:
@@ -218,38 +234,66 @@ rule star_second_pass:
             ]
         ),
         idx=STAR_GENOME_DIR,
-        sj=lambda wc: f"Results/pass1/merged_filtered_SJ.out.tab"
+        sj_files = expand("Results/pass1/{sample}/SJ_filtered.out.tab",
+                          sample=SAMPLES)
     output:
         bam         = "Results/pass2/{sample}/Aligned.sortedByCoord.out.bam",
         gene_counts = "Results/pass2/{sample}/ReadsPerGene.out.tab"
-    threads: 8
+    threads: 3
     conda: "transcript_env.yaml"
     params:
+        multiscorerange = config["STAR"]["MULTIMAP_SCORE_RANGE"],
+        outfiltermismatch = config["STAR"]["OUT_FILTER_MISMATCH_NMAX"],
+        outfiltermultimapnmax = config["STAR"]["OUT_FILTER_MULTIMAP_NMAX"],
+        outfiltermismatchnover = config["STAR"]["OUT_FILTER_MISMATCH_NOVER_LMAX"],
         out_samtype = config["STAR"]["OUT_SAM_TYPE"],
         quant_mode  = config["STAR"]["quantMode"],
         sjdbOver    = config["STAR"]["sjdbOverhang"],
         read_cmd    = config["STAR"]["readFilesCommand"],
-        limitSjdb   = config["STAR"]["limitSjdbInsertNsj"],
         fq_join     = lambda wc, input: " ".join(input.fq),
+        sj_join     = lambda wc, input: " ".join(input.sj_files),
         tmpdir      = "Results/pass2/{sample}"
     shell:
         """
         mkdir -p {params.tmpdir}
         STAR \
             --runThreadN {threads} \
+            --genomeLoad LoadAndKeep \
             --genomeDir {input.idx} \
             --readFilesIn {params.fq_join} \
             --readFilesCommand {params.read_cmd} \
-            --sjdbFileChrStartEnd {input.sj} \
+            --sjdbFileChrStartEnd {params.sj_join} \
             --sjdbOverhang {params.sjdbOver} \
-            --limitSjdbInsertNsj {params.limitSjdb} \
             --outFileNamePrefix {params.tmpdir}/ \
             --quantMode {params.quant_mode} \
             --outSAMtype {params.out_samtype} \
-	        --outFilterType BySJout \
             --outSAMstrandField intronMotif \
-            --outSAMattributes All 
+            --outFilterMultimapScoreRange {params.multiscorerange} \
+            --outFilterMismatchNmax {params.outfiltermismatch} \
+            --outFilterMultimapNmax {params.outfiltermultimapnmax} \
+            --outFilterMismatchNoverLmax {params.outfiltermismatchnover} \
+            --outSAMattributes All
         """
+
+rule unload_star_genome:
+    input:
+        bams = expand("Results/pass2/{sample}/Aligned.sortedByCoord.out.bam", sample=SAMPLES)
+    output:
+        flag = touch("Results/genome_unloaded.flag")
+    conda: "transcript_env.yaml"
+    shell:
+        """
+        STAR --genomeDir {STAR_GENOME_DIR} --genomeLoad Remove
+        """
+
+
+
+
+
+# ===============================================================================================
+# STAR DOUBLE PASS ALIGNMENT USING A SINGLE SJ OUT EACH TIME (NOT RECOMMENDED FOR LARGE DATASETS)
+# ===============================================================================================
+
 
 
 rule star_twopass_basic_se:

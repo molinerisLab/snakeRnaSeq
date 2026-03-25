@@ -2,26 +2,28 @@
 if config["LAYOUT"] == "SINGLE":
      ruleorder: generate_unmapped_single > generate_unmapped_R1
      ruleorder: generate_unmapped_single > generate_unmapped_R2
+     ruleorder: star_twopass_basic_se > star_twopass_basic_pe
 elif config["LAYOUT"] == "PAIRED":
      ruleorder: generate_unmapped_R1 > generate_unmapped_single
      ruleorder: generate_unmapped_R2 > generate_unmapped_single
+     ruleorder: star_twopass_basic_pe > star_twopass_basic_se
 
 rule star_align_se:
     input:
         fq1 = "fastq/fastq_trimmed/{sample}_R1.fastq.gz",
         idx = STAR_GENOME_DIR
     output:
-        aln = "star/{sample}.bam",
-        log = "star/{sample}.Log.out",
-        sj  = "star/{sample}.SJ.out.tab",
+        aln = "Results/star/{sample}.bam",
+        log = "Results/star/{sample}.Log.out",
+        sj  = "Results/star/{sample}.SJ.out.tab",
         unmapped = (
-            "star/unmapped/{sample}_unmapped_R1.fastq.gz"
+            "Results/star/unmapped/{sample}_unmapped_R1.fastq.gz"
             if config['STAR']['SAVE_UNMAPPED'] == "FASTQ" 
             else []
         ),
-        log_final = "star/{sample}.Log.final.out"
+        log_final = "Results/star/{sample}.Log.final.out"
     log:
-        "star/{sample}.log"
+        "Results/star/{sample}.log"
     threads: config["CORES"]
     conda: "transcript_env.yaml"
     params:
@@ -50,18 +52,18 @@ rule star_align_pe:
         fq2 = "fastq/fastq_trimmed/{sample}_R2.fastq.gz",
         idx = STAR_GENOME_DIR
     output:
-        aln = "star/{sample}.bam",
-        log = "star/{sample}.Log.out",
-        sj  = "star/{sample}.SJ.out.tab",
+        aln = "Results/star/{sample}.bam",
+        log = "Results/star/{sample}.Log.out",
+        sj  = "Results/star/{sample}.SJ.out.tab",
         unmapped = (
-            ["star/unmapped/{sample}_unmapped_R1.fastq.gz", 
-             "star/unmapped/{sample}_unmapped_R2.fastq.gz"]
+            ["Results/star/unmapped/{sample}_unmapped_R1.fastq.gz", 
+             "Results/star/unmapped/{sample}_unmapped_R2.fastq.gz"]
             if config['STAR']['SAVE_UNMAPPED'] == "FASTQ" 
             else []
         ),
-        log_final = "star/{sample}.Log.final.out"
+        log_final = "Results/star/{sample}.Log.final.out"
     log:
-        "star/{sample}.log"
+        "Results/star/{sample}.log"
     conda: 
         "transcript_env.yaml"
     threads: 16
@@ -85,7 +87,7 @@ rule star_align_pe:
 
 rule link_unmapped:
     input:
-        "star/{sample}_unmapped_R{mate}.fastq.gz"
+        "Results/star/unmapped/{sample}_unmapped_R{mate}.fastq.gz"
     output:
         "fastq/unmapped/{sample}_unmapped_R{mate}.fastq.gz"
     shell:
@@ -94,7 +96,7 @@ rule link_unmapped:
 rule generate_unmapped_single:
     input:
         lambda wildcards: (
-            f"star/{wildcards.sample}.bam"
+            f"Results/star/{wildcards.sample}.bam"
             if config["aligner"] == "star"
             else f"aligned_bwa/{wildcards.sample}.aligned.bam"
         )
@@ -110,7 +112,7 @@ rule generate_unmapped_single:
 rule generate_unmapped_R1:
     input:
        lambda wildcards: (
-            f"star/{wildcards.sample}.bam"
+            f"Results/star/{wildcards.sample}.bam"
             if config["aligner"] == "star"
             else f"aligned_bwa/{wildcards.sample}.aligned.bam"
         )
@@ -125,7 +127,7 @@ rule generate_unmapped_R1:
 rule generate_unmapped_R2:
     input:
         lambda wildcards: (
-            f"star/{wildcards.sample}.bam"
+            f"Results/star/{wildcards.sample}.bam"
             if config["aligner"] == "star"
             else f"aligned_bwa/{wildcards.sample}.aligned.bam"
         )
@@ -157,10 +159,10 @@ rule star_align_first_pass:
         ),
         idx= STAR_GENOME_DIR
     output:
-        sj           = "Results/pass1/{sample}/SJ.out.tab",
-        log          = "Results/pass1/{sample}/Log.out",
-        log_final    = "Results/pass1/{sample}/Log.final.out",
-        log_progress = "Results/pass1/{sample}/Log.progress.out"
+        sj           = "Results/pass1/{sample}/{sample}_SJ.out.tab",
+        log          = "Results/pass1/{sample}/{sample}_Log.out",
+        log_final    = "Results/pass1/{sample}/{sample}_Log.final.out",
+        log_progress = "Results/pass1/{sample}/{sample}_Log.progress.out"
     threads: 16
     conda: "transcript_env.yaml"
     params:
@@ -186,7 +188,7 @@ rule star_align_first_pass:
         
 rule merge_and_filter_sj:
     input:
-        expand("Results/pass1/{sample}/SJ.out.tab",
+        expand("Results/pass1/{sample}/{sample}_SJ.out.tab",
                sample= SAMPLES)
     output:
         "Results/pass1/merged_filtered_SJ.out.tab"
@@ -217,7 +219,7 @@ rule star_second_pass:
         idx=STAR_GENOME_DIR,
         sj=lambda wc: f"Results/pass1/merged_filtered_SJ.out.tab"
     output:
-        bam         = "Results/pass2/{sample}/Aligned.sortedByCoord.out.bam",
+        bam         = "Results/pass2/{sample}/{sample}_Aligned.sortedByCoord.out.bam",
         gene_counts = "Results/pass2/{sample}/ReadsPerGene.out.tab"
     threads: 8
     conda: "transcript_env.yaml"
@@ -289,6 +291,9 @@ rule star_twopass_basic_se:
             --quantMode GeneCounts TranscriptomeSAM
         """
 
+rule all_s2p_basic:
+    input:
+        expand("star_2pass/{sample}/Aligned.sortedByCoord.out.bam", sample=SAMPLES) 
 
 rule star_twopass_basic_pe:
     """

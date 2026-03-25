@@ -51,8 +51,10 @@ transcriptome_fasta_path = GENCODE_DIR + "/"+ "gencode.v" + "config['GENCODE']['
 ##########
 # Star  #
 ##########
-
-STAR_VERSION = shell("STAR --version", read=True).strip()
+try:
+    STAR_VERSION = shell("STAR --version 2>&1", read=True).strip()
+except Exception:
+    STAR_VERSION = config["STAR"]["VERSION"]
 STAR_GENOME_DIR = GENCODE_DIR+"/"+config["GENCODE"]["GENOME"]+".star_index/"+STAR_VERSION
 FEATURECOUNTS_PARAM = config["FEATURECOUNTS_PARAM"] + " -s" + config["STRANDED"]
 LCPM_PRIOR_COUNT = 0.25 

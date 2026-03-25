@@ -1,19 +1,18 @@
-                                                                                                           
-#                               ▄▄                  ▄▄▄▄▄▄    ▄▄▄   ▄▄     ▄▄       ▄▄▄▄    ▄▄▄▄▄▄▄▄    ▄▄▄▄                
-#                               ██                  ██▀▀▀▀██  ███   ██    ████    ▄█▀▀▀▀█   ██▀▀▀▀▀▀   ██▀▀██ 
-# ▄▄█████▄  ██▄████▄   ▄█████▄  ██ ▄██▀    ▄████▄   ██    ██  ██▀█  ██    ████    ██▄       ██        ██    ██         
-# ██▄▄▄▄ ▀  ██▀   ██   ▀ ▄▄▄██  ██▄██     ██▄▄▄▄██  ███████   ██ ██ ██   ██  ██    ▀████▄   ███████   ██    ██         
-#  ▀▀▀▀██▄  ██    ██  ▄██▀▀▀██  ██▀██▄    ██▀▀▀▀▀▀  ██  ▀██▄  ██  █▄██   ██████        ▀██  ██        ██    ██         
-# █▄▄▄▄▄██  ██    ██  ██▄▄▄███  ██  ▀█▄   ▀██▄▄▄▄█  ██    ██  ██   ███  ▄██  ██▄  █▄▄▄▄▄█▀  ██▄▄▄▄▄▄   ██▄▄██▀ 
-#  ▀▀▀▀▀▀   ▀▀    ▀▀   ▀▀▀▀ ▀▀  ▀▀   ▀▀▀    ▀▀▀▀▀   ▀▀    ▀▀▀ ▀▀   ▀▀▀  ▀▀    ▀▀   ▀▀▀▀▀    ▀▀▀▀▀▀▀▀    ▀▀▀██  
-#                                                                                                           ▀  
+#                               ▄▄                  ▄▄▄▄▄▄    ▄▄▄   ▄▄     ▄▄       ▄▄▄▄    ▄▄▄▄▄▄▄▄    ▄▄▄▄
+#                               ██                  ██▀▀▀▀██  ███   ██    ████    ▄█▀▀▀▀█   ██▀▀▀▀▀▀   ██▀▀██
+# ▄▄█████▄  ██▄████▄   ▄█████▄  ██ ▄██▀    ▄████▄   ██    ██  ██▀█  ██    ████    ██▄       ██        ██    ██
+# ██▄▄▄▄ ▀  ██▀   ██   ▀ ▄▄▄██  ██▄██     ██▄▄▄▄██  ███████   ██ ██ ██   ██  ██    ▀████▄   ███████   ██    ██
+#  ▀▀▀▀██▄  ██    ██  ▄██▀▀▀██  ██▀██▄    ██▀▀▀▀▀▀  ██  ▀██▄  ██  █▄██   ██████        ▀██  ██        ██    ██
+# █▄▄▄▄▄██  ██    ██  ██▄▄▄███  ██  ▀█▄   ▀██▄▄▄▄█  ██    ██  ██   ███  ▄██  ██▄  █▄▄▄▄▄█▀  ██▄▄▄▄▄▄   ██▄▄██▀
+#  ▀▀▀▀▀▀   ▀▀    ▀▀   ▀▀▀▀ ▀▀  ▀▀   ▀▀▀    ▀▀▀▀▀   ▀▀    ▀▀▀ ▀▀   ▀▀▀  ▀▀    ▀▀   ▀▀▀▀▀    ▀▀▀▀▀▀▀▀    ▀▀▀██
+#                                                                                                           ▀
 #                   +-+-+-+-+-+ +-+-+-+-+ +-+-+-+-+-+-+-+ +-+-+-+-+-+-+-+ +-+-+-+-+-+-+-+-+
 #                   |(|n|o|t|)| |j|u|s|t| |a|n|o|t|h|e|r| |R|N|A|-|s|e|q| |p|i|p|e|l|i|n|e|
 #                   +-+-+-+-+-+ +-+-+-+-+ +-+-+-+-+-+-+-+ +-+-+-+-+-+-+-+ +-+-+-+-+-+-+-+-+
 #                                         __    __    __    __
 #                                        /  \  /  \  /  \  /  \
-#_______________________________________/  __\/  __\/  __\/  __\_______________________________________________
-#______________________________________/  /__/  /__/  /__/  /__________________________________________________
+# _______________________________________/  __\/  __\/  __\/  __\_______________________________________________
+# ______________________________________/  /__/  /__/  /__/  /__________________________________________________
 #                                      | / \   / \   / \   /  \  \____
 #                                      |/   \_/   \_/   \_/    \    o \
 #                                                               \_____/--<
@@ -28,9 +27,15 @@ import os
 # Config  #
 ###########
 
+
 container: "library://aleone/mycontainers/snakernaseq:1.0"
 
+
+configfile: "/home/aleone/snakeRnaSeq/dataset/v1/config.yaml"
+
+
 if os.path.exists("Snakefile_versioned.sk"):
+
     include: "Snakefile_versioned.sk"
 
 
@@ -39,156 +44,185 @@ if os.path.exists("Snakefile_versioned.sk"):
 ############
 
 if os.path.exists("Snakefile_versioned.sk"):
+
     include: "Snakefile_versioned.sk"
 
-include : "../../local/config/config_v1.sk" 
-include: "../../local/rules/alignment_post.smk" 
-include: "../../local/rules/utils.smk" 
-include: "../../local/rules/qc.smk" 
-include: "../../local/rules/trim.smk" 
-include: "../../local/rules/star_alignment.smk" 
-include: "../../local/rules/bwa_alignment.smk" 
+
+include: "../../local/config/config_v1.sk"
+include: "../../local/rules/alignment_post.smk"
+include: "../../local/rules/utils.smk"
+include: "../../local/rules/qc.smk"
+include: "../../local/rules/trim.smk"
+include: "../../local/rules/star_alignment.smk"
+include: "../../local/rules/bwa_alignment.smk"
 include: "../../local/rules/count.smk"
-include: "../../local/rules/rseqc.smk" 
-include: "../../local/rules/DGE.smk" 
+include: "../../local/rules/rseqc.smk"
+include: "../../local/rules/DGE.smk"
 include: "../../local/rules/venn_heatmap.smk"
 include: "../../local/rules/metagenome.smk"
 include: "../../local/rules/Isoforms.smk"
-  
+
+
 ###############
 #   Ruleorder   #
 ###############
 
 if config["LAYOUT"] == "SINGLE":
+
     ruleorder: fastp_se > fastp_pe
     ruleorder: trim_galore_se > trim_galore_pe
     ruleorder: star_align_se > star_align_pe
+
 elif config["LAYOUT"] == "PAIRED":
+
     ruleorder: fastp_pe > fastp_se
     ruleorder: trim_galore_pe > trim_galore_se
     ruleorder: star_align_pe > star_align_se
-    
+
+
 ruleorder: featurecounts > split_bam_ribo
+
 
 ##############
 # Rules ALL  #
 ##############
 
+
 rule all:
-    input: 
+    input:
         "GEP.count.exp_filter.ltmm.gz.xlsx",
         "multiqc_report.html",
         "multiqc_report.rseqc.html",
-        "usable_reads.txt.xlsx" 
-        
+        "usable_reads.txt.xlsx",
+
+
 rule all_isoform:
     input:
         # Kallisto Outputs
-        "transcripts_tpm.tsv", # The merged output
+        "transcripts_tpm.tsv",  # The merged output
         # StringTie Outputs
-        "stringtie/merged/merged.gtf", # The merged assembly
+        "stringtie/merged/merged.gtf",  # The merged assembly
         expand("stringtie/{sample}/quant/abund.tab", sample=SAMPLES),
-        "stringtie/gene_count_matrix.csv", # (See point 3 below)
+        "stringtie/gene_count_matrix.csv",  # (See point 3 below)
         # Spladder Outputs
-        "spladder/quantification/spladder/genes_graph_conf3.quant.pickle"
+        "spladder/quantification/spladder/genes_graph_conf3.quant.pickle",
+
 
 rule all_majiq:
     input:
-        expand("results/majiq/psi/{sample}_psi.voila", sample=SAMPLES),
-        expand("results/majiq/deltapsi/{comp}.deltapsi.tsv", comp=config["comparisons"])
+        expand("Majiq/Results/tsv/{sample}_cohort.tsv", sample=SAMPLES),
 
 
 rule all_multiqc:
     input:
         "multiqc_report.html",
         "multiqc_report.rseqc.html",
-        "multiqc_report.alignment.html"
+        "multiqc_report.alignment.html",
 
 
 rule all_fastq_trimmed:
     input:
-        expand("fastq/fastq_trimmed/{sample}_R1.fastq.gz",sample=SAMPLES)
+        expand("fastq/fastq_trimmed/{sample}_R1.fastq.gz", sample=SAMPLES),
+
 
 rule ALL_infer_experiment:
-    input: 
-        expand("rseqc/{samples}.infer_experiment.txt", samples= SAMPLES)
-    output: 
-        "ALL_infer_experiment"
-    shell: r"""  
+    input:
+        expand("rseqc/{samples}.infer_experiment.txt", samples=SAMPLES),
+    output:
+        "ALL_infer_experiment",
+    shell:
+        r"""  
         matrix_reduce 'rseqc/*.infer_experiment.txt' -l '{input}' | grep . | perl -lne 'if(m/^>/){{print; next}} print "$1\t$2" if m/("[^:]+|failed to determine):\s+(.*)/' | fasta2tab | tab2matrix -r sample > {output}
-    """ 
+    """
+
 
 rule ALL_star:
     input:
-        expand("star/{sample}.bam", sample=SAMPLES)
+        expand("star/{sample}.bam", sample=SAMPLES),
 
 
 rule all_fastq_unmapped:
     input:
         expand("fastq_unmapped/{sample}_R1.fastq.gz", sample=SAMPLES),
-        expand("fastq_unmapped/{sample}_R2.fastq.gz", sample=SAMPLES)
+        expand("fastq_unmapped/{sample}_R2.fastq.gz", sample=SAMPLES),
 
 
 rule all_star_sp:
     input:
-        expand("Results/pass2/{sample}/{suffix}",
-               genome=[config["GENCODE"]["VERSION"]],
-               sample=SAMPLES,
-               suffix=["Aligned.sortedByCoord.out.bam", "ReadsPerGene.out.tab"])
+        expand(
+            "Results/pass2/{sample}/{suffix}",
+            genome=[config["GENCODE"]["VERSION"]],
+            sample=SAMPLES,
+            suffix=["Aligned.sortedByCoord.out.bam", "ReadsPerGene.out.tab"],
+        ),
+
 
 rule all_merge_filter_sj:
     input:
-        expand("Results/pass1/merged_filtered_SJ.out.tab")
+        expand("Results/pass1/merged_filtered_SJ.out.tab"),
 
 
 rule all_star_twopass_basic:
     input:
-        expand("star_2pass/{sample}/Aligned.sortedByCoord.out.bam",
-               sample=SAMPLES)
+        expand("star_2pass/{sample}/Aligned.sortedByCoord.out.bam", sample=SAMPLES),
+
 
 rule all_kallisto:
     input:
-        expand("kallisto/{sample}/abundance.tsv", sample=SAMPLES) 
+        expand("kallisto/{sample}/abundance.tsv", sample=SAMPLES),
+
 
 rule all_spladder:
     input:
-        expand("spladder/merged/spladder/genes_graph_conf3.merge_graph.pickle", sample=SAMPLES),
-        expand("spladder/quantification/spladder/genes_graph_conf3.quant.pickle", sample=SAMPLES)
+        expand(
+            "spladder/merged/spladder/genes_graph_conf3.merge_graph.pickle",
+            sample=SAMPLES,
+        ),
+        expand(
+            "spladder/quantification/spladder/genes_graph_conf3.quant.pickle",
+            sample=SAMPLES,
+        ),
+
 
 rule all_stringtie:
     input:
-        expand("stringtie/{sample}/quant/abund.tab", sample=SAMPLES)
+        expand("stringtie/{sample}/quant/abund.tab", sample=SAMPLES),
+
 
 rule all_samb_sort:
     input:
-        expand("sambamba/{sample}.sorted.bam", sample=SAMPLES)
+        expand("sambamba/{sample}.sorted.bam", sample=SAMPLES),
+
 
 rule all_kraken:
     input:
         expand("kreports/{S}.k2report", S=SAMPLES),
-        expand("koutputs/{S}.kraken2", S=SAMPLES)
+        expand("koutputs/{S}.kraken2", S=SAMPLES),
 
 
 rule all_bracken:
     input:
         expand("breports/{S}.breport", S=SAMPLES),
-        expand("boutputs/{S}.braken", S=SAMPLES)
+        expand("boutputs/{S}.braken", S=SAMPLES),
+
 
 rule all_fastq_unclassified:
     input:
         expand("fastq_unclassified/{sample}_R1.fastq.gz", sample=SAMPLES),
-        expand("fastq_unclassified/{sample}_R2.fastq.gz", sample=SAMPLES)
+        expand("fastq_unclassified/{sample}_R2.fastq.gz", sample=SAMPLES),
+
 
 rule all_filter_kraken:
     input:
-        expand("koutput_filtered/{sample}.kraken2", sample=SAMPLES)
+        expand("koutput_filtered/{sample}.kraken2", sample=SAMPLES),
+
 
 rule all_k2rfilter:
     input:
-        expand("kreports_filtered/{sample}.k2report", sample=SAMPLES)
+        expand("kreports_filtered/{sample}.k2report", sample=SAMPLES),
 
 
 rule all_filbracken:
     input:
         expand("breports_filtered/{sample}.breport", sample=SAMPLES),
-        expand("boutputs_filtered/{sample}.braken", sample=SAMPLES)
+        expand("boutputs_filtered/{sample}.braken", sample=SAMPLES),

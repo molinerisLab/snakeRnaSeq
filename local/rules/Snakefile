@@ -128,7 +128,12 @@ rule all_fastq_unmapped:
         expand("fastq_unmapped/{sample}_R1.fastq.gz", sample=SAMPLES),
         expand("fastq_unmapped/{sample}_R2.fastq.gz", sample=SAMPLES)
 
+rule all_fq_unmapped_pe: 
+    input:
+        expand("fastq/unmapped/{sample}_unmapped_R1.fastq.gz", sample=SAMPLES),
+        expand("fastq/unmapped/{sample}_unmapped_R2.fastq.gz", sample=SAMPLES)
 
+        
 rule all_star_sp:
     input:
         expand("Results/pass2/{sample}/{suffix}",

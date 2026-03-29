@@ -116,6 +116,7 @@ rule generate_unmapped_R1:
         )
     output:
         "fastq/unmapped/{sample}_unmapped_R1.fastq.gz"
+    threads: 4
     conda: "transcript_env.yaml"
     shell:"""
         samtools view -f 76 {input} | bawk '{{print "@"$1; print $10; print "+"; print $11}}' | gzip > {output}
@@ -132,6 +133,7 @@ rule generate_unmapped_R2:
     output:
         "fastq/unmapped/{sample}_unmapped_R2.fastq.gz"
     conda: "transcript_env.yaml"
+    threads: 4
     shell: """
         samtools view -f 140 {input} | bawk '{{print "@"$1; print $10; print "+"; print $11}}' | gzip > {output}
     """

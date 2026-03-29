@@ -6,6 +6,7 @@ if config["LAYOUT"] == "PAIRED":
 else:
     ruleorder: kraken_single_end > kraken_paired_ends
 
+
 rule kraken_paired_ends:
     input:
         R1=lambda wildcards: f"fastq/unmapped/{wildcards.sample}_unmapped_R1.fastq.gz",
@@ -15,31 +16,15 @@ rule kraken_paired_ends:
         out="koutputs/{sample}.kraken2",
         unclassified1="unclassified/{sample}_unclassified_1.fq",
         unclassified2="unclassified/{sample}_unclassified_2.fq"
-    threads: 6
+    threads: 4
     shell: """
-        kraken2 --db {config[kraken_db]} \
+        k2 classify --db {config[kraken_db]} \
             --threads {threads} \
             --report {output.report} \
             --output {output.out} \
             --paired {input.R1} {input.R2} \
-            --unclassified-out unclassified/{wildcards.sample}_unclassified#.fq
-    """
-
-
-rule kraken_nr_paired_ends:
-    input: 
-        R1="fastq/unmapped/{sample}_R1.fq.gz",
-        R2="fastq/unmapped/{sample}_R2.fq.gz"
-    output: 
-        report="kreports_nr/{sample}.k2report", 
-        out="koutputs_nr/{sample}.kraken2"
-    threads: 6
-    shell: """
-        kraken2 --db {config[kraken_db_nr]} {config[kraken_options]} \
-            --threads {threads} \
-            --report {output.report}\
-            --paired {input.R1} {input.R2} \
-        > {output.out}
+            --unclassified-out unclassified/{wildcards.sample}_unclassified#.fq \
+            --minimum-hit-groups {config[hitgrp]} 
     """
 
 
@@ -49,10 +34,11 @@ rule kraken_single_end:
     output: 
         report="kreports/{sample}.k2report", 
         out="koutputs/{sample}.kraken2"
-    threads: 6
+    threads: 4
     shell:
         """
-        kraken2 --db {config[kraken_db]} {config[kraken_options]} \
+        k2 classify --db {config[kraken_db]} \
+            --minimum-hit-groups {config[hitgrp]} \
             --threads {threads} \
             --report-minimizer-data \
             --report {output.report} \
@@ -73,7 +59,6 @@ rule kraken_single_end:
 https://github.com/DerrickWood/kraken2/wiki/Manual#classification
 """
 
-
 #########################
 ### Rules for Bracken ###
 #########################
@@ -84,13 +69,19 @@ rule braken:
         report="breports/{sample}.breport",
         out="boutputs/{sample}.braken"
     shell:"""
-        bracken -d {config[kraken_db]} -i {input} -r {config[braken_read_len]} -l {config[braken_level]} -t {config[braken_min_reads]} -o {output.out} -w {output.report}
+        bracken -d {config[kraken_db]} \
+        -i {input} \
+        -r {config[braken_read_len]} \
+        -l {config[braken_level]} \
+        -t {config[braken_min_reads]} \
+        -o {output.out} \
+        -w {output.report}
     """
 
 rule bracken_merged:
     input:
         reports=expand("breports_filtered/{sample}.breport", sample=SAMPLES),
-        outputs=expand("boutputs_filtered/{sample}.braken", sample=SAMPLES),
+        outputs=expand("boutputs_filtered/{sample}.bracken", sample=SAMPLES),
         #log= expand("logs/{sample}_bracken_merged.txt", sample=SAMPLES)
     output:"bracken_merged_abbundances.txt"
     #log: expand("logs/{sample}_bracken_merged.txt", sample=SAMPLES)
@@ -237,7 +228,7 @@ rule filter_kraken_output:
 rule filt_k2report:
     input:
         kraken2_filtered = "koutput_filtered/{sample}.kraken2", 
-        db = config["kraken_k2d"]
+        db = config["kraken_db"]
     output:
         report = "kreports_filtered/{sample}.k2report"
     shell:

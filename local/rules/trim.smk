@@ -1,11 +1,15 @@
-# =============================================================================
-# FASTP (QC AND TRIMMING)
-# =============================================================================
-from glob import glob
+from pathlib import Path
 
 TRIMMER = config["TRIMMER"]
 LAYOUT = config["LAYOUT"]
 
+def _trimmer_out(sample, read, trimmer=TRIMMER):
+    """Return the trimmer-specific output path for a given sample and read (R1/R2)."""
+    return f"fastq/fastq_trimmed/{trimmer}/{sample}_{read}.fastq.gz"
+
+# =============================================================================
+# FASTP (QC AND TRIMMING)
+# =============================================================================
 
 rule fastp_se:
     input:
@@ -71,6 +75,8 @@ rule trim_galore_pe:
         trim_galore_params=config["TRIM_GALORE"]["PARAM"],
         cores=config["CORES"]
     conda: "transcript_env.yaml"
+    wildcard_constraints:
+            sample="[^/]+"
     shell:
         "mkdir -p `dirname {output}`; "
         "trim_galore -j {params.cores} "
@@ -86,25 +92,28 @@ rule trim_galore_pe:
 ##################################
 
 if LAYOUT == "SINGLE":
+
     rule link_trimmed_se:
         input:
-           r1=f"fastq/fastq_trimmed/{TRIMMER}/{{sample}}_R1.fastq.gz"
+            r1 = _trimmer_out("{sample}", "R1"),
         output:
-           tr1="fastq/fastq_trimmed/{sample}_R1.fastq.gz"
+            r1 = "fastq/fastq_trimmed/{sample}_R1.fastq.gz",
         wildcard_constraints:
-            sample="[^/]+"
+            sample = "[^/]+",
         shell:
-            "ln -srf {input.r1} {output.tr1}"
+            "ln -srf {input.r1} {output.r1}"
 
 elif LAYOUT == "PAIRED":
+
     rule link_trimmed_pe:
         input:
-            r1=f"fastq/fastq_trimmed/{TRIMMER}/{{sample}}_R1.fastq.gz",
-            r2=f"fastq/fastq_trimmed/{TRIMMER}/{{sample}}_R2.fastq.gz"
+            r1 = _trimmer_out("{sample}", "R1"),
+            r2 = _trimmer_out("{sample}", "R2"),
         output:
-            tr1="fastq/fastq_trimmed/{sample}_R1.fastq.gz",
-            tr2="fastq/fastq_trimmed/{sample}_R2.fastq.gz"
+            r1 = "fastq/fastq_trimmed/{sample}_R1.fastq.gz",
+            r2 = "fastq/fastq_trimmed/{sample}_R2.fastq.gz",
         wildcard_constraints:
-            sample="[^/]+"
+            sample = "[^/]+",
         shell:
-            "ln -srf {input.r1} {output.tr1}; ln -srf {input.r2} {output.tr2}"
+            "ln -srf {input.r1} {output.r1}\n"
+            "ln -srf {input.r2} {output.r2}"

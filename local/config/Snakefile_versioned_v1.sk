@@ -1,0 +1,54 @@
+###############################
+### STAR alignment to human ###
+###############################
+
+rule star_align_human_pe:
+    input:
+        fq1="fastq/unmapped/{sample}_unmapped_R1.fastq.gz",
+        fq2="fastq/unmapped/{sample}_unmapped_R2.fastq.gz",
+        idx=STAR_GENOME_DIR
+    output:
+        aln="star/human/{sample}.bam",
+        log="star/human/{sample}.Log.out",
+        sj="star/human/{sample}.SJ.out.tab",
+        # unmapped=[
+        #     "star/unmapped_human_filtered/{sample}_R1.fastq.gz",
+        #     "star/unmapped_human_filtered/{sample}_R2.fastq.gz"
+        # ],
+        unmapped = (
+            ["star/unmapped_human_filtered/{sample}_unmapped_R1.fastq.gz", 
+             "star/unmapped_human_filtered/{sample}_unmapped_R2.fastq.gz"]
+            if config['STAR']['SAVE_UNMAPPED'] == "FASTQ" 
+            else []
+        ),
+        log_final="star/human/{sample}.Log.final.out"
+        
+    log:
+        "star/human/{sample}.log"
+    threads: config["CORES"]
+    conda:
+        "/home/molinerislab/Mosquito/local/rules/transcript_env.yaml"
+    params:
+        extra=lambda wildcards: (
+            f"--outSAMtype {config['STAR']['OUT_SAM_TYPE']} "
+            f"--chimOutType WithinBAM "
+            f"--outFilterMultimapNmax {config['STAR']['OUT_FILTER_MULTIMAP_NMAX']} "
+            f"--outFilterMismatchNoverReadLmax {config['STAR']['OUT_FILTER_MISMATCH_NOVER_LMAX']} "
+            f"--alignSJoverhangMin {config['STAR']['ALIGN_SJ_OVERHANG_MIN']} "
+            f"--alignSJDBoverhangMin {config['STAR']['ALIGN_SJDB_OVERHANG_MIN']} "
+            f"--alignIntronMin {config['STAR']['ALIGN_INTRON_MIN']} "
+            f"--alignIntronMax {config['STAR']['ALIGN_INTRON_MAX']} "
+            f"--alignMatesGapMax {config['STAR']['ALIGN_MATES_GAP_MAX']} "
+            f"{config['STAR']['ADDITIONAL_OUTPUT']} "
+        )
+    wrapper:
+        "v3.3.6/bio/star/align"
+
+
+#################################
+# Optional aggregate target
+#################################
+
+rule ALL_star_human:
+    input:
+        expand("star/human/{sample}.bam", sample=SAMPLES)

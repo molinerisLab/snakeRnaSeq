@@ -62,28 +62,28 @@ https://github.com/DerrickWood/kraken2/wiki/Manual#classification
 #########################
 ### Rules for Bracken ###
 #########################
-rule braken:
+rule bracken:
     input:
         "kreports/{sample}.k2report"
     output:
         report="breports/{sample}.breport",
-        out="boutputs/{sample}.braken"
+        out="boutputs/{sample}.bracken"
     shell:"""
         bracken -d {config[kraken_db]} \
         -i {input} \
-        -r {config[braken_read_len]} \
-        -l {config[braken_level]} \
-        -t {config[braken_min_reads]} \
+        -r {config[BRACKEN][bracken_read_len]} \
+        -l {config[BRACKEN][bracken_level]} \
+        -t {config[BRACKEN][bracken_min_reads]} \
         -o {output.out} \
         -w {output.report}
     """
 
 rule bracken_merged:
     input:
-        reports=expand("breports_filtered/{sample}.breport", sample=SAMPLES),
-        outputs=expand("boutputs_filtered/{sample}.bracken", sample=SAMPLES),
+        reports=expand("breports/{sample}.breport", sample=SAMPLES),
+        outputs=expand("boutputs/{sample}.bracken", sample=SAMPLES),
         #log= expand("logs/{sample}_bracken_merged.txt", sample=SAMPLES)
-    output:"bracken_merged_abbundances.txt"
+    output:"bracken_merged_abbundances.csv"
     #log: expand("logs/{sample}_bracken_merged.txt", sample=SAMPLES)
     shell:"""
         combine_bracken_outputs.py --files  {input.outputs} -o {output} 2> log.txt 
@@ -113,8 +113,8 @@ rule spit_merged:
         num="bracken_merged_abbundances.num.txt",
         frac="bracken_merged_abbundances.frac.txt"
     shell:
-        "grep_columns -k 1,2,3 braken_num  < {input} | perl -pe '$.==1; s/.braken_num//g'  > {output.num};"
-        "grep_columns -k 1,2,3 braken_frac < {input} | perl -pe '$.==1; s/.braken_frac//g' > {output.frac}"
+        "grep_columns -k 1,2,3 bracken_num  < {input} | perl -pe '$.==1; s/.bracken_num//g'  > {output.num};"
+        "grep_columns -k 1,2,3 bracken_frac < {input} | perl -pe '$.==1; s/.bracken_frac//g' > {output.frac}"
     
 rule feature_filter:
     input:
@@ -238,15 +238,15 @@ rule filt_k2report:
         """
 
 
-rule filbraken:
+rule filbracken:
     input:
         "kreports_filtered/{sample}.k2report"  
     output:
         report="breports_filtered/{sample}.breport",
-        out="boutputs_filtered/{sample}.braken"
+        out="boutputs_filtered/{sample}.bracken"
     shell:"""
         mkdir -p breports_filtered boutputs_filtered
-        bracken -d {config[kraken_db]} -i {input} -r {config[braken_read_len]} -l {config[braken_level]} -t {config[braken_min_reads]} -o {output.out} -w {output.report}
+        bracken -d {config[kraken_db]} -i {input} -r {config[BRACKEN][bracken_read_len]} -l {config[BRACKEN][bracken_level]} -t {config[BRACKEN][bracken_min_reads]} -o {output.out} -w {output.report}
     """
 
 ######################### 

@@ -56,7 +56,7 @@ STAR:
   # Additional Parameters
   sjdbOverhang: 149
   limitSjdbInsertNsj: 1000000
-  SAVE_UNMAPPED: "BAM" # BAM | FASTQ 
+  SAVE_UNMAPPED: "FASTQ" # BAM | FASTQ 
   
 # ========================
 # TRIMMING
@@ -138,10 +138,9 @@ BEDGRAPH_FILTER: "100"
 # ========================
 
 BRACKEN:
-  read_len: 62
-  braken_read_len: 100
-  braken_min_reads: 5
-  braken_level: "S"
+  bracken_read_len: 100
+  bracken_min_reads: 5
+  bracken_level: "S"
 
 kraken_db: "/home/nobackup/home/reference_data/bioinfotree/task/kraken/k2_pluspf_20250402"
 kraken_db_nr: "/home/reference_data/bioinfotree/task/kraken/nobackup/k2_nt"
@@ -187,9 +186,7 @@ UCSC_VERSION: hg38
 #LCPM_PRIOR_COUNT = 0.25           # *standard of edgeR*
 #LTPM_PRIOR_COUNT = 0.0001
 
-braken_read_len: 100
-braken_min_reads: 5
-braken_level: "S"
+
 
 kraken:
   exclude_classified: True

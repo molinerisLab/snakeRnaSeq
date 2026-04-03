@@ -89,7 +89,7 @@ rule link_unmapped:
     output:
         "fastq/unmapped/{sample}_unmapped_R{mate}.fastq.gz"
     shell:
-        "ln {input} {output}"
+        "ln -sf {input} {output}"
 
 rule generate_unmapped_single:
     input:
@@ -139,6 +139,25 @@ rule generate_unmapped_R2:
     """
     # 140=4+8+128 = read unmapped AND mate unmapped AND second in pair, i.e., discard reads that are unmapped but that have mate mapped
 
+
+# rule bam_to_fastq:
+#     input:
+#         bam="star/{sample}.bam"
+#     output:
+#         r1="fastq/{samples}_R1.fastq.gz",
+#         r2="fastq/{samples}_R2.fastq.gz",
+#         single="fastq/{sample}_single.fastq.gz"
+#     threads: 4
+#     conda: "transcript_env.yaml"
+#     shell:
+#         """
+#         samtools sort -n -@ {threads} {input.bam} | \
+#         samtools fastq -@ {threads} \
+#             -1 {output.r1} \
+#             -2 {output.r2} \
+#             -s {output.single} \
+#             -n -
+#         """
 
 
 # ==============================================

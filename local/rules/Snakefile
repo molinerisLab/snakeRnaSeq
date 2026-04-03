@@ -30,18 +30,12 @@ import os
 
 container: "/home/aleone/snakeRnaSeq/local/container/transcript_analysis.sif"   
 configfile: "config.yaml"
-if os.path.exists("Snakefile_versioned.sk"):
-    include: "Snakefile_versioned.sk"
-
 
 ############
 # Include  #
 ############
 
-if os.path.exists("Snakefile_versioned.sk"):
-    include: "Snakefile_versioned.sk"
-
-include : "../../local/config/config_v1.sk" 
+include: "../../local/config/config_v1.sk" 
 include: "../../local/rules/alignment_post.smk" 
 include: "../../local/rules/utils.smk" 
 include: "../../local/rules/qc.smk" 
@@ -54,7 +48,11 @@ include: "../../local/rules/DGE.smk"
 include: "../../local/rules/venn_heatmap.smk"
 include: "../../local/rules/metagenome.smk"
 include: "../../local/rules/Isoforms.smk"
-  
+
+if os.path.exists("Snakefile_versioned.sk"):
+    include: "Snakefile_versioned.sk"
+
+
 ###############
 #   Ruleorder   #
 ###############
@@ -177,7 +175,7 @@ rule all_kraken:
 rule all_bracken:
     input:
         expand("breports/{S}.breport", S=SAMPLES),
-        expand("boutputs/{S}.braken", S=SAMPLES)
+        expand("boutputs/{S}.bracken", S=SAMPLES)
 
 rule all_fastq_unclassified:
     input:
@@ -196,4 +194,4 @@ rule all_k2rfilter:
 rule all_filbracken:
     input:
         expand("breports_filtered/{sample}.breport", sample=SAMPLES),
-        expand("boutputs_filtered/{sample}.braken", sample=SAMPLES)
+        expand("boutputs_filtered/{sample}.bracken", sample=SAMPLES)

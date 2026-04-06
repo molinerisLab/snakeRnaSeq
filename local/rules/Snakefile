@@ -168,14 +168,14 @@ rule all_samb_sort:
 
 rule all_kraken:
     input:
-        expand("kreports/{S}.k2report", S=SAMPLES),
-        expand("koutputs/{S}.kraken2", S=SAMPLES)
+        expand("kreports_human_filtered/{S}.k2report", S=SAMPLES),
+        expand("koutputs_human_filtered/{S}.kraken2", S=SAMPLES)
 
 
 rule all_bracken:
     input:
-        expand("breports/{S}.breport", S=SAMPLES),
-        expand("boutputs/{S}.bracken", S=SAMPLES)
+        expand("breports_human_filtered/{S}.breport", S=SAMPLES),
+        expand("boutputs_human_filtered/{S}.bracken", S=SAMPLES)
 
 rule all_fastq_unclassified:
     input:

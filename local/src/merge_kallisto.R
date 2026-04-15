@@ -166,11 +166,11 @@ if (!is.null(anno)) {
 if (txout == TRUE){ #for transcripts
   # Write log
   if ( verb ) cat("Merging tables for transcripts...\n",sep=" ")
-  txi.kallisto <- tximport(files, type = "kallisto", txOut=TRUE)
+  txi.kallisto <- tximport(files, type = "kallisto", txOut=TRUE, dropInfReps=TRUE)
   level <- "transcripts"
 } else{ #for genes
   if ( verb ) cat("Merging tables for genes...\n",sep=" ")
-  txi.kallisto <- tximport(files, type = "kallisto", txOut = FALSE, tx2gene = tx2gene) 
+  txi.kallisto <- tximport(files, type = "kallisto", txOut = FALSE, tx2gene = tx2gene, dropInfReps=TRUE) 
   level <- "genes"
 }
 

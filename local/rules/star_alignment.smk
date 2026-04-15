@@ -416,3 +416,107 @@ rule star_twopass_basic_pe:
             --outSAMtype BAM SortedByCoordinate \
             --quantMode GeneCounts TranscriptomeSAM
         """
+
+rule all_unmapped_se:
+    input:
+        expand("Results/star/fastq_unmapped/{sample}_unmapped_R1.fastq.gz", sample=SAMPLES),
+        "Results/star/fastq_unmapped/.genome_unloaded"
+
+
+rule star_load_genome:
+    input:
+        idx=STAR_GENOME_DIR,
+    output:
+        touch("Results/star/fastq_unmapped/.genome_loaded")
+    log:
+        "Results/star/fastq_unmapped/genome_load.log"
+    conda:
+        "transcript_env.yaml"
+    shell:
+        """
+        STAR \
+            --genomeLoad LoadAndExit \
+            --genomeDir {input.idx} \
+        2> {log}
+        touch {output}
+        """
+
+
+rule star_align_unmapped_only_se:
+    input:
+        fq1="fastq/fastq_trimmed/{sample}_R1.fastq.gz",
+        idx=STAR_GENOME_DIR,
+        genome_loaded="Results/star/fastq_unmapped/.genome_loaded",
+    output:
+        unmapped="Results/star/fastq_unmapped/{sample}_unmapped_R1.fastq.gz",
+        log="Results/star/fastq_unmapped/{sample}.Log.out",
+        log_final="Results/star/fastq_unmapped/{sample}.Log.final.out",
+    log:
+        "Results/star/fastq_unmapped/{sample}.snakemake.log",
+    threads: 4
+    conda:
+        "transcript_env.yaml"
+    params:
+        multiscorerange=config["STAR"]["MULTIMAP_SCORE_RANGE"],
+        outfiltermismatch=config["STAR"]["OUT_FILTER_MISMATCH_NMAX"],
+        outfiltermultimapnmax=config["STAR"]["OUT_FILTER_MULTIMAP_NMAX"],
+        outfiltermismatchnover=config["STAR"]["OUT_FILTER_MISMATCH_NOVER_LMAX"],
+        sjdbOver=config["STAR"]["sjdbOverhang"],
+        read_cmd=config["STAR"]["readFilesCommand"],
+        fq_join=lambda wc, input: input.fq1,
+        tmpdir=lambda wc: f"Results/star/fastq_unmapped/{wc.sample}_STARtmp",
+    shell:
+        """
+        mkdir -p {params.tmpdir}
+
+        STAR \
+            --runThreadN {threads} \
+            --genomeLoad LoadAndKeep \
+            --genomeDir {input.idx} \
+            --readFilesIn {params.fq_join} \
+            --readFilesCommand {params.read_cmd} \
+            --sjdbOverhang {params.sjdbOver} \
+            --outFileNamePrefix {params.tmpdir}/ \
+            --outSAMtype None \
+            --outReadsUnmapped Fastx \
+            --outFilterMultimapScoreRange {params.multiscorerange} \
+            --outFilterMismatchNmax {params.outfiltermismatch} \
+            --outFilterMultimapNmax {params.outfiltermultimapnmax} \
+            --outFilterMismatchNoverLmax {params.outfiltermismatchnover} \
+        2> {log}
+
+        if [ -f "{params.tmpdir}/Unmapped.out.mate1" ]; then
+            gzip -c {params.tmpdir}/Unmapped.out.mate1 > {output.unmapped}
+        else
+            echo -n | gzip > {output.unmapped}
+        fi
+
+        mv {params.tmpdir}/Log.out       {output.log}
+        mv {params.tmpdir}/Log.final.out {output.log_final}
+
+        rm -rf {params.tmpdir}
+        """
+
+
+rule star_unload_genome:
+    input:
+        idx=STAR_GENOME_DIR,
+        # Wait for ALL samples to finish before unloading
+        unmapped=expand(
+            "Results/star/fastq_unmapped/{sample}_unmapped_R1.fastq.gz",
+            sample=SAMPLES
+        ),
+    output:
+        touch("Results/star/fastq_unmapped/.genome_unloaded")
+    log:
+        "Results/star/fastq_unmapped/genome_unload.log"
+    conda:
+        "transcript_env.yaml"
+    shell:
+        """
+        STAR \
+            --genomeLoad Remove \
+            --genomeDir {input.idx} \
+        2> {log}
+        """
+

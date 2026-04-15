@@ -1,0 +1,10 @@
+name: transcript_env
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.11
+  - rseqc=5.0.4
+  - ucsc-gtftogenepred
+  - ucsc-genepredtobed
+  - psiclass

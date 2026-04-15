@@ -15,11 +15,11 @@ CORES: 6                             # Number of cores to use
 # EXPERIMENT INFO
 # ========================
 
-LAYOUT: "PAIRED"  # SINGLE | PAIRED 
-STRANDED: "2"    # 0 -> unstranded, 1 -> forward, 2 -> reverse
+LAYOUT: "SINGLE"  # SINGLE | PAIRED 
+STRANDED: "0"    # 0 -> unstranded, 1 -> forward, 2 -> reverse
 aligner: "star"  # star | bwa
-TRIMMER: "fastp"  # fastp | trim_galore
-
+TRIMMER: "fastp"  # fastp | trimgalore
+psitrand: "un"
 # ========================
 # GENCODE & REFERENCE
 # ========================
@@ -28,7 +28,7 @@ GENCODE:
   SPECIES: "hsapiens"      # hsapiens | mmusculus | mmusculus_hsapiens_combined
   VERSION: "46"            # 32 | M23
   GENOME: "GRCh38.p14" # GRCh38.primary_assembly | GRCm38.primary_assembly
-  ANNOTATION: "basic.annotation" # primary_assembly.annotation | basic.annotation
+  ANNOTATION: "primary_assembly.annotation" # primary_assembly.annotation | basic.annotation
 
 GENOME_ASSEMBLY: "GRCh38.p14"
 # ========================
@@ -56,15 +56,10 @@ STAR:
   # Additional Parameters
   sjdbOverhang: 149
   limitSjdbInsertNsj: 1000000
-  SAVE_UNMAPPED: "BAM" # BAM | FASTQ 
+  SAVE_UNMAPPED: "FASTQ" # BAM | FASTQ 
+  # Version
+  VERSION: "2.7.11b"
   
-# ========================
-# TRIMMING
-# ========================
-
-FASTP:
-  adapter_r1: "AGATCGGAAGAGCACACGTCTGAACTCCAGTCA"
-  adapter_r2: "AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT"
 
 TRIM_GALORE:
   PARAM: "" # https://support-docs.illumina.com/SHARE/AdapterSequences/Content/SingleIndexes.htm
@@ -138,7 +133,6 @@ BEDGRAPH_FILTER: "100"
 # ========================
 
 BRACKEN:
-  read_len: 62
   braken_read_len: 100
   braken_min_reads: 5
   braken_level: "S"
@@ -186,10 +180,6 @@ UCSC_VERSION: hg38
 # -O allowMultiOverlap
 #LCPM_PRIOR_COUNT = 0.25           # *standard of edgeR*
 #LTPM_PRIOR_COUNT = 0.0001
-
-braken_read_len: 100
-braken_min_reads: 5
-braken_level: "S"
 
 kraken:
   exclude_classified: True

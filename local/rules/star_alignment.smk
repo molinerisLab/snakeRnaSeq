@@ -23,6 +23,13 @@ elif config["LAYOUT"] == "PAIRED":
     ruleorder: star_twopass_basic_pe > star_twopass_basic_se
 
 
+if config["aligner"] == "star" and config["STAR"]["SAVE_UNMAPPED"] == "FASTQ":
+    ruleorder: link_unmapped > generate_unmapped_R1
+    ruleorder: link_unmapped > generate_unmapped_R2
+else:
+    ruleorder: generate_unmapped_R1 > link_unmapped
+    ruleorder: generate_unmapped_R2 > link_unmapped
+
 ##############
 # STAR RULES #
 ##############
@@ -30,7 +37,7 @@ elif config["LAYOUT"] == "PAIRED":
 
 rule star_align_se:
     input:
-        fq1="fastq/fastq_trimmed/{sample}_R1.fastq.gz",
+        fq="fastq/fastq_trimmed/{sample}_R1.fastq.gz",
         idx=STAR_GENOME_DIR,
     output:
         aln="Results/star/{sample}.bam",
@@ -139,7 +146,7 @@ rule star_align_pe:
 
 rule link_unmapped:
     input:
-        "Results/star/unmapped/{sample}_unmapped_R{mate}.fastq.gz",
+        "Results/star/fastq_unmapped/{sample}_unmapped_R{mate}.fastq.gz",
     output:
         "fastq/unmapped/{sample}_unmapped_R{mate}.fastq.gz",
     log:

@@ -1,3 +1,6 @@
+# PRIMARY_HOST_STAR_INDEX = config["METAGENOMICS"]["PRIMARY_HOST"]["STAR_INDEX"]
+HUMAN_FILTER_ENABLED = config["METAGENOMICS"]["HUMAN_FILTER"]["ENABLED"]
+# HUMAN_STAR_INDEX = config["METAGENOMICS"]["HUMAN_FILTER"]["STAR_INDEX"]
 
 if config["LAYOUT"] == "SINGLE":
      ruleorder: generate_unmapped_single > generate_unmapped_R1
@@ -5,6 +8,7 @@ if config["LAYOUT"] == "SINGLE":
 elif config["LAYOUT"] == "PAIRED":
      ruleorder: generate_unmapped_R1 > generate_unmapped_single
      ruleorder: generate_unmapped_R2 > generate_unmapped_single
+
 
 rule star_align_se:
     input:
@@ -44,29 +48,68 @@ rule star_align_se:
     wrapper:
         "v3.3.6/bio/star/align"
 
+# rule star_align_pe:
+#     input:
+#         fq1 = "fastq/fastq_trimmed/{sample}_R1.fastq.gz",
+#         fq2 = "fastq/fastq_trimmed/{sample}_R2.fastq.gz",
+#         idx = STAR_GENOME_DIR
+#     output:
+#         aln = "star/{sample}.bam",
+#         log = "star/{sample}.Log.out",
+#         sj  = "star/{sample}.SJ.out.tab",
+#         unmapped = (
+#             ["star/unmapped/{sample}_unmapped_R1.fastq.gz", 
+#              "star/unmapped/{sample}_unmapped_R2.fastq.gz"]
+#             if config['STAR']['SAVE_UNMAPPED'] == "FASTQ" 
+#             else []
+#         ),
+#         log_final = "star/{sample}.Log.final.out"
+#     log:
+#         "star/{sample}.log"
+#     conda: 
+#         "transcript_env.yaml"
+#     threads: 16
+#     params:
+#         extra = lambda wildcards: (
+#             f"--outSAMtype {config['STAR']['OUT_SAM_TYPE']} "
+#             f"--chimOutType WithinBAM "
+#             f"--outFilterMultimapNmax {config['STAR']['OUT_FILTER_MULTIMAP_NMAX']} "
+#             f"--outFilterMismatchNoverReadLmax {config['STAR']['OUT_FILTER_MISMATCH_NOVER_LMAX']} "
+#             f"--alignSJoverhangMin {config['STAR']['ALIGN_SJ_OVERHANG_MIN']} "
+#             f"--alignSJDBoverhangMin {config['STAR']['ALIGN_SJDB_OVERHANG_MIN']} "
+#             f"--alignIntronMin {config['STAR']['ALIGN_INTRON_MIN']} "
+#             f"--alignIntronMax {config['STAR']['ALIGN_INTRON_MAX']} "
+#             f"--alignMatesGapMax {config['STAR']['ALIGN_MATES_GAP_MAX']} "
+#             f"{config['STAR']['ADDITIONAL_OUTPUT']}"
+#             f"{'--outReadsUnmapped Fastx --outSAMunmapped None' if config['STAR']['SAVE_UNMAPPED'] == 'FASTQ' else '--outSAMunmapped Within'}"
+#         )
+#     wrapper:
+#         "v3.3.6/bio/star/align"
+
 rule star_align_pe:
     input:
-        fq1 = "fastq/fastq_trimmed/{sample}_R1.fastq.gz",
-        fq2 = "fastq/fastq_trimmed/{sample}_R2.fastq.gz",
-        idx = STAR_GENOME_DIR
+        fq1="fastq/fastq_trimmed/{sample}_R1.fastq.gz",
+        fq2="fastq/fastq_trimmed/{sample}_R2.fastq.gz",
+        idx= STAR_GENOME_DIR
     output:
-        aln = "star/{sample}.bam",
-        log = "star/{sample}.Log.out",
-        sj  = "star/{sample}.SJ.out.tab",
+        aln="star/{sample}.bam",
+        log="star/{sample}.Log.out",
+        sj="star/{sample}.SJ.out.tab",
         unmapped = (
-            ["star/unmapped/{sample}_unmapped_R1.fastq.gz", 
-             "star/unmapped/{sample}_unmapped_R2.fastq.gz"]
-            if config['STAR']['SAVE_UNMAPPED'] == "FASTQ" 
-            else []
-        ),
-        log_final = "star/{sample}.Log.final.out"
+             ["star/unmapped/{sample}_unmapped_R1.fastq.gz", 
+              "star/unmapped/{sample}_unmapped_R2.fastq.gz"]
+             if config['STAR']['SAVE_UNMAPPED'] == "FASTQ" 
+             else []
+         ),
+        log_final="star/{sample}.Log.final.out"
     log:
         "star/{sample}.log"
-    conda: 
+    conda:
         "transcript_env.yaml"
-    threads: 16
+    threads:
+        config["CORES"]
     params:
-        extra = lambda wildcards: (
+        extra=lambda wc: (
             f"--outSAMtype {config['STAR']['OUT_SAM_TYPE']} "
             f"--chimOutType WithinBAM "
             f"--outFilterMultimapNmax {config['STAR']['OUT_FILTER_MULTIMAP_NMAX']} "
@@ -76,7 +119,7 @@ rule star_align_pe:
             f"--alignIntronMin {config['STAR']['ALIGN_INTRON_MIN']} "
             f"--alignIntronMax {config['STAR']['ALIGN_INTRON_MAX']} "
             f"--alignMatesGapMax {config['STAR']['ALIGN_MATES_GAP_MAX']} "
-            f"{config['STAR']['ADDITIONAL_OUTPUT']}"
+            f"{config['STAR']['ADDITIONAL_OUTPUT']} "
             f"{'--outReadsUnmapped Fastx --outSAMunmapped None' if config['STAR']['SAVE_UNMAPPED'] == 'FASTQ' else '--outSAMunmapped Within'}"
         )
     wrapper:
@@ -90,6 +133,45 @@ rule link_unmapped:
         "fastq/unmapped/{sample}_unmapped_R{mate}.fastq.gz"
     shell:
         "ln -sf {input} {output}"
+
+
+rule star_align_human_pe:
+    input:
+        fq1="fastq/unmapped/{sample}_unmapped_R1.fastq.gz",
+        fq2="fastq/unmapped/{sample}_unmapped_R2.fastq.gz",
+        idx= STAR_GENOME_DIR
+    output:
+        aln="star/human/{sample}.bam",
+        log="star/human/{sample}.Log.out",
+        sj="star/human/{sample}.SJ.out.tab",
+        unmapped=[
+            "fastq/unmapped_human_filtered/{sample}_unmapped_R1.fastq.gz",
+            "fastq/unmapped_human_filtered/{sample}_unmapped_R2.fastq.gz"
+        ],
+        log_final="star/human/{sample}.Log.final.out"
+    log:
+        "star/human/{sample}.log"
+    conda:
+        "transcript_env.yaml"
+    threads:
+        config["CORES"]
+    params:
+        extra=lambda wc: (
+            f"--outSAMtype {config['STAR']['OUT_SAM_TYPE']} "
+            f"--chimOutType WithinBAM "
+            f"--outFilterMultimapNmax {config['STAR']['OUT_FILTER_MULTIMAP_NMAX']} "
+            f"--outFilterMismatchNoverReadLmax {config['STAR']['OUT_FILTER_MISMATCH_NOVER_LMAX']} "
+            f"--alignSJoverhangMin {config['STAR']['ALIGN_SJ_OVERHANG_MIN']} "
+            f"--alignSJDBoverhangMin {config['STAR']['ALIGN_SJDB_OVERHANG_MIN']} "
+            f"--alignIntronMin {config['STAR']['ALIGN_INTRON_MIN']} "
+            f"--alignIntronMax {config['STAR']['ALIGN_INTRON_MAX']} "
+            f"--alignMatesGapMax {config['STAR']['ALIGN_MATES_GAP_MAX']} "
+            f"{config['STAR']['ADDITIONAL_OUTPUT']} "
+            f"{'--outReadsUnmapped Fastx --outSAMunmapped None' if config['STAR']['SAVE_UNMAPPED'] == 'FASTQ' else '--outSAMunmapped Within'}"
+        )
+    wrapper:
+        "v3.3.6/bio/star/align"
+
 
 rule generate_unmapped_single:
     input:

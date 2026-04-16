@@ -39,8 +39,8 @@ REFERENCE_ROOT=os.environ.get("REFERENCE_ROOT")
 #############
 # Genecode  #
 #############
-
-GENCODE_DIR=REFERENCE_ROOT+"/bioinfotree/task/gencode/dataset/"+config["GENCODE"]["SPECIES"]+"/"+config["GENCODE"]["VERSION"]
+BASE_DIR = REFERENCE_ROOT+"/bioinfotree/task/"+config["DATABASE"]+"/dataset/"
+GENCODE_DIR=BASE_DIR+config["GENCODE"]["SPECIES"]+"/"+config["GENCODE"]["VERSION"]
 GENCODE_GENOME_FASTA=GENCODE_DIR+"/"+config["GENCODE"]["GENOME"]+".genome.fa"
 GENCODE_ANNOTATION_GTF=GENCODE_DIR+"/"+config["GENCODE"]["ANNOTATION"]+".gtf"
 gff3 = GENCODE_DIR+"/"+config["GENCODE"]["ANNOTATION"]+".basic.annotation.gff3"
@@ -48,6 +48,7 @@ GENCODE_ANNOTATION_BED=GENCODE_DIR+"/"+config["GENCODE"]["ANNOTATION"]+".bed"
 RSEQC_REF_BED=GENCODE_DIR+"/basic.annotation.bed"
 GENOME_KEY = "GRCh"
 transcriptome_fasta_path = GENCODE_DIR + "/"+ "gencode.v" + "config['GENCODE']['VERSION']"+ ".transcripts.fa"
+
 ##########
 # Star  #
 ##########

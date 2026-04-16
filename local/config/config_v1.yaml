@@ -23,14 +23,15 @@ TRIMMER: "trim_galore"  # fastp | trim_galore
 # ========================
 # GENCODE & REFERENCE
 # ========================
-
+DATABASE: "gencode" # vectorbase | gencode | custom
 GENCODE:
-  SPECIES: "hsapiens"      # hsapiens | mmusculus | mmusculus_hsapiens_combined
+  SPECIES: "hsapiens"      # hsapiens | mmusculus | mmusculus_hsapiens_combined | mosquito
   VERSION: "46"            # 32 | M23
-  GENOME: "GRCh38.p14" # GRCh38.primary_assembly | GRCm38.primary_assembly
+  GENOME: "GRCh38.p14" # GRCh38.primary_assembly | GRCm38.primary_assembly | GRCh38.p14 | GRCm39.primary_assembly | Agambiae
   ANNOTATION: "basic.annotation" # primary_assembly.annotation | basic.annotation
 
 GENOME_ASSEMBLY: "GRCh38.p14"
+
 # ========================
 # ALIGNMENT (STAR)
 # ========================
@@ -58,6 +59,15 @@ STAR:
   limitSjdbInsertNsj: 1000000
   SAVE_UNMAPPED: "FASTQ" # BAM | FASTQ 
   
+
+METAGENOMICS:
+  PRIMARY_HOST:
+    # STAR_INDEX: GENCODE_DIR
+
+  HUMAN_FILTER:
+    ENABLED: true # set to true if you want to filter out human reads from the unmapped reads (only relevant for metagenomics samples)
+    # STAR_INDEX: GENCODE_DIR
+
 # ========================
 # TRIMMING
 # ========================
@@ -191,7 +201,7 @@ UCSC_VERSION: hg38
 kraken:
   exclude_classified: True
   include_children: True
-
+  
 
 ################
 # MAJIQ CONFIG #
@@ -201,3 +211,4 @@ comparisons :
   - "WT_HFD_vs_KO_HFD"
   - "KO_ND_vs_KO_HFD"
   - "WT_ND_vs_WT_HFD" 
+  

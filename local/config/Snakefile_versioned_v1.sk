@@ -2,114 +2,116 @@
 ### STAR alignment to human ###
 ###############################
 
-rule ALL_star_human:
-    input:
-        expand("star/human/{sample}.bam", sample=SAMPLES)
+# rule ALL_star_human:
+#     input:
+#         expand("star/human/{sample}.bam", sample=SAMPLES)
 
 
-rule star_align_human_pe:
-    input:
-        fq1="fastq/unmapped/{sample}_unmapped_R1.fastq.gz",
-        fq2="fastq/unmapped/{sample}_unmapped_R2.fastq.gz",
-        idx=STAR_GENOME_DIR
-    output:
-        aln="star/human/{sample}.bam",
-        log="star/human/{sample}.Log.out",
-        sj="star/human/{sample}.SJ.out.tab",
-        unmapped = (
-            ["fastq/unmapped_human_filtered/{sample}_unmapped_R1.fastq.gz", 
-             "fastq/unmapped_human_filtered/{sample}_unmapped_R2.fastq.gz"]
-            if config['STAR']['SAVE_UNMAPPED'] == "FASTQ" 
-            else []
-        ),
-        log_final="star/human/{sample}.Log.final.out"
+# rule star_align_human_pe:
+#     input:
+#         fq1="fastq/unmapped/{sample}_unmapped_R1.fastq.gz",
+#         fq2="fastq/unmapped/{sample}_unmapped_R2.fastq.gz",
+#         idx=STAR_GENOME_DIR
+#     output:
+#         aln="star/human/{sample}.bam",
+#         log="star/human/{sample}.Log.out",
+#         sj="star/human/{sample}.SJ.out.tab",
+#         unmapped = (
+#             ["fastq/unmapped_human_filtered/{sample}_unmapped_R1.fastq.gz", 
+#              "fastq/unmapped_human_filtered/{sample}_unmapped_R2.fastq.gz"]
+#             if config['STAR']['SAVE_UNMAPPED'] == "FASTQ" 
+#             else []
+#         ),
+#         log_final="star/human/{sample}.Log.final.out"
         
-    log:
-        "star/human/{sample}.log"
-    threads: config["CORES"]
-    conda:
-        "/home/molinerislab/Mosquito/local/rules/transcript_env.yaml"
-    params:
-        extra=lambda wildcards: (
-            f"--outSAMtype {config['STAR']['OUT_SAM_TYPE']} "
-            f"--chimOutType WithinBAM "
-            f"--outFilterMultimapNmax {config['STAR']['OUT_FILTER_MULTIMAP_NMAX']} "
-            f"--outFilterMismatchNoverReadLmax {config['STAR']['OUT_FILTER_MISMATCH_NOVER_LMAX']} "
-            f"--alignSJoverhangMin {config['STAR']['ALIGN_SJ_OVERHANG_MIN']} "
-            f"--alignSJDBoverhangMin {config['STAR']['ALIGN_SJDB_OVERHANG_MIN']} "
-            f"--alignIntronMin {config['STAR']['ALIGN_INTRON_MIN']} "
-            f"--alignIntronMax {config['STAR']['ALIGN_INTRON_MAX']} "
-            f"--alignMatesGapMax {config['STAR']['ALIGN_MATES_GAP_MAX']} "
-            f"{config['STAR']['ADDITIONAL_OUTPUT']} "
-        )
-    wrapper:
-        "v3.3.6/bio/star/align"
+#     log:
+#         "star/human/{sample}.log"
+#     threads: config["CORES"]
+#     conda:
+#         "/home/molinerislab/Mosquito/local/rules/transcript_env.yaml"
+#     params:
+#         extra=lambda wildcards: (
+#             f"--outSAMtype {config['STAR']['OUT_SAM_TYPE']} "
+#             f"--chimOutType WithinBAM "
+#             f"--outFilterMultimapNmax {config['STAR']['OUT_FILTER_MULTIMAP_NMAX']} "
+#             f"--outFilterMismatchNoverReadLmax {config['STAR']['OUT_FILTER_MISMATCH_NOVER_LMAX']} "
+#             f"--alignSJoverhangMin {config['STAR']['ALIGN_SJ_OVERHANG_MIN']} "
+#             f"--alignSJDBoverhangMin {config['STAR']['ALIGN_SJDB_OVERHANG_MIN']} "
+#             f"--alignIntronMin {config['STAR']['ALIGN_INTRON_MIN']} "
+#             f"--alignIntronMax {config['STAR']['ALIGN_INTRON_MAX']} "
+#             f"--alignMatesGapMax {config['STAR']['ALIGN_MATES_GAP_MAX']} "
+#             f"{config['STAR']['ADDITIONAL_OUTPUT']} "
+#         )
+#     wrapper:
+#         "v3.3.6/bio/star/align"
 
 
-######################################################
-### Kraken2 classification of human filtered reads ###
-######################################################
+# ######################################################
+# ### Kraken2 classification of human filtered reads ###
+# ######################################################
 
-rule all_kraken:
-    input:
-        expand("kreports_human_filtered/{S}.k2report", S=SAMPLES),
-        expand("koutputs_human_filtered/{S}.kraken2", S=SAMPLES)
-
-
-rule kraken_paired_ends:
-    input:
-        R1=lambda wildcards: f"fastq/unmapped_human_filtered/{wildcards.sample}_unmapped_R1.fastq.gz",
-        R2=lambda wildcards: f"fastq/unmapped_human_filtered/{wildcards.sample}_unmapped_R2.fastq.gz"
-    output:
-        report="kreports_human_filtered/{sample}.k2report",
-        out="koutputs_human_filtered/{sample}.kraken2",
-        unclassified1="unclassified_human_filtered/{sample}_unclassified_1.fq",
-        unclassified2="unclassified_human_filtered/{sample}_unclassified_2.fq"
-    threads: 4
-    shell: """
-        k2 classify --db {config[kraken_db]} \
-            --threads {threads} \
-            --report {output.report} \
-            --output {output.out} \
-            --paired {input.R1} {input.R2} \
-            --unclassified-out unclassified_human_filtered/{wildcards.sample}_unclassified#.fq \
-            --minimum-hit-groups {config[hitgrp]} 
-    """
+# rule all_kraken_human:
+#     input:
+#         expand("kreports_human_filtered/{S}.k2report", S=SAMPLES),
+#         expand("koutputs_human_filtered/{S}.kraken2", S=SAMPLES)
 
 
-####################################
-### Bracken abundance estimation ###
-####################################
+# rule kraken_paired_ends_human:
+#     input:
+#         R1=lambda wildcards: f"fastq/unmapped_human_filtered/{wildcards.sample}_unmapped_R1.fastq.gz",
+#         R2=lambda wildcards: f"fastq/unmapped_human_filtered/{wildcards.sample}_unmapped_R2.fastq.gz"
+#     output:
+#         report="kreports_human_filtered/{sample}.k2report",
+#         out="koutputs_human_filtered/{sample}.kraken2",
+#         unclassified1="unclassified_human_filtered/{sample}_unclassified_1.fq",
+#         unclassified2="unclassified_human_filtered/{sample}_unclassified_2.fq"
+#     threads: 4
+#     shell: """
+#         k2 classify --db {config[kraken_db]} \
+#             --threads {threads} \
+#             --report {output.report} \
+#             --output {output.out} \
+#             --paired {input.R1} {input.R2} \
+#             --unclassified-out unclassified_human_filtered/{wildcards.sample}_unclassified#.fq \
+#             --minimum-hit-groups {config[hitgrp]} 
+#     """
 
-rule all_bracken:
-    input:
-        expand("breports_human_filtered/{S}.breport", S=SAMPLES),
-        expand("boutputs_human_filtered/{S}.bracken", S=SAMPLES)
+
+# ####################################
+# ### Bracken abundance estimation ###
+# ####################################
+
+# rule all_bracken_human:
+#     input:
+#         expand("breports_human_filtered/{S}.breport", S=SAMPLES),
+#         expand("boutputs_human_filtered/{S}.bracken", S=SAMPLES)
 
 
-rule bracken:
-    input:
-        "kreports_human_filtered/{sample}.k2report"
-    output:
-        report="breports_human_filtered/{sample}.breport",
-        out="boutputs_human_filtered/{sample}.bracken"
-    shell:"""
-        bracken -d {config[kraken_db]} \
-        -i {input} \
-        -r {config[BRACKEN][bracken_read_len]} \
-        -l {config[BRACKEN][bracken_level]} \
-        -t {config[BRACKEN][bracken_min_reads]} \
-        -o {output.out} \
-        -w {output.report}
-    """
+# rule bracken_human:
+#     input:
+#         "kreports_human_filtered/{sample}.k2report"
+#     output:
+#         report="breports_human_filtered/{sample}.breport",
+#         out="boutputs_human_filtered/{sample}.bracken"
+#     shell:"""
+#         bracken -d {config[kraken_db]} \
+#         -i {input} \
+#         -r {config[BRACKEN][bracken_read_len]} \
+#         -l {config[BRACKEN][bracken_level]} \
+#         -t {config[BRACKEN][bracken_min_reads]} \
+#         -o {output.out} \
+#         -w {output.report}
+#     """
 
-rule bracken_merged:
-    input:
-        reports=expand("breports_human_filtered/{sample}.breport", sample=SAMPLES),
-        outputs=expand("boutputs_human_filtered/{sample}.bracken", sample=SAMPLES),
-        #log= expand("logs/{sample}_bracken_merged.txt", sample=SAMPLES)
-    output:"bracken_merged_abbundances_human_filtered.csv"
-    #log: expand("logs/{sample}_bracken_merged.txt", sample=SAMPLES)
-    shell:"""
-        combine_bracken_outputs.py --files  {input.outputs} -o {output} 2> log.txt 
-    """
+
+# rule bracken_merged_filtered:
+#     input:
+#         reports=expand("breports_human_filtered/{sample}.breport", sample=SAMPLES),
+#         outputs=expand("boutputs_human_filtered/{sample}.bracken", sample=SAMPLES),
+#         #log= expand("logs/{sample}_bracken_merged.txt", sample=SAMPLES)
+#     output:"bracken_merged_abbundances.csv"
+#     #log: expand("logs/{sample}_bracken_merged.txt", sample=SAMPLES)
+#     shell:"""
+#         combine_bracken_outputs.py --files  {input.outputs} -o {output} 2> log.txt 
+#     """
+

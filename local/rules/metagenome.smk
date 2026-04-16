@@ -1,50 +1,104 @@
 ##########################
 ### Rules for Kraken2  ###
 ##########################
+
 if config["LAYOUT"] == "PAIRED":
     ruleorder: kraken_paired_ends > kraken_single_end
 else:
     ruleorder: kraken_single_end > kraken_paired_ends
 
 
+def kraken_input_r1(wc):
+    if HUMAN_FILTER_ENABLED:
+        return f"fastq/unmapped_human_filtered/{wc.sample}_unmapped_R1.fastq.gz"
+    return f"fastq/unmapped/{wc.sample}_unmapped_R1.fastq.gz"
+
+
+def kraken_input_r2(wc):
+    if HUMAN_FILTER_ENABLED:
+        return f"fastq/unmapped_human_filtered/{wc.sample}_unmapped_R2.fastq.gz"
+    return f"fastq/unmapped/{wc.sample}_unmapped_R2.fastq.gz"
+
+
 rule kraken_paired_ends:
     input:
-        R1=lambda wildcards: f"fastq/unmapped/{wildcards.sample}_unmapped_R1.fastq.gz",
-        R2=lambda wildcards: f"fastq/unmapped/{wildcards.sample}_unmapped_R2.fastq.gz"
+        R1=kraken_input_r1,
+        R2=kraken_input_r2
     output:
         report="kreports/{sample}.k2report",
         out="koutputs/{sample}.kraken2",
         unclassified1="unclassified/{sample}_unclassified_1.fq",
         unclassified2="unclassified/{sample}_unclassified_2.fq"
     threads: 4
-    shell: """
-        k2 classify --db {config[kraken_db]} \
-            --threads {threads} \
-            --report {output.report} \
-            --output {output.out} \
-            --paired {input.R1} {input.R2} \
-            --unclassified-out unclassified/{wildcards.sample}_unclassified#.fq \
-            --minimum-hit-groups {config[hitgrp]} 
-    """
+    shell:
+        r"""
+        k2 classify \
+          --db {config[kraken_db]} \
+          --threads {threads} \
+          --report {output.report} \
+          --output {output.out} \
+          --paired {input.R1} {input.R2} \
+          --unclassified-out unclassified/{wildcards.sample}_unclassified#.fq \
+          --minimum-hit-groups {config[hitgrp]}
+        """
+
+
+# rule kraken_paired_ends:
+#     input:
+#         R1=lambda wildcards: f"fastq/unmapped/{wildcards.sample}_unmapped_R1.fastq.gz",
+#         R2=lambda wildcards: f"fastq/unmapped/{wildcards.sample}_unmapped_R2.fastq.gz"
+#     output:
+#         report="kreports/{sample}.k2report",
+#         out="koutputs/{sample}.kraken2",
+#         unclassified1="unclassified/{sample}_unclassified_1.fq",
+#         unclassified2="unclassified/{sample}_unclassified_2.fq"
+#     threads: 4
+#     shell: """
+#         k2 classify --db {config[kraken_db]} \
+#             --threads {threads} \
+#             --report {output.report} \
+#             --output {output.out} \
+#             --paired {input.R1} {input.R2} \
+#             --unclassified-out unclassified/{wildcards.sample}_unclassified#.fq \
+#             --minimum-hit-groups {config[hitgrp]} 
+#     """
 
 
 rule kraken_single_end:
-    input: 
-        R1=lambda wildcards: f"fastq/unmapped/{wildcards.sample}_unmapped_R1.fastq.gz"
-    output: 
-        report="kreports/{sample}.k2report", 
+    input:
+        R1=lambda wc: kraken_input_r1(wc)
+    output:
+        report="kreports/{sample}.k2report",
         out="koutputs/{sample}.kraken2"
     threads: 4
     shell:
+        r"""
+        k2 classify \
+          --db {config[kraken_db]} \
+          --minimum-hit-groups {config[hitgrp]} \
+          --threads {threads} \
+          --report {output.report} \
+          {input.R1} \
+          > {output.out}
         """
-        k2 classify --db {config[kraken_db]} \
-            --minimum-hit-groups {config[hitgrp]} \
-            --threads {threads} \
-            --report-minimizer-data \
-            --report {output.report} \
-            {input.R1} \
-        > {output.out}
-        """
+
+# rule kraken_single_end:
+#     input: 
+#         R1=lambda wildcards: f"fastq/unmapped/{wildcards.sample}_unmapped_R1.fastq.gz"
+#     output: 
+#         report="kreports/{sample}.k2report", 
+#         out="koutputs/{sample}.kraken2"
+#     threads: 4
+#     shell:
+#         """
+#         k2 classify --db {config[kraken_db]} \
+#             --minimum-hit-groups {config[hitgrp]} \
+#             --threads {threads} \
+#             --report-minimizer-data \
+#             --report {output.report} \
+#             {input.R1} \
+#         > {output.out}
+#         """
 
 
 """
@@ -62,32 +116,63 @@ https://github.com/DerrickWood/kraken2/wiki/Manual#classification
 #########################
 ### Rules for Bracken ###
 #########################
+# rule bracken:
+#     input:
+#         "kreports/{sample}.k2report"
+#     output:
+#         report="breports/{sample}.breport",
+#         out="boutputs/{sample}.bracken"
+#     shell:"""
+#         bracken -d {config[kraken_db]} \
+#         -i {input} \
+#         -r {config[BRACKEN][bracken_read_len]} \
+#         -l {config[BRACKEN][bracken_level]} \
+#         -t {config[BRACKEN][bracken_min_reads]} \
+#         -o {output.out} \
+#         -w {output.report}
+#     """
+
+
 rule bracken:
     input:
         "kreports/{sample}.k2report"
     output:
         report="breports/{sample}.breport",
         out="boutputs/{sample}.bracken"
-    shell:"""
-        bracken -d {config[kraken_db]} \
-        -i {input} \
-        -r {config[BRACKEN][bracken_read_len]} \
-        -l {config[BRACKEN][bracken_level]} \
-        -t {config[BRACKEN][bracken_min_reads]} \
-        -o {output.out} \
-        -w {output.report}
-    """
+    shell:
+        r"""
+        bracken \
+          -d {config[kraken_db]} \
+          -i {input} \
+          -r {config[BRACKEN][bracken_read_len]} \
+          -l {config[BRACKEN][bracken_level]} \
+          -t {config[BRACKEN][bracken_min_reads]} \
+          -o {output.out} \
+          -w {output.report}
+        """
+
+
+# rule bracken_merged:
+#     input:
+#         reports=expand("breports/{sample}.breport", sample=SAMPLES),
+#         outputs=expand("boutputs/{sample}.bracken", sample=SAMPLES),
+#         #log= expand("logs/{sample}_bracken_merged.txt", sample=SAMPLES)
+#     output:"bracken_merged_abbundances.csv"
+#     #log: expand("logs/{sample}_bracken_merged.txt", sample=SAMPLES)
+#     shell:"""
+#         combine_bracken_outputs.py --files  {input.outputs} -o {output} 2> log.txt 
+#     """
+
 
 rule bracken_merged:
     input:
-        reports=expand("breports/{sample}.breport", sample=SAMPLES),
-        outputs=expand("boutputs/{sample}.bracken", sample=SAMPLES),
-        #log= expand("logs/{sample}_bracken_merged.txt", sample=SAMPLES)
-    output:"bracken_merged_abbundances.csv"
-    #log: expand("logs/{sample}_bracken_merged.txt", sample=SAMPLES)
-    shell:"""
-        combine_bracken_outputs.py --files  {input.outputs} -o {output} 2> log.txt 
-    """
+        outputs=expand("boutputs/{sample}.bracken", sample=SAMPLES)
+    output:
+        "bracken_merged_abbundances.csv"
+    shell:
+        r"""
+        combine_bracken_outputs.py --files {input.outputs} -o {output} 2> log.txt
+        """
 
 #######################################
 ### Rules for krona and other rules ###
@@ -275,7 +360,6 @@ rule megahit_assembly:
 ### BLASTN against RefSeq RNA ###
 #################################
 
-
 rule blastn:
     input:
         fasta="Megahit_meta/{sample}_assembly/split_fasta/{contig}.fa"
@@ -287,3 +371,53 @@ rule blastn:
         """
         blastn -query {input.fasta} -db refseq_rna -out {output.out} -outfmt "{params.outfmt}"
         """
+
+
+######################
+### Structural QC ###
+#####################
+
+rule bracken_sample_totals:
+    input:
+        expand("boutputs_human_filtered/{sample}.bracken", sample=SAMPLES)
+    output:
+        "qc/sample_totals.txt"
+    shell:
+        r"""
+        echo "Sample Total_Reads" > {output}
+        for f in {input}; do
+            sample=$(basename "$f" .bracken)
+            total=$(awk -F'\t' '
+                NR==1 {{
+                    for(i=1;i<=NF;i++) {{
+                        if($i=="new_est_reads") col=i
+                    }}
+                }}
+                NR>1 {{
+                    sum += $col
+                }}
+                END {{
+                    print sum
+                }}
+            ' "$f")
+            echo "$sample $total" >> {output}
+        done
+        """
+
+rule qc_abundance_matrix:
+    input:
+        matrix="bracken_merged_abbundances_human_filtered.csv",
+        sample_totals="qc/sample_totals.txt"
+    output:
+        checked_num_matrix="qc/abundance_num.checked.csv",
+        checked_frac_matrix="qc/abundance_frac.checked.csv",
+        sample_name_map="qc/sample_name_verification.csv",
+        missing_summary="qc/missing_value_summary.csv",
+        sample_summary="qc/sample_qc_summary.csv",
+        taxa_summary="qc/taxa_qc_summary.csv",
+        notes="qc/filtering_notes.txt"
+    params:
+        min_sample_presence=2,
+        min_total_abundance=10
+    script:
+        "scripts/qc_abundance_matrix.py"

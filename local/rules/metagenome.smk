@@ -43,27 +43,6 @@ rule kraken_paired_ends:
         """
 
 
-# rule kraken_paired_ends:
-#     input:
-#         R1=lambda wildcards: f"fastq/unmapped/{wildcards.sample}_unmapped_R1.fastq.gz",
-#         R2=lambda wildcards: f"fastq/unmapped/{wildcards.sample}_unmapped_R2.fastq.gz"
-#     output:
-#         report="kreports/{sample}.k2report",
-#         out="koutputs/{sample}.kraken2",
-#         unclassified1="unclassified/{sample}_unclassified_1.fq",
-#         unclassified2="unclassified/{sample}_unclassified_2.fq"
-#     threads: 4
-#     shell: """
-#         k2 classify --db {config[kraken_db]} \
-#             --threads {threads} \
-#             --report {output.report} \
-#             --output {output.out} \
-#             --paired {input.R1} {input.R2} \
-#             --unclassified-out unclassified/{wildcards.sample}_unclassified#.fq \
-#             --minimum-hit-groups {config[hitgrp]} 
-#     """
-
-
 rule kraken_single_end:
     input:
         R1=lambda wc: kraken_input_r1(wc)
@@ -82,25 +61,6 @@ rule kraken_single_end:
           > {output.out}
         """
 
-# rule kraken_single_end:
-#     input: 
-#         R1=lambda wildcards: f"fastq/unmapped/{wildcards.sample}_unmapped_R1.fastq.gz"
-#     output: 
-#         report="kreports/{sample}.k2report", 
-#         out="koutputs/{sample}.kraken2"
-#     threads: 4
-#     shell:
-#         """
-#         k2 classify --db {config[kraken_db]} \
-#             --minimum-hit-groups {config[hitgrp]} \
-#             --threads {threads} \
-#             --report-minimizer-data \
-#             --report {output.report} \
-#             {input.R1} \
-#         > {output.out}
-#         """
-
-
 """
 .META: *.kreport
     1   frag_perc   Percentage of fragments covered by the clade rooted at this taxon
@@ -116,22 +76,6 @@ https://github.com/DerrickWood/kraken2/wiki/Manual#classification
 #########################
 ### Rules for Bracken ###
 #########################
-# rule bracken:
-#     input:
-#         "kreports/{sample}.k2report"
-#     output:
-#         report="breports/{sample}.breport",
-#         out="boutputs/{sample}.bracken"
-#     shell:"""
-#         bracken -d {config[kraken_db]} \
-#         -i {input} \
-#         -r {config[BRACKEN][bracken_read_len]} \
-#         -l {config[BRACKEN][bracken_level]} \
-#         -t {config[BRACKEN][bracken_min_reads]} \
-#         -o {output.out} \
-#         -w {output.report}
-#     """
-
 
 rule bracken:
     input:
@@ -152,23 +96,11 @@ rule bracken:
         """
 
 
-# rule bracken_merged:
-#     input:
-#         reports=expand("breports/{sample}.breport", sample=SAMPLES),
-#         outputs=expand("boutputs/{sample}.bracken", sample=SAMPLES),
-#         #log= expand("logs/{sample}_bracken_merged.txt", sample=SAMPLES)
-#     output:"bracken_merged_abbundances.csv"
-#     #log: expand("logs/{sample}_bracken_merged.txt", sample=SAMPLES)
-#     shell:"""
-#         combine_bracken_outputs.py --files  {input.outputs} -o {output} 2> log.txt 
-#     """
-
-
 rule bracken_merged:
     input:
-        outputs=expand("boutputs/{sample}.bracken", sample=SAMPLES)
+        outputs=expand("boutputs_filtered/{sample}.bracken", sample=SAMPLES)
     output:
-        "bracken_merged_abbundances.csv"
+        "bracken_merged_abundances_filtered.csv"
     shell:
         r"""
         combine_bracken_outputs.py --files {input.outputs} -o {output} 2> log.txt
@@ -193,20 +125,20 @@ rule krona_html:
     
 rule spit_merged:
     input:
-        "bracken_merged_abbundances.txt"
+        "bracken_merged_abundances.txt"
     output:
-        num="bracken_merged_abbundances.num.txt",
-        frac="bracken_merged_abbundances.frac.txt"
+        num="bracken_merged_abundances.num.txt",
+        frac="bracken_merged_abundances.frac.txt"
     shell:
         "grep_columns -k 1,2,3 bracken_num  < {input} | perl -pe '$.==1; s/.bracken_num//g'  > {output.num};"
         "grep_columns -k 1,2,3 bracken_frac < {input} | perl -pe '$.==1; s/.bracken_frac//g' > {output.frac}"
     
 rule feature_filter:
     input:
-        abundances="bracken_merged_abbundances.num.txt",
+        abundances="bracken_merged_abundances.num.txt",
         metadata="metadata.txt"
     output:
-        filtered="bracken_merged_abbundances.num.filtered.txt"
+        filtered="bracken_merged_abundances.num.filtered.txt"
     params:
         condition=config['feature_filter']['condition'],
         g1=config['feature_filter']["g1"],
@@ -226,24 +158,24 @@ rule feature_filter:
 
 rule filter_frac:
     input:
-        num_filter="bracken_merged_abbundances.num.filtered.txt",
-        frac="bracken_merged_abbundances.frac.txt"
+        num_filter="bracken_merged_abundances.num.filtered.txt",
+        frac="bracken_merged_abundances.frac.txt"
     output:
-        "bracken_merged_abbundances.frac.filtered.txt"
+        "bracken_merged_abundances.frac.filtered.txt"
     shell:
         "filter_1col 3 <(cut -f 3 {input.num_filter}) < {input.frac} > {output}"
 
 rule collapse_taxid:
-    input: "bracken_merged_abbundances.num.filtered.txt"
-    output: "bracken_merged_abbundances.num.filtered.taxid_collapsed.txt"
+    input: "bracken_merged_abundances.num.filtered.txt"
+    output: "bracken_merged_abundances.num.filtered.taxid_collapsed.txt"
     shell: "perl -pe 's/\t/;/; s/\t/;/' {input} > {output}"
 
 rule degw:
     input: 
-        abundances="bracken_merged_abbundances.num.filtered.taxid_collapsed.txt",
+        abundances="bracken_merged_abundances.num.filtered.taxid_collapsed.txt",
         metadata="metadata.txt"
     output:
-        "bracken_merged_abbundances.num.filtered.taxid_collapsed.degw.txt",
+        "bracken_merged_abundances.num.filtered.taxid_collapsed.degw.txt",
     params:
         condition=config['feature_filter']['condition'],
         g1=config['feature_filter']["g1"],
@@ -296,32 +228,32 @@ rule extract_kraken_unclassified_reads:
 ###########################
 ### Remove contaminant ####
 ###########################
+
 rule filter_kraken_output:
     input:
         "koutputs/{sample}.kraken2"
     output:
         "koutput_filtered/{sample}.kraken2"
     params:
-        contaminants = config.get("contaminant"),  
-        human = config.get("humanID")
+        contaminants = config.get("CONTAMINANT_INFO", {}).get("contaminant"),  
+        human = config.get("CONTAMINANT_INFO", {}).get("humanID")
     run:
         contaminant_conditions = " && ".join([f"$3 != {c}" for c in params.contaminants])
         human_conditions = " && ".join([f"$3 != {c}" for c in params.human])
-        shell(f"mkdir -p koutput_filtered && awk '{contaminant_conditions} && awk {human_conditions}' {{input}} > {{output}}")
+        shell(f"mkdir -p koutput_filtered && awk '{contaminant_conditions} && {human_conditions}' {{input}} > {{output}}")
 
 
 rule filt_k2report:
     input:
         kraken2_filtered = "koutput_filtered/{sample}.kraken2", 
-        db = config["kraken_db"]
+        db = config["kraken_k2d"]
     output:
         report = "kreports_filtered/{sample}.k2report"
     shell:
         """
         mkdir -p kreports_filtered
-        /home/molinerislab/NeriMetagenome/local/kraken2/src/k2report {input.db} {input.kraken2_filtered} {output.report}
+        /home/molinerislab/NeriMetagenome/workflow/kraken2/src/k2report {input.db} {input.kraken2_filtered} {output.report}
         """
-
 
 rule filbracken:
     input:
@@ -337,7 +269,6 @@ rule filbracken:
 ######################### 
 ### MEGAHIT assembly ####
 #########################
-
 
 rule megahit_assembly:
     input:
@@ -379,7 +310,7 @@ rule blastn:
 
 rule bracken_sample_totals:
     input:
-        expand("boutputs_human_filtered/{sample}.bracken", sample=SAMPLES)
+        expand("boutputs_filtered/{sample}.bracken", sample=SAMPLES)
     output:
         "qc/sample_totals.txt"
     shell:
@@ -406,18 +337,18 @@ rule bracken_sample_totals:
 
 rule qc_abundance_matrix:
     input:
-        matrix="bracken_merged_abbundances_human_filtered.csv",
+        matrix="bracken_merged_abundances_filtered.csv",
         sample_totals="qc/sample_totals.txt"
     output:
-        checked_num_matrix="qc/abundance_num.checked.csv",
-        checked_frac_matrix="qc/abundance_frac.checked.csv",
-        sample_name_map="qc/sample_name_verification.csv",
-        missing_summary="qc/missing_value_summary.csv",
-        sample_summary="qc/sample_qc_summary.csv",
+        checked_num_matrix="qc/abundance_num.csv",
+        checked_frac_matrix="qc/abundance_frac.csv",
+        sample_name_map="qc/sample_name_verification.tsv",
+        missing_summary="qc/missing_value_summary.tsv",
+        sample_summary="qc/sample_qc_summary.tsv",
         taxa_summary="qc/taxa_qc_summary.csv",
         notes="qc/filtering_notes.txt"
     params:
         min_sample_presence=2,
         min_total_abundance=10
     script:
-        "scripts/qc_abundance_matrix.py"
+        "../src/qc_abundance_matrix.py"

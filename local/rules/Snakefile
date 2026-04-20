@@ -114,7 +114,7 @@ rule ALL_infer_experiment:
         "ALL_infer_experiment"
     shell: r"""  
         matrix_reduce 'rseqc/*.infer_experiment.txt' -l '{input}' | grep . | perl -lne 'if(m/^>/){{print; next}} print "$1\t$2" if m/("[^:]+|failed to determine):\s+(.*)/' | fasta2tab | tab2matrix -r sample > {output}
-    """ 
+            """ 
 
 rule ALL_star:
     input:
@@ -190,10 +190,9 @@ rule all_filter_kraken:
     input:
         expand("koutput_filtered/{sample}.kraken2", sample=SAMPLES)
 
-rule all_k2rfilter:
+rule all_k2rfilter: 
     input:
         expand("kreports_filtered/{sample}.k2report", sample=SAMPLES)
-
 
 rule all_filbracken:
     input:
@@ -204,4 +203,4 @@ rule all_metagenome:
     input:
         expand("breports/{sample}.breport", sample=SAMPLES),
         expand("boutputs/{sample}.bracken", sample=SAMPLES),
-        "bracken_merged_abbundances.csv"
+        "bracken_merged_abundances.csv"

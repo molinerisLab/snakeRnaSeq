@@ -352,3 +352,19 @@ rule qc_abundance_matrix:
         min_total_abundance=10
     script:
         "../src/qc_abundance_matrix.py"
+
+
+rule filter_taxa:
+    input:
+        matrix="bracken_merged_abundances.csv"
+    output:
+        filtered="bracken_merged_abundances_filtered.csv",
+        summary="filter_summary.txt",
+        notes="filter_notes.txt"
+    params:
+        min_prevalence=config["METAGENOMICS"]["TAXA_FILTERING"]["min_prevalence"],
+        min_total=config["METAGENOMICS"]["TAXA_FILTERING"]["min_total"]
+    log:
+        "logs/filter_taxa.log"
+    script:
+        "../../local/src/filter_taxa.py"

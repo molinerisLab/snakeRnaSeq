@@ -100,7 +100,7 @@ rule bracken_merged:
     input:
         outputs=expand("boutputs_filtered/{sample}.bracken", sample=SAMPLES)
     output:
-        "bracken_merged_abundances_filtered.csv"
+        "bracken_merged_abundances.tsv"
     shell:
         r"""
         combine_bracken_outputs.py --files {input.outputs} -o {output} 2> log.txt
@@ -337,28 +337,28 @@ rule bracken_sample_totals:
 
 rule qc_abundance_matrix:
     input:
-        matrix="bracken_merged_abundances_filtered.csv",
+        matrix="bracken_merged_abundances_filtered.tsv",
         sample_totals="qc/sample_totals.txt"
     output:
-        checked_num_matrix="qc/abundance_num.csv",
-        checked_frac_matrix="qc/abundance_frac.csv",
+        checked_num_matrix="qc/abundance_num.tsv",
+        checked_frac_matrix="qc/abundance_frac.tsv",
         sample_name_map="qc/sample_name_verification.tsv",
         missing_summary="qc/missing_value_summary.tsv",
         sample_summary="qc/sample_qc_summary.tsv",
-        taxa_summary="qc/taxa_qc_summary.csv",
+        taxa_summary="qc/taxa_qc_summary.tsv",
         notes="qc/filtering_notes.txt"
     params:
         min_sample_presence=2,
         min_total_abundance=10
     script:
-        "../src/qc_abundance_matrix.py"
+        "../../local/src/qc_abundance_matrix.py"
 
 
 rule filter_taxa:
     input:
-        matrix="bracken_merged_abundances.csv"
+        matrix="bracken_merged_abundances.tsv"
     output:
-        filtered="bracken_merged_abundances_filtered.csv",
+        filtered="bracken_merged_abundances.filtered.tsv",
         summary="filter_summary.txt",
         notes="filter_notes.txt"
     params:
@@ -368,3 +368,16 @@ rule filter_taxa:
         "logs/filter_taxa.log"
     script:
         "../../local/src/filter_taxa.py"
+
+
+rule normalize_abundance:
+    input:
+        matrix="bracken_merged_abundances.filtered.tsv"
+    output:
+        relative="abundances.filtered.relative.tsv",
+        clr="abundances.filtered.clr.tsv"
+    log:
+        "logs/normalize_abundance.log"
+    script:
+        "../../local/src/normalize_abundance.py"
+        

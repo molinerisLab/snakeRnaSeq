@@ -337,7 +337,7 @@ rule bracken_sample_totals:
 
 rule qc_abundance_matrix:
     input:
-        matrix="bracken_merged_abundances_filtered.tsv",
+        matrix="bracken_merged_abundances.tsv",
         sample_totals="qc/sample_totals.txt"
     output:
         checked_num_matrix="qc/abundance_num.tsv",
@@ -359,8 +359,7 @@ rule filter_taxa:
         matrix="bracken_merged_abundances.tsv"
     output:
         filtered="bracken_merged_abundances.filtered.tsv",
-        summary="filter_summary.txt",
-        notes="filter_notes.txt"
+        summary="filter_summary.txt"
     params:
         min_prevalence=config["METAGENOMICS"]["TAXA_FILTERING"]["min_prevalence"],
         min_total=config["METAGENOMICS"]["TAXA_FILTERING"]["min_total"]

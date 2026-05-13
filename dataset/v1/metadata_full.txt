@@ -8,6 +8,9 @@ BU03	BU	Bassila	Control
 BP02	BP	Bassila	Resistant
 BP03	BP	Bassila	Resistant
 BP04	BP	Bassila	Resistant
+KIS01	KIS	Kisumu	Susceptible
+KIS02	KIS	Kisumu	Susceptible
+KIS03	KIS	Kisumu	Susceptible
 DU01	DU	Djougou	Control
 DU02	DU	Djougou	Control
 DU03	DU	Djougou	Control

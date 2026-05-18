@@ -1,0 +1,75 @@
+#!/usr/bin/perl
+use warnings;
+use strict;
+use Getopt::Long;
+$,="\t";
+$\="\n";
+
+$SIG{__WARN__} = sub {die @_};
+
+my $usage = "$0 [-h|help] [-k|keep COL1,COL2,COL3] [-v] [-F] REGEXP1 REGEXP2 REGEXP3 REGEXP... <IN_FILE
+Require an header in the first row of STDIN.
+Print only the columns that are indicated in -k (1 based) or for which the header label match one of the REGEXP
+
+	-F 	like grep -wF, use exact string and not regexp
+	-v 	like grep invert the match
+";
+
+my $help=0;
+my $invert=0;
+my $glue=",";
+my $columns_to_keep_aniway="";
+my $exact_string=0;
+GetOptions (
+    'h|help' => \$help,
+    'k|keep=s' => \$columns_to_keep_aniway,
+    'v|invert' => \$invert,
+    'F|exact_string' => \$exact_string,
+) or die($usage);
+
+if($help){
+    print $usage;
+    exit(0);
+}
+
+die($usage) if scalar(@ARGV)==0;
+my @regexp = @ARGV;
+
+my %cols_to_keep =();
+for(split /,/,$columns_to_keep_aniway){
+    $cols_to_keep{$_-1}++
+}
+
+my $header=<STDIN>;
+chomp($header);
+my @F = split /\t/,$header,-1;
+my $i=0;
+for(@F){
+    my $keep=0;
+    foreach my $r (@regexp){
+	if($exact_string){
+		$cols_to_keep{$i}++ if $r eq $_ xor $invert;
+	}else{
+	        $cols_to_keep{$i}++ if m/$r/ xor $invert;
+	}
+    }
+    $i++
+}
+my @G=();
+for($i=0; $i<scalar(@F); $i++){
+    push(@G,$F[$i]) if $cols_to_keep{$i}
+}
+print @G;
+
+while(<STDIN>){
+    chomp;
+    @F = split /\t/,$_,-1;
+    @G=();
+    for($i=0; $i<scalar(@F); $i++){
+        push(@G,$F[$i]) if $cols_to_keep{$i}
+    }
+    if(@G){
+        print @G
+    }
+}
+

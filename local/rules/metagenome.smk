@@ -122,10 +122,11 @@ rule krona_html:
     input: "b_krona_txt/{sample}.b.krona.txt"
     output: "krona_html/{sample}.krona.html"
     shell: "ktImportText {input} -o {output}"
-    
-rule spit_merged:
+
+
+rule split_merged:
     input:
-        "bracken_merged_abundances.txt"
+        "bracken_merged_abundances.cleaned.tsv"
     output:
         num="bracken_merged_abundances.num.txt",
         frac="bracken_merged_abundances.frac.txt"
@@ -133,6 +134,7 @@ rule spit_merged:
         "grep_columns -k 1,2,3 bracken_num  < {input} | perl -pe '$.==1; s/.bracken_num//g'  > {output.num};"
         "grep_columns -k 1,2,3 bracken_frac < {input} | perl -pe '$.==1; s/.bracken_frac//g' > {output.frac}"
     
+
 rule feature_filter:
     input:
         abundances="bracken_merged_abundances.num.txt",
@@ -140,21 +142,66 @@ rule feature_filter:
     output:
         filtered="bracken_merged_abundances.num.filtered.txt"
     params:
-        condition=config['feature_filter']['condition'],
-        g1=config['feature_filter']["g1"],
-        g2=config['feature_filter']["g2"],
-        use_raw_counts=config['feature_filter']["use_raw_counts"],
-        min_exp=config['feature_filter']['min_exp'],
-        min_samples_ratio=config['feature_filter']['min_samples_ratio']
-    shell: """
-        perl -pe 's/\t/;/; s/\t/;/' {input.abundances} > {input.abundances}.tmp;\
-        echo -en "name\\ttaxonomy_id\\ttaxonomy_lv\\t" > {output.filtered}
-        feature_filter {input.abundances}.tmp {input.metadata} \
-            --condition={params.condition} --g1 {params.g1} --g2 {params.g2} \
-            --use_raw_counts --min_exp {params.min_exp} --min_samples_ratio {params.min_samples_ratio} \
-        | perl -pe 's/;/\t/; s/;/\t/' >> {output.filtered};\
-        rm {input.abundances}.tmp
+        # Metadata grouping
+        condition=config["feature_filter"]["condition"],
+        g1=config["feature_filter"]["g1"],
+        g2=config["feature_filter"]["g2"],
+        # Filtering thresholds
+        min_exp=config["feature_filter"]["min_exp"],
+        min_samples_ratio=config["feature_filter"]["min_samples_ratio"],
+        # Number of annotation columns before sample columns
+        n_metadata_cols=config["feature_filter"].get("n_metadata_cols", 3),
+        # Optional raw counts flag
+        use_raw_counts=lambda wc: (
+            "--use_raw_counts"
+            if config["feature_filter"].get("use_raw_counts", False)
+            else ""
+        )
+    shell:
+        r"""
+        awk -F'\t' -v OFS='\t' -v n={params.n_metadata_cols} '
+        {{
+            prefix=$1
+            for(i=2;i<=n;i++) {{
+                prefix=prefix ";" $i
+            }}
+
+            printf "%s", prefix
+
+            for(i=n+1;i<=NF;i++) {{
+                printf "\t%s", $i
+            }}
+
+            printf "\n"
+        }}
+        ' {input.abundances} > {input.abundances}.tmp
+
+        head -n1 {input.abundances} | \
+        awk -F'\t' -v OFS='\t' -v n={params.n_metadata_cols} '
+        {{
+            for(i=1;i<=n;i++) {{
+                printf $i
+                if(i<n) printf OFS
+            }}
+            printf OFS
+        }}
+        ' > {output.filtered}
+
+        feature_filter \
+            {input.abundances}.tmp \
+            {input.metadata} \
+            --condition={params.condition} \
+            --g1 {params.g1} \
+            --g2 {params.g2} \
+            {params.use_raw_counts} \
+            --min_exp {params.min_exp} \
+            --min_samples_ratio {params.min_samples_ratio} \
+        | perl -pe 's/;/\t/; s/;/\t/; s/;/\t/' \
+        >> {output.filtered}
+
+        rm -f {input.abundances}.tmp
         """
+
 
 rule filter_frac:
     input:
@@ -165,10 +212,13 @@ rule filter_frac:
     shell:
         "filter_1col 3 <(cut -f 3 {input.num_filter}) < {input.frac} > {output}"
 
+
 rule collapse_taxid:
-    input: "bracken_merged_abundances.num.filtered.txt"
-    output: "bracken_merged_abundances.num.filtered.taxid_collapsed.txt"
+    input: "bracken_merged_abundances.num.txt"
+    output: "bracken_merged_abundances.num.taxid_collapsed.txt"
     shell: "perl -pe 's/\t/;/; s/\t/;/' {input} > {output}"
+
+
 
 rule degw:
     input: 
@@ -266,6 +316,7 @@ rule filbracken:
         bracken -d {config[kraken_db]} -i {input} -r {config[BRACKEN][bracken_read_len]} -l {config[BRACKEN][bracken_level]} -t {config[BRACKEN][bracken_min_reads]} -o {output.out} -w {output.report}
     """
 
+
 ######################### 
 ### MEGAHIT assembly ####
 #########################
@@ -358,7 +409,7 @@ rule filter_taxa:
     input:
         matrix="bracken_merged_abundances.tsv"
     output:
-        filtered="bracken_merged_abundances.filtered.tsv",
+        filtered="bracken_merged_abundances.cleaned.tsv",
         summary="filter_summary.txt"
     params:
         min_prevalence=config["METAGENOMICS"]["TAXA_FILTERING"]["min_prevalence"],
@@ -371,12 +422,27 @@ rule filter_taxa:
 
 rule normalize_abundance:
     input:
-        matrix="bracken_merged_abundances.filtered.tsv"
+        matrix="bracken_merged_abundances.cleaned.tsv"
     output:
-        relative="abundances.filtered.relative.tsv",
-        clr="abundances.filtered.clr.tsv"
+        relative="abundances.cleaned.relative.tsv",
+        clr="abundances.cleaned.clr.tsv"
     log:
         "logs/normalize_abundance.log"
     script:
         "../../local/src/normalize_abundance.py"
+
+
+rule remove_columns:
+    input:
+        "bracken_merged_abundances.num.txt"
+    output:
+        "bracken_merged_abundances.num.cleaned.txt"
+    params:
+        cols_to_remove=config["METAGENOMICS"]["COLUMNS_TO_REMOVE"]
+    shell: """
+        Rscript ../../local/src/remove_columns.R \
+            {input} \
+            {output} \
+            {params.cols_to_remove}
+    """
         

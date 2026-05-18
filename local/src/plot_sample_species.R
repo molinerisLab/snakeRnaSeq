@@ -63,7 +63,7 @@ if (!dir.exists("Plots")) dir.create("Plots")
 #--- Main: Single Dataset ----#
 #------------------------------#
 
-bmerged <- read_excel("Reports/bracken_merged_abbundances.num.txt.xlsx")[,-c(2,3)]
+bmerged <- read_excel("Reports/bracken_merged_abundances.num.txt.xlsx")[,-c(2,3)]
 raw_counts <- read_counts("Reports/reads_summary.csv")
 bmerged_long <- prepare_long_data(bmerged, raw_counts)
 top10_data <- get_top10(bmerged_long)
@@ -77,7 +77,7 @@ plot_stacked(top10_data, "Plots/barplot_CPM_percentage.png", "Top 10 Taxa per Sa
 
 config <- yaml.load_file("config.yaml")
 if (isTRUE(config$multiple_files)) {
-  xlsx_files <- list.files(".", pattern = "bracken_merged_abbundances.num.txt.xlsx$", full.names = TRUE)
+  xlsx_files <- list.files(".", pattern = "bracken_merged_abundances.num.txt.xlsx$", full.names = TRUE)
   reads_files <- list.files(".", pattern = "reads_summary.csv$", full.names = TRUE)
   
   get_patient_id <- function(path) str_split(basename(path), "_", simplify = TRUE)[1]

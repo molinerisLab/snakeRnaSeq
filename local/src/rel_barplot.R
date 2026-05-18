@@ -15,6 +15,7 @@ out_bar <- snakemake@output[["barplot"]]
 # Load metadata
 meta <- read_tsv(meta_file) %>%
   mutate(
+    group=factor(group),
     condition = factor(condition),
     batch = factor(batch)
   )
@@ -62,7 +63,7 @@ rel_long <- rel_long %>%
 
 p_bar <- ggplot(rel_long, aes(sample, abundance, fill = taxon)) +
   geom_bar(stat = "identity") +
-  facet_wrap(~condition, scales = "free_x") +
+  facet_wrap(~group, scales = "free_x") + # You can adjust this based on your metadata. For example, you might want to facet by condition or batch instead.
   theme_bw() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1),
   legend.text = element_text(face = "italic")) +

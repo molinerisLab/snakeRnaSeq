@@ -1,14 +1,19 @@
 # DGE/edger.toptable_clean.ALL_contrast.mark_seqc.max_exp_in_condition.header_added.count.exp_filter.ltmm.gz
 # edger.toptable_clean.ALL_contrast.mark_seqc.max_exp_in_condition.header_added.gz
 
+# rule ALL_DGE:
+#     input:
+#         f"DGE/{config['DGE']['DGE_TOOL']}.toptable_clean.ALL_contrast.mark_seqc.header_added.xlsx"
+
 rule ALL_DGE:
     input:
-        f"DGE/{config['DGE']['DGE_TOOL']}.toptable_clean.ALL_contrast.mark_seqc.header_added.xlsx"
+        f"DGE/{config['DGE']['DGE_TOOL']}.toptable_clean.ALL_contrast.mark_seqc.header_added.gz"
+
 
 #TODO aggiungere counts_table2eset e append_each_row -> ora hanno env, ma in teoria non serve per forza
 rule get_eset:
     input:
-        gep = "GEP.count.gz",
+        gep = "bracken_merged_abundances.num.cleaned.txt",
         metadata = "metadata.txt"
     output:
         "{path}/eset.rda"
@@ -20,16 +25,16 @@ rule get_eset:
 
 rule get_rdata:
     input:
-        "{path}eset.rda"
+        "{path}/eset.rda"
     output:
-        "{path}" + config["DGE"]["DGE_TOOL"] + ".RData"
+        "{path}/" + config["DGE"]["DGE_TOOL"] + ".RData"
     params:
         dge_tool = config["DGE"]["DGE_TOOL"],
         min_cpm = config["DGE"]["EXPRESSED_GENES_MIN_CPM"],
         min_samples = config["DGE"]["MIN_NUM_OF_EXPRESSED_SAMPLE"],
         factors = config["DGE"]["LIMMA_FACTORS"],
-        formula = config["DGE"]["LIMMA_DESIGN_FORMULA"],
-        contrasts = config["DGE"]["LIMMA_CONTRASTS"]
+        formula = "'" + config["DGE"]["LIMMA_DESIGN_FORMULA"] + "'",
+        contrasts = " ".join(config["DGE"]["LIMMA_CONTRASTS"].values())
     conda:
         "../../local/env/bit_rnaseq_3_backup.yaml"
     shell:"""
@@ -38,36 +43,52 @@ rule get_rdata:
 
 #this code allows to call the target with a value used in LIMMA_CONTRASTS_NAMES and find data in $(DGE_TOOL).RData that are stored under a label given by LIMMA_CONTRASTS
 #$(addprefix $(DGE_TOOL).top.ALL.contrast., $(addsuffix .gz, $(LIMMA_CONTRASTS_NAMES))): $(DGE_TOOL).top.ALL.contrast.%.gz: $(DGE_TOOL).RData
+
 rule run_DGE:
     input:
-        "{folder}" + config["DGE"]["DGE_TOOL"] + ".RData"
+        "{folder}/" + config["DGE"]["DGE_TOOL"] + ".RData"
     output:
-        "{folder}" + config["DGE"]["DGE_TOOL"] + ".toptable_clean.contrast_{contrast}.gz"
+        "{folder}/" + config["DGE"]["DGE_TOOL"] + ".toptable_clean.contrast_{contrast}.gz"
     params:
-        contrast_names = config["DGE"]["LIMMA_CONTRASTS_NAMES"],
-        contrasts = config["DGE"]["LIMMA_CONTRASTS"],
-        dge_tool = config["DGE"]["DGE_TOOL"] 
-    conda:    
+        contrast_value = lambda wildcards: config["DGE"]["LIMMA_CONTRASTS"][wildcards.contrast],
+        dge_tool = config["DGE"]["DGE_TOOL"]
+    conda:
         "../../local/env/bit_rnaseq_3_backup.yaml"
-    shell:"""
-        C=$(\
-            (\
-                echo {params.contrast_names};\
-                echo {params.contrasts}\
-            ) | tr -d '"'\
-            | perl -lane 'BEGIN{{$i=0}}; if($.==1){{for(@F){{if($_ ne "{wildcards.contrast}"){{$i++}}else{{last}}}}}} if($.==2){{print @F[$i]}}'\
-        );\
-        echo $C;\
-        if [[ {params.dge_tool} == "limma" ]]; then\
-            r -e "load('{input}');write.table(file='{output}.tmp',top.list[['$C']][,c('logFC','P.Value','adj.P.Val')], sep='\t', row.names=TRUE, quote=FALSE)"; \
-        elif [[ {params.dge_tool} == "edger" ]]; then \
-            r -e "load('{input}');write.table(file='{output}.tmp',top.list[['$C']][,c('logFC','PValue','FDR')], sep='\t', row.names=TRUE, quote=FALSE)"; \
-        elif [[ {params.dge_tool} == "deseq2" ]]; then \
-            r -e "load('{input}');write.table(file='{output}.tmp',top.list[['$C']][,c('log2FoldChange','pvalue','padj')], sep='\t', row.names=TRUE, quote=FALSE)"; \
-        fi;
-        cat {output}.tmp | unhead | gzip > {output};
+    shell:
+        r"""
+        C="{params.contrast_value}"
+        echo "Using contrast: [$C]"
+
+        if [[ "{params.dge_tool}" == "limma" ]]; then
+            r -e "load('{input}'); write.table(file='{output}.tmp', top.list[['$C']][,c('logFC','P.Value','adj.P.Val')], sep='\t', row.names=TRUE, quote=FALSE)"
+        elif [[ "{params.dge_tool}" == "edger" ]]; then
+            r -e "load('{input}'); write.table(file='{output}.tmp', top.list[['$C']][,c('logFC','PValue','FDR')], sep='\t', row.names=TRUE, quote=FALSE)"
+        elif [[ "{params.dge_tool}" == "deseq2" ]]; then
+            r -e "load('{input}'); write.table(file='{output}.tmp', top.list[['$C']][,c('log2FoldChange','pvalue','padj')], sep='\t', row.names=TRUE, quote=FALSE)"
+        else
+            echo "ERROR: unknown DGE tool: {params.dge_tool}" >&2
+            exit 1
+        fi
+
+        echo "Checking temporary output:"
+        ls -lh {output}.tmp
+        wc -l {output}.tmp
+        sed -n '1,10p' {output}.tmp
+
+        # Keep a human-readable debug version WITH header
+        cp {output}.tmp {output}.debug.tsv
+
+        # Remove header for downstream pipeline compatibility
+        cat {output}.tmp | unhead | gzip > {output}
+
+        # Remove temporary file
         rm {output}.tmp
-    """
+
+        echo "Checking gzipped output:"
+        gzip -cd {output} | wc -l
+        gzip -cd {output} | sed -n '1,10p'
+        """
+
 
 rule all_contrasts:
     input:

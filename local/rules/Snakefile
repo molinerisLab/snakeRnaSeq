@@ -200,8 +200,16 @@ rule all_filbracken:
         expand("breports_filtered/{sample}.breport", sample=SAMPLES),
         expand("boutputs_filtered/{sample}.bracken", sample=SAMPLES)
 
+rule all_krona:
+    input:
+        expand("krona_html/{sample}.krona.html", sample=SAMPLES)
+
+rule all_barplots:
+    input:
+        expand("barplot/{sample}.barplot.txt", sample=SAMPLES)
+
 rule all_metagenome:
     input:
         expand("breports/{sample}.breport", sample=SAMPLES),
         expand("boutputs/{sample}.bracken", sample=SAMPLES),
-        "bracken_merged_abundances.csv"
+        "bracken_merged_abundances.tsv"

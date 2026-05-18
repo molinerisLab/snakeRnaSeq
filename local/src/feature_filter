@@ -1,0 +1,87 @@
+#!/usr/bin/env Rscript
+sink(stderr())#the stdout has to be kept clean form messages
+'
+Usage:
+  feature_filter <gene_expression_matrix> <sample_metadata> [--condition=<condition>] [--g1 <g1>] [--g2 <g2>] [--min_exp <min_exp>] [--min_samples_ratio <min_samples_ratio>] [--use_raw_counts]
+
+The file <gene_expression_matrix> should have gene names on the first column and samples as column names.
+The expression data are expected as raw (not normalized) data.
+
+The file <sample_metadata> should have gene sample names on the first column.
+
+Options:
+  --condition <condition>        Name of dichotomous variable column in the metadata file to discriminate the two group of samples [default: condition].
+  --g1 <g1>                      Level 1 of the dichotomous variable, identifying group1_samples [default: case].
+  --g2 <g2>                      Level 2 of the dichotomous variable, identifying group2_samples [default: control].
+  --min_exp <min_exp>            Minimum expression levels to consider a gene as expressed [default: 1].
+  --min_samples_ratio <min_samples_ratio> If less than <min_samples_ratio> (rounded up) samples show a gene expressed in at least one group, then the gene is filtered out [default: 0.5].
+  --use_raw_counts               Use raw read counts for filtering instead of CPM.
+' -> doc
+
+# Required libraries
+suppressMessages(library(readr))
+suppressMessages(library(docopt))
+
+# Get command-line arguments
+opt <- docopt(doc)
+
+opt$min_exp <- as.numeric(opt$min_exp)
+opt$min_samples_ratio <- as.numeric(opt$min_samples_ratio)
+use_raw_counts <- !is.null(opt$use_raw_counts)
+
+###########################################
+#
+# Read in data
+#
+counts <- read.table(opt$gene_expression_matrix, header=T, sep="\t", quote="",  row.names = 1)
+metadata <- read.table(opt$sample_metadata, header=T, sep="\t", quote="", row.names=1)
+metadata$sample <- rownames(metadata)
+
+###########################################
+#
+# Gene filtering
+#
+
+
+# Filter data based on raw counts or CPM
+if (use_raw_counts) {
+  # Filter based on raw counts
+  counts_cpm <- counts
+} else {
+  suppressMessages(library(edgeR))
+  counts_cpm <- cpm(counts, normalized.lib.sizes=FALSE)
+}
+
+# Identify samples belonging to each group
+group1_samples <- metadata$sample[metadata[[opt$condition]] == opt$g1]
+group2_samples <- metadata$sample[metadata[[opt$condition]] == opt$g2]
+group1 <- counts_cpm[, metadata[[opt$condition]] == opt$g1]
+group2 <- counts_cpm[, metadata[[opt$condition]] == opt$g2]
+
+
+min_samples_g1 <- ceiling(length(group1_samples) * opt$min_samples_ratio)
+min_samples_g2 <- ceiling(length(group2_samples) * opt$min_samples_ratio)
+
+gene_exp_g1 <- group1[rowSums(group1 >= opt$min_exp) >= min_samples_g1, ]
+gene_exp_g2 <- group2[rowSums(group2 >= opt$min_exp) >= min_samples_g2, ]
+
+# Union of expressed gene in the two groups
+expressed_genes <- unique(c(rownames(gene_exp_g1), rownames(gene_exp_g2)))
+
+warning(paste("min_samples_g1: ", min_samples_g1))
+warning(paste("min_samples_g2: ", min_samples_g2))
+warning(paste("expressed_genes: ", length(expressed_genes)))
+
+
+
+# Filter original gene expression matrix
+
+counts <- counts[rownames(counts) %in% expressed_genes,]
+
+
+
+# Output filtered data
+
+sink()
+
+write.table(counts, "/dev/stdout", sep="\t", quote=F, row.names = T)

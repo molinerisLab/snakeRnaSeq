@@ -72,6 +72,11 @@ METAGENOMICS:
     min_prevalence: 2
     min_total: 10
 
+  COLUMNS_TO_REMOVE:
+    - KIS01
+    - KIS02
+    - KIS03
+
 # ========================
 # TRIMMING
 # ========================
@@ -100,17 +105,19 @@ FEATURECOUNTS_PARAM: "-t exon -g gene_name"
 # ========================
 
 DGE:
-  DGE_TOOL: "edger"
+  DGE_TOOL: "edger" # limma | deseq2
   # FIXED: Added space after colon below
   LIMMA_CONTRASTS: #e.g. LIMMA_CONTRASTS:
         # contrast_name: "contrast"
         # KO_vs_WT: "(KO.ND+KO.HFD)-(WT.ND+WT.HFD)"
-  LIMMA_DESIGN_FORMULA: "~0+condition"
+        Resistant_vs_Control: "conditionResistant"
+  LIMMA_DESIGN_FORMULA: "~ batch + condition"
   LIMMA_FACTORS: ""
   MIN_NUM_OF_EXPRESSED_SAMPLE: 3
   EXPRESSED_GENES_MIN_CPM: 1
   DGE_CONDITION: "condition"
-  LIMMA_CONTRASTS_NAMES: []
+  LIMMA_CONTRASTS_NAMES:
+    - Resistant_vs_Control
 MARK_SEQC:
   LOGFC: 1
   PVALUE: 1
@@ -166,13 +173,39 @@ hitgrp: 2
 # FEATURE FILTERING
 # ========================
 
+# feature_filter:
+#   condition: "disease"
+#   g1: "D"
+#   g2: "H"
+#   use_raw_counts: true
+#   min_exp: 100
+#   min_samples_ratio: 0.5
+
+
+# ========================
+# FEATURE FILTERING
+# ========================
+
 feature_filter:
-  condition: "disease"
-  g1: "D"
-  g2: "H"
-  use_raw_counts: true
+
+  # Metadata column defining comparison groups
+  condition: "condition" # "disease"
+
+  # Groups to compare
+  g1: "Resistant" # "D"
+  g2: "Control" # "H"
+
+  # Filtering thresholds
   min_exp: 100
   min_samples_ratio: 0.5
+
+  # Whether counts are raw counts
+  use_raw_counts: true
+
+  # Number of non-sample annotation columns
+  n_metadata_cols: 3
+
+
 
 # ========================
 # CONTAMINANT / HOST

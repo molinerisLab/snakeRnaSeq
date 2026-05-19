@@ -93,7 +93,6 @@ rule run_DGE:
         gzip -cd {output} | sed -n '1,10p'
         """
 
-
 rule all_contrasts:
     input:
         #expand("{path}.toptable_clean.contrast_{contrast}.gz", contrast=config["DGE"]["LIMMA_CONTRASTS_NAMES"])
@@ -109,35 +108,9 @@ rule all_contrasts:
         "../../local/env/bit_rnaseq_3_backup.yaml"
     shell:"""
         for i in {params.contrast}; do
-            zcat {wildcards.path}.toptable_clean.contrast_$i.gz | append_each_row -B $i;
+            zcat {wildcards.folder}/{wildcards.path}.toptable_clean.contrast_$i.gz | append_each_row -B $i;
         done | gzip > {output}
         """
-
-
-# .META: *.toptable_clean*.gz
-# 	1	GeneID
-# 	2	logFC
-# 	3	Pvalue
-# 	4	Pvalue_adj
-# rule mark_seqc:
-#     input:
-#         "{path}.toptable_clean.ALL_contrast.gz"
-#     output:
-#         "{path}.toptable_clean.ALL_contrast.mark_seqc.gz"
-#     params:
-#         logfc = config["MARK_SEQC"]["LOGFC"],
-#         pvalue = config["MARK_SEQC"]["PVALUE"],
-#         p_adj = config["MARK_SEQC"]["PVALUE_ADJ"]
-#     shell:"""
-#         bawk '{{M=0; \
-#             if($Pvalue_adj!="NA" && sqrt($logFC*$logFC)>{params.logfc} && $Pvalue+0<{params.pvalue} && $Pvalue_adj+0<{params.p_adj}) \
-#             {{ \
-#                 if($logFC>0) {{M=1}}else{{M=-1}}\
-#             }} \
-#             print $0,M \
-#         }}' {input} | gzip > {output} 
-#     """
-#     #abs(a)>1 <==> a*a > 1
 
 rule mark_seqc:
     input:
@@ -149,35 +122,32 @@ rule mark_seqc:
         pvalue = config["MARK_SEQC"]["PVALUE"],
         p_adj = config["MARK_SEQC"]["PVALUE_ADJ"]
     shell:"""
-        zcat {input} | \
-        awk 'BEGIN{{OFS="\\t"}} \
-        {{ \
-            M=0; \
-            if($5!="NA" && sqrt($3*$3)>{params.logfc} && $4+0<{params.pvalue} && $5+0<{params.p_adj}) \
+        bawk '{{M=0; \
+            if($Pvalue_adj!="NA" && sqrt($logFC*$logFC)>{params.logfc} && $Pvalue+0<{params.pvalue} && $Pvalue_adj+0<{params.p_adj}) \
             {{ \
-                if($3>0) {{M=1}} else {{M=-1}} \
+                if($logFC>0) {{M=1}}else{{M=-1}}\
             }} \
-            print $0, M \
-        }}' | gzip > {output}
+            print $0,M \
+        }}' {input} | gzip > {output} 
     """
-
+    #abs(a)>1 <==> a*a > 1
 
 rule max_exp_in_cond:
     input:
         deg_out = "{folder}/{path}.toptable_clean.ALL_contrast.mark_seqc.header_added.gz", 
-        gep = "GEP.count.exp_filter.ltmm.lfpkm.metadata.max_exp_in_condition.gz"
+        gep = "{folder}/GEP.count.exp_filter.ltmm.lfpkm.metadata.max_exp_in_condition.gz"
     output:
-        "{path}.toptable_clean.ALL_contrast.mark_seqc.max_exp_in_condition.header_added.gz"
+        "{folder}/{path}.toptable_clean.ALL_contrast.mark_seqc.max_exp_in_condition.header_added.gz"
     shell:"""
         bawk '$Pvalue_adj!="NA"' {input.deg_out} | translate -a -v <(zcat {input.gep}) 2 | gzip > {output}
     """
 
 rule exp_in_cond:
     input:
-        deg_out = "{path}.toptable_clean.ALL_contrast.mark_seqc.header_added.gz", 
-        gep = "GEP.count.exp_filter.ltmm.metadata.exp_genes_condition.matrix.gz"
+        deg_out = "{folder}/{path}.toptable_clean.ALL_contrast.mark_seqc.header_added.gz", 
+        gep = "{folder}/GEP.count.exp_filter.ltmm.metadata.exp_genes_condition.matrix.gz"
     output:
-        "{path}.toptable_clean.ALL_contrast.mark_seqc.exp_in_condition.header_added.gz"
+        "{folder}/{path}.toptable_clean.ALL_contrast.mark_seqc.exp_in_condition.header_added.gz"
     shell:"""
         bawk '$Pvalue_adj!="NA"' {input.deg_out}| translate -a <(zcat {input.gep}) 2 | gzip > {output}
     """

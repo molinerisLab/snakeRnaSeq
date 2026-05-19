@@ -7,7 +7,11 @@
 
 rule ALL_DGE:
     input:
-        f"DGE/{config['DGE']['DGE_TOOL']}.toptable_clean.ALL_contrast.mark_seqc.header_added.gz"
+        expand(
+            "{folder}/{tool}.toptable_clean.ALL_contrast.mark_seqc.header_added.gz",
+            folder="DGE",
+            tool=config["DGE"]["DGE_TOOL"]
+        )
 
 
 #TODO aggiungere counts_table2eset e append_each_row -> ora hanno env, ma in teoria non serve per forza
@@ -16,7 +20,7 @@ rule get_eset:
         gep = "bracken_merged_abundances.num.cleaned.txt",
         metadata = "metadata.txt"
     output:
-        "{path}/eset.rda"
+        "{folder}/eset.rda"
     conda:
         "../../local/env/bit_rnaseq_3_backup.yaml"
     shell:"""
@@ -25,9 +29,9 @@ rule get_eset:
 
 rule get_rdata:
     input:
-        "{path}/eset.rda"
+        "{folder}/eset.rda"
     output:
-        "{path}/" + config["DGE"]["DGE_TOOL"] + ".RData"
+        "{folder}/" + config["DGE"]["DGE_TOOL"] + ".RData"
     params:
         dge_tool = config["DGE"]["DGE_TOOL"],
         min_cpm = config["DGE"]["EXPRESSED_GENES_MIN_CPM"],
@@ -93,11 +97,12 @@ rule run_DGE:
 rule all_contrasts:
     input:
         #expand("{path}.toptable_clean.contrast_{contrast}.gz", contrast=config["DGE"]["LIMMA_CONTRASTS_NAMES"])
-        lambda wildcards: expand("{path}.toptable_clean.contrast_{contrast}.gz", 
+        lambda wildcards: expand("{folder}/{path}.toptable_clean.contrast_{contrast}.gz", 
+            folder=wildcards.folder,
             path=wildcards.path, 
             contrast=config["DGE"]["LIMMA_CONTRASTS_NAMES"])
     output:
-        "{path}.toptable_clean.ALL_contrast.gz"
+        "{folder}/{path}.toptable_clean.ALL_contrast.gz"
     params:
         contrast=config["DGE"]["LIMMA_CONTRASTS_NAMES"]
     conda:
@@ -114,29 +119,52 @@ rule all_contrasts:
 # 	2	logFC
 # 	3	Pvalue
 # 	4	Pvalue_adj
+# rule mark_seqc:
+#     input:
+#         "{path}.toptable_clean.ALL_contrast.gz"
+#     output:
+#         "{path}.toptable_clean.ALL_contrast.mark_seqc.gz"
+#     params:
+#         logfc = config["MARK_SEQC"]["LOGFC"],
+#         pvalue = config["MARK_SEQC"]["PVALUE"],
+#         p_adj = config["MARK_SEQC"]["PVALUE_ADJ"]
+#     shell:"""
+#         bawk '{{M=0; \
+#             if($Pvalue_adj!="NA" && sqrt($logFC*$logFC)>{params.logfc} && $Pvalue+0<{params.pvalue} && $Pvalue_adj+0<{params.p_adj}) \
+#             {{ \
+#                 if($logFC>0) {{M=1}}else{{M=-1}}\
+#             }} \
+#             print $0,M \
+#         }}' {input} | gzip > {output} 
+#     """
+#     #abs(a)>1 <==> a*a > 1
+
 rule mark_seqc:
     input:
-        "{path}.toptable_clean.ALL_contrast.gz"
+        "{folder}/{path}.toptable_clean.ALL_contrast.gz"
     output:
-        "{path}.toptable_clean.ALL_contrast.mark_seqc.gz"
+        "{folder}/{path}.toptable_clean.ALL_contrast.mark_seqc.gz"
     params:
         logfc = config["MARK_SEQC"]["LOGFC"],
         pvalue = config["MARK_SEQC"]["PVALUE"],
         p_adj = config["MARK_SEQC"]["PVALUE_ADJ"]
     shell:"""
-        bawk '{{M=0; \
-            if($Pvalue_adj!="NA" && sqrt($logFC*$logFC)>{params.logfc} && $Pvalue+0<{params.pvalue} && $Pvalue_adj+0<{params.p_adj}) \
+        zcat {input} | \
+        awk 'BEGIN{{OFS="\\t"}} \
+        {{ \
+            M=0; \
+            if($5!="NA" && sqrt($3*$3)>{params.logfc} && $4+0<{params.pvalue} && $5+0<{params.p_adj}) \
             {{ \
-                if($logFC>0) {{M=1}}else{{M=-1}}\
+                if($3>0) {{M=1}} else {{M=-1}} \
             }} \
-            print $0,M \
-        }}' {input} | gzip > {output} 
+            print $0, M \
+        }}' | gzip > {output}
     """
-    #abs(a)>1 <==> a*a > 1
+
 
 rule max_exp_in_cond:
     input:
-        deg_out = "{path}.toptable_clean.ALL_contrast.mark_seqc.header_added.gz", 
+        deg_out = "{folder}/{path}.toptable_clean.ALL_contrast.mark_seqc.header_added.gz", 
         gep = "GEP.count.exp_filter.ltmm.lfpkm.metadata.max_exp_in_condition.gz"
     output:
         "{path}.toptable_clean.ALL_contrast.mark_seqc.max_exp_in_condition.header_added.gz"

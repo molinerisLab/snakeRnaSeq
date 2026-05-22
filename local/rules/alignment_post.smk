@@ -15,12 +15,16 @@ rule bam2cram:
     shell: 
         "samtools view -@ {params.threads} -T {params.genome} -C -o {output} {input}"
 
+rule all_bai:
+    input: 
+        expand("Results/pass2/{sample}/Aligned.sortedByCoord.out.ribo.ex.H.unique.bam.bai", sample=SAMPLES)
+
 rule get_bai:
     """Index a BAM file to create a .bai file."""
     input: 
-        "star/{file}.bam"
+        "Results/pass2/{sample}/Aligned.sortedByCoord.out.ribo.ex.H.unique.bam"
     output: 
-        "star/{file}.bam.bai"
+        "Results/pass2/{sample}/Aligned.sortedByCoord.out.ribo.ex.H.unique.bam.bai"
     shell: 
         "samtools index {input}"
 

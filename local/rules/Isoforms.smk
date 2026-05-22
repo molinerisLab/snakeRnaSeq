@@ -521,7 +521,7 @@ rule infer_experiment_psi:
             sample=SAMPLES[0]
         ),
     conda:
-        "../env/PsiCLASS.yaml"
+        "../../local/env/PsiCLASS.yaml"
     log:
         "logs/infer_experiment/{sample}.log".format(sample=SAMPLES[0]),
     shell:
@@ -538,22 +538,23 @@ rule annotate_assembly:
         gtf="PsiCLASS/combined_vote.gtf",
         ref="Resources/gencode46_Hprefixed.annotation.gtf",
     output:
-        annotated="gffcmp_noTI.annotated.gtf",
-        stats="gffcmp_noTI.stats",
-        tracking="gffcmp_noTI.tracking",
-        loci="gffcmp_noTI.loci",
+        annotated="Results/gffcmp/gffcmp.annotated.gtf",
+        stats="Results/gffcmp/gffcmp.stats",
+        tracking="Results/gffcmp/gffcmp.tracking",
+        loci="Results/gffcmp/gffcmp.loci",
     params:
-        prefix="gffcmp_noTI",
+        prefix="gffcmp",
     shell:
         """
-        gffcompare -r {input.ref} -o {params.prefix} {input.gtf} 
+        mkdir -p Results/gffcmp
+        gffcompare -r {input.ref} -o Results/gffcmp/{params.prefix} {input.gtf} 
         """
 
 
 rule filter_kallisto_gtf:
     input:
-        annotated_gtf="gffcmp_noTI.annotated.gtf",
-        original_gtf="PsiCLASS/combined_vote.gtf"  # <--- Crucial: Need the original for the counts!
+        annotated_gtf="Results/gffcmp/gffcmp.annotated.gtf",
+        original_gtf="PsiCLASS/combined_vote.gtf" 
     output:
         final_gtf="kallisto_output/cohort_kallisto_reference.gtf",
     params:
@@ -746,7 +747,7 @@ rule merge_kallisto_transcripts_psiclass:
         "transcripts_counts_psiclass.tsv",
     params:
         names=",".join(SAMPLES),
-        script="merge_kallisto.R",
+        script="../../local/src/merge_kallisto.R",
         files=lambda wc, input: ",".join(map(str, input)),
     shell:
         """
@@ -769,4 +770,22 @@ rule DREAMSEQ:
         """
         mkdir -p DREAMSEQ
         Rscript run_dreamseq.R --input {input} --output {output} --threads {threads}
+        """
+
+
+rule compare_filtered_to_gencode:
+    input:
+        query="kallisto_output/cohort_kallisto_reference.gtf",
+        ref="Resources/gencode46_Hprefixed.annotation.gtf",
+    output:
+        annotated="Results/gffcmp_filtered/gffcmp_filtered.annotated.gtf",
+        stats="Results/gffcmp_filtered/gffcmp_filtered.stats",
+        tracking="Results/gffcmp_filtered/gffcmp_filtered.tracking",
+        loci="Results/gffcmp_filtered/gffcmp_filtered.loci",
+    params:
+        prefix="gffcmp_filtered",
+    shell:
+        """
+        mkdir -p Results/gffcmp_filtered
+        gffcompare -r {input.ref} -o Results/gffcmp_filtered/{params.prefix} {input.query}
         """

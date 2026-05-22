@@ -111,9 +111,14 @@ rule krona_txt:
     """
 
 rule krona_html:
-    input: "b_krona_txt/{sample}.b.krona.txt"
-    output: "krona_html/{sample}.krona.html"
-    shell: "ktImportText {input} -o {output}"
+    input: 
+        "b_krona_txt/{sample}.b.krona.txt"
+    output: 
+        "krona_html/{sample}.krona.html"
+    shell:
+        """
+        ktImportText {input} -o {output}
+        """
     
 rule spit_merged:
     input:
@@ -122,8 +127,8 @@ rule spit_merged:
         num="bracken_merged_abbundances.num.txt",
         frac="bracken_merged_abbundances.frac.txt"
     shell:
-        "grep_columns -k 1,2,3 braken_num  < {input} | perl -pe '$.==1; s/.braken_num//g'  > {output.num};"
-        "grep_columns -k 1,2,3 braken_frac < {input} | perl -pe '$.==1; s/.braken_frac//g' > {output.frac}"
+        "../../local/src/grep_columns -k 1,2,3 braken_num  < {input} | perl -pe '$.==1; s/.braken_num//g'  > {output.num};"
+        "../../local/src/grep_columns -k 1,2,3 braken_frac < {input} | perl -pe '$.==1; s/.braken_frac//g' > {output.frac}"
     
 rule feature_filter:
     input:
@@ -188,35 +193,63 @@ rule extract_unclassified_id_paired:
     shell: """"
         awk '{{print $2,$1}}' {input} | collapsesets 2 | bawk '$2=="U"' > {output}
     """
+rule all_extract_unclassified_reads:
+    input:
+        expand("fastq_idmapped/{sample}_R1.fastq.gz", sample=SAMPLES),
 
 rule extract_kraken_unclassified_reads:
     input:
         kraken2_output = "koutput_filtered/{sample}.kraken2",
         kraken2_report = "kreports_filtered/{sample}.k2report",
         fastq_r1 = "fastq/{sample}_R1.fastq.gz",
-        fastq_r2 = "fastq/{sample}_R2.fastq.gz"
     output:
-        fastq_r1_unclassified = "fastq_unclassified/{sample}_R1.fastq.gz",
-        fastq_r2_unclassified = "fastq_unclassified/{sample}_R2.fastq.gz"
+        fastq_r1_unclassified = "fastq_idmapped/{sample}_R1.fastq.gz",
     params:
-        taxid = 1,
-        # Reference the config file here
-        exclude_opt = "--exclude" if config["kraken"]["exclude_classified"] else "",
-        children_opt = "--include-children" if config["kraken"]["include_children"] else ""
+        taxid = "1396",
     shell:
         """
         extract_kraken_reads.py \
             -k {input.kraken2_output} \
             --taxid {params.taxid} \
-            {params.exclude_opt} \
-            {params.children_opt} \
-            -s1 {input.fastq_r1} \
-            -s2 {input.fastq_r2} \
+            -s {input.fastq_r1} \
             --report {input.kraken2_report} \
-            -o >(gzip > {output.fastq_r1_unclassified}) \
-            -o2 >(gzip > {output.fastq_r2_unclassified})
+            --fastq-output \
+            -o >(gzip > {output.fastq_r1_unclassified}) 
         """
 
+rule all_extract_h_reads:
+    input:
+        expand("fastq/fastq_h_depleted/{sample}_R1.fastq.gz", sample=SAMPLES),
+
+rule extract_h_reads:
+    input:
+        kraken2_output = "koutputs/{sample}.kraken2",
+        kraken2_report = "kreports/{sample}.k2report",
+        fastq_r1 = "fastq/unmapped/{sample}_unmapped_R1.fastq.gz",
+    output:
+        fastq_r1_nonhost = "fastq/fastq_h_depleted/{sample}_R1.fastq.gz",
+    params:
+        taxid = "9606",
+        exclude_opt = "--exclude",
+        children_opt = "--include-children"
+    shell:
+        """
+        mkdir -p fastq/fastq_h_depleted
+        out="{output.fastq_r1_nonhost}"
+        tmp=$(printf '%s\n' "$out" | sed 's/\.gz$//')
+
+        extract_kraken_reads.py \
+            -k {input.kraken2_output} \
+            -s1 {input.fastq_r1} \
+            -t {params.taxid} \
+            -r {input.kraken2_report} \
+            {params.exclude_opt} \
+            {params.children_opt} \
+            -o "$tmp" \
+            --fastq-output
+
+        gzip -f "$tmp"
+        """
 ###########################
 ### Remove contaminant ####
 ###########################
@@ -226,12 +259,12 @@ rule filter_kraken_output:
     output:
         "koutput_filtered/{sample}.kraken2"
     params:
-        contaminants = config.get("contaminant"),  
-        human = config.get("humanID")
+        contaminants = config.get("CONTAMINANT_INFO", {}).get("contaminant"),  
+        human = config.get("CONTAMINANT_INFO", {}).get("humanID")
     run:
         contaminant_conditions = " && ".join([f"$3 != {c}" for c in params.contaminants])
         human_conditions = " && ".join([f"$3 != {c}" for c in params.human])
-        shell(f"mkdir -p koutput_filtered && awk '{contaminant_conditions} && awk {human_conditions}' {{input}} > {{output}}")
+        shell(f"mkdir -p koutput_filtered && awk '{contaminant_conditions} && {human_conditions}' {{input}} > {{output}}")
 
 
 rule filt_k2report:
@@ -243,7 +276,7 @@ rule filt_k2report:
     shell:
         """
         mkdir -p kreports_filtered
-        /home/molinerislab/NeriMetagenome/local/kraken2/src/k2report {input.db} {input.kraken2_filtered} {output.report}
+        /home/molinerislab/NeriMetagenome/workflow/kraken2/src/k2report {input.db} {input.kraken2_filtered} {output.report}
         """
 
 
@@ -255,7 +288,7 @@ rule filbraken:
         out="boutputs_filtered/{sample}.braken"
     shell:"""
         mkdir -p breports_filtered boutputs_filtered
-        bracken -d {config[kraken_db]} -i {input} -r {config[braken_read_len]} -l {config[braken_level]} -t {config[braken_min_reads]} -o {output.out} -w {output.report}
+        bracken -d {config[kraken_db]} -i {input} -r {config[BRACKEN][braken_read_len]} -l {config[BRACKEN][braken_level]} -t {config[BRACKEN][braken_min_reads]} -o {output.out} -w {output.report}
     """
 
 ######################### 
@@ -283,7 +316,48 @@ rule megahit_assembly:
 #################################
 ### BLASTN against RefSeq RNA ###
 #################################
+rule all_bam2fasta:
+    input:
+        expand("bowtie2/fasta/{sample}.fa", sample=SAMPLES)
+    
+rule bam_2_fasta: 
+    input:
+        "bowtie2/{sample}.bam"
+    output:
+        "bowtie2/fasta/{sample}.fa"
+    shell:
+        """
+        mkdir -p bowtie2/fasta
+        samtools fasta -F 4 {input} > {output}
+        """
+rule all_blast:
+    input:
+        expand("blastn_T2T/{sample}.blastn.out", sample=SAMPLES)
+rule blast:
+    input:
+        fasta = "fastq_idmapped/{sample}_R1.fa"
+    output:
+        out = "blastn_T2T/{sample}.blastn.out"
+    threads: 8
+    shell:
+        """
+        export BLASTDB=/mnt/nobackup/home/reference_data/bioinfotree/task/blast/T2T-CHM13
 
+        if [ -s {input.fasta} ]; then
+            blastn -task blastn \
+                -query {input.fasta} \
+                -db T2T-CHM13 \
+                -outfmt "6 qseqid sseqid staxids sscinames pident length evalue bitscore" \
+                -evalue 10 \
+                -word_size 11 \
+                -dust no \
+                -perc_identity 70 \
+                -num_threads {threads} \
+                -out {output.out}
+        else
+            touch {output.out}
+        fi
+        """
 
 rule blastn:
     input:
@@ -296,3 +370,316 @@ rule blastn:
         """
         blastn -query {input.fasta} -db refseq_rna -out {output.out} -outfmt "{params.outfmt}"
         """
+
+
+
+##################
+### Metaphlan4 ###
+##################
+
+rule all_metaphlan4:
+    input:
+        expand("metaphlan4/{sample}.profile.txt", sample=SAMPLES)
+rule metaphlan4:
+    input:
+        "fastq/fastq_h_depleted/{sample}_R1.fastq.gz"
+    output:
+        profile="metaphlan4/{sample}.profile.txt",
+        bowtie2out="metaphlan4/{sample}.bowtie2.bz2"
+    params:
+        db = "/home/reference_data/bioinfotree/task/metaphlan/dataset/nobackup/mpa_vJan25_CHOCOPhlAnSGB_202503"
+    threads: 4
+    shell:
+        """
+        metaphlan {input} --input_type fastq --bowtie2db {params.db} --index mpa_vJan25_CHOCOPhlAnSGB_202503 --bowtie2out {output.bowtie2out} --nproc {threads}  -o {output.profile} --offline
+        """
+
+
+##########Metagenomic Analysis and Plot#######################
+
+rule common_taxa_in_samples:
+    input:
+        expand("boutputs_filtered/{sample}.braken", sample=SAMPLES)
+    output:
+        "results/common_taxa.csv",
+        directory("results")
+    params:
+        samples=SAMPLES
+    shell:
+        """
+        mkdir -p results 
+        Rscript ../../local/src/common_species.R
+        """
+
+
+
+rule reads_human_contam_classified:
+    output:
+            "classified_vs_human_contaminant_barplot_normalized.png", 
+            "classified_vs_human_contaminant_barplot_percentage.png"
+    shell: 
+        """
+        Rscript /home/molinerislab/NeriMetagenome/workflow/src/plot_reads.R
+        """
+
+rule all_kaiju:
+    input:
+        expand("kaiju/{sample}.kaiju.out", sample=SAMPLES),
+
+rule kaiju: 
+    input: 
+        "fastq/unmapped/{sample}_unmapped_R1.fastq.gz"
+    output:
+        report="kaiju/{sample}.kaiju.out"
+    log:
+        "log/{sample}_kaiju.log"
+    params:
+        threads=25,
+        db_Nodes=config.get("kaiju", {}).get("db_Nodes", ""),
+        db_FMI=config.get("kaiju", {}).get("db_FMI", "")
+    shell: 
+        """
+        kaiju -z {params.threads} -t {params.db_Nodes} -f {params.db_FMI} -i {input} -o {output.report}  2> {log}
+        """
+
+rule kaiju_multi:
+    input:
+        expand("fastq/unmapped/{sample}_unmapped_R1.fastq.gz", sample=SAMPLES)
+    output:
+        reports=expand("kaiju/{sample}.kaiju.out", sample=SAMPLES)
+    log:
+        "log/kaiju_multi.log"
+    params:
+        threads=config.get("kaiju", {}).get("threads", 12),
+        db_Nodes=config.get("kaiju", {}).get("db_Nodes", ""),
+        db_FMI=config.get("kaiju", {}).get("db_FMI", ""),
+        inputs=lambda wc, input: ",".join(input),
+        outputs=lambda wc, output: ",".join(output.reports)
+    shell:
+        """
+        kaiju-multi -z {params.threads} \
+            -t {params.db_Nodes} \
+            -f {params.db_FMI} \
+            -i {params.inputs} \
+            -o {params.outputs} \
+            2> {log}
+        """
+
+rule all_kaiju_report:
+    input:
+        expand("kaiju/report/{sample}.kaiju.tsv", sample=SAMPLES)
+
+
+rule kaiju_report:
+    input:
+        "kaiju/{sample}.kaiju.out"
+    output:
+        "kaiju/report/{sample}.kaiju.tsv"
+    params:
+        threads=12,
+        db_Nodes=config.get("kaiju", {}).get("db_Nodes", ""),
+        db_FMI=config.get("kaiju", {}).get("db_FMI", ""),
+        db_Names=config.get("kaiju", {}).get("db_Names", ""),
+        taxa_level="species"
+    shell:
+        """
+        mkdir -p kaiju/report
+        kaiju2table -t {params.db_Nodes} -n {params.db_Names} -r {params.taxa_level} -o {output} {input} -r species -u -p 
+        """
+
+rule all_krakaiju_filtered:
+    input:
+        expand("kaiju/filtered/{sample}.kaiju.out", sample=SAMPLES)
+rule filter_krakaiju_output:
+    input:
+        "kaiju/merged/{sample}.merged.out"
+    output:
+        "kaiju/filtered/{sample}.kaiju.out"
+    params:
+        contaminants = config.get("CONTAMINANT_INFO", {}).get("contaminant"),  
+        human = config.get("CONTAMINANT_INFO", {}).get("humanID")
+    run:
+        contaminant_conditions = " && ".join([f"$3 != {c}" for c in params.contaminants])
+        human_conditions = " && ".join([f"$3 != {c}" for c in params.human])
+        shell(f"mkdir -p kaiju/filtered && awk '{contaminant_conditions} && {human_conditions}' {{input}} > {{output}}")
+
+rule all_kaiju_kraken_merge:
+    input:
+        expand("kaiju/merged/{sample}.merged.out", sample=SAMPLES)
+
+rule kaiju_kraken_merge:
+    input:
+        kaiju="kaiju/{sample}.kaiju.out",
+        kraken="koutput_filtered/{sample}.kraken2"
+    output:
+        "kaiju/merged/{sample}.merged.out"
+    params:
+        conflict=config.get("kaiju_merge", "lca"),
+        nodes=config.get("kaiju", {}).get("db_Nodes", "")
+    shell:
+        r"""
+        mkdir -p kaiju/merged
+
+        if [ "{params.conflict}" = "lca" ] || [ "{params.conflict}" = "lowest" ]; then
+            TAXOPT="-t {params.nodes}"
+        else
+            TAXOPT=""
+        fi
+
+        kaiju-mergeOutputs \
+            -i <(sort -k2,2 {input.kaiju}) \
+            -j <(sort -k2,2 {input.kraken}) \
+            -o {output} \
+            -c {params.conflict} \
+            $TAXOPT \
+            -v
+        """
+
+
+rule all_kkreport:
+    input:
+        expand("kaiju_kraken_merged/{sample}.k2report", sample=SAMPLES)
+    
+    
+rule kaiju_kraken_merge_report:
+    input:
+        merged="kaiju/filtered/{sample}.kaiju.out",
+        db=config["kraken_k2d"]
+    output:
+        report="kaiju_kraken_merged/{sample}.k2report"
+    shell:
+        """
+        /home/molinerislab/NeriMetagenome/workflow/kraken2/src/k2report {input.db} {input.merged} {output.report}
+        """
+
+
+rule all_bowtie2:
+    input:
+        expand("bowtie2/{sample}.sam", sample=SAMPLES),
+        
+        
+rule bowtie2:
+    input: 
+        fastq="fastq_unclassified/{sample}_R1.fa",
+        index = "Resources/S_aureus/S_aureus_index.1.bt2"
+    output:
+        sam = "bowtie2/{sample}.sam"
+    params:
+        prefix = "Resources/S_aureus/S_aureus_index"
+    threads: 8
+    shell:
+        """
+        bowtie2 -x {params.prefix} -U {input.fastq} -S {output.sam} -p {threads} -f --no-unal
+        """
+
+rule all_samtools_bam:
+    input:
+        expand("bowtie2/{sample}.bam", sample=SAMPLES)
+
+rule samtools_bam:
+    input:
+        "bowtie2/{sample}.sam"
+    output:
+        "bowtie2/{sample}.bam"
+    shell:
+        """
+        samtools view -bS {input} | samtools sort -o {output}
+        """
+
+rule all_samtools_index:
+    input:
+        expand("bowtie2/{sample}.bam.bai", sample=SAMPLES)
+
+rule samtools_index:
+    input:
+        "bowtie2/{sample}.bam"
+    output:
+        "bowtie2/{sample}.bam.bai"
+    shell:
+        """
+        samtools index {input}
+        """
+
+rule all_merged_beds:
+    input:
+        expand("bed_regions/{sample}_merged.bed", sample=SAMPLES)
+
+rule bam_to_merged_bed:
+    input:
+        bam = "bowtie2/{sample}.bam"
+    output:
+        bed = "bed_regions/{sample}_merged.bed"
+    shell:
+        """
+        bedtools bamtobed -i {input.bam} | bedtools merge -d 1000 > {output.bed}
+        """
+
+rule combine_all_beds:
+    input:
+        expand("bed_regions/{sample}_merged.bed", sample=SAMPLES)
+    output:
+        "bed_regions/tutte_le_regioni_sospette.bed"
+    shell:
+        """
+        cat {input} | sort -k1,1 -k2,2n | bedtools merge > {output}
+        """
+
+# =============================================================================
+# minimap2 alignment of extracted reads vs generic references
+# =============================================================================
+
+MINIMAP2 = "/home/molinerislab/IsellaIsoforms/local/env/conda/bin/minimap2"
+
+# Define available references here. You can add more species as needed.
+MINIMAP2_REFS = "Resources/b_cerus/ncbi_dataset/data/GCF_030518615.1/GCF_030518615.1_ASM3051861v1_genomic.fna"
+# {
+#     "aureus": "Resources/GCF_022494545.1_ASM2249454v1_genomic.fna",
+#     "cerus": "Resources/b_cerus/ncbi_dataset/data/GCF_030518615.1/GCF_030518615.1_ASM3051861v1_genomic.fna"
+# }
+
+
+
+ruleorder: minimap2_merge > minimap2_index
+
+rule all_minimap2:
+    """Align FASTA reads against all defined references and merge them."""
+    input:
+        expand("minimap2_{species}/merged_all_samples.bam.bai", species="cerus"),
+
+rule minimap2_align:
+    """Align extracted reads (FASTA) with minimap2 short-read preset to a specific species."""
+    input:
+        fq  = "fastq_idmapped/{sample}_R1.fastq.gz",
+    output:
+        bam = "minimap2_{species}/{sample}.bam",
+    params:
+        ref = MINIMAP2_REFS
+    threads: 8
+    shell:
+        """
+        {MINIMAP2} -ax sr -t {threads} --secondary=no \
+            {params.ref} {input.fq} \
+            | samtools view -bS -F 4 \
+            | samtools sort -o {output.bam}
+        """
+
+rule minimap2_index:
+    input:  "minimap2_{species}/{sample}.bam"
+    output: "minimap2_{species}/{sample}.bam.bai"
+    shell:  "samtools index {input}"
+
+rule minimap2_merge:
+    """Merge all per-sample minimap2 BAMs into a single file for IGV/coverage."""
+    input:
+        bams = expand("minimap2_{{species}}/{sample}.bam", sample=SAMPLES),
+        bais = expand("minimap2_{{species}}/{sample}.bam.bai", sample=SAMPLES),
+    output:
+        bam = "minimap2_{species}/merged_all_samples.bam",
+        bai = "minimap2_{species}/merged_all_samples.bam.bai",
+    shell:
+        """
+        samtools merge -f {output.bam} {input.bams}
+        samtools index {output.bam}
+        """
+
+

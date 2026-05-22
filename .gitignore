@@ -4,3 +4,4 @@ local/env/conda
 *.sif
 *.simg
 local/container/
+.envrc

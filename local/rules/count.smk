@@ -708,10 +708,10 @@ rule matrix_exp_condition:
 	4	median_exp
 	5	min_exp
 
- .META: GEP.count*metadata.max_exp_in_condition.gz
- 	1	GeneID
- 	2	best_condition
- 	3	exp
+.META: GEP.count*metadata.max_exp_in_condition.gz
+	1	GeneID
+	2	best_condition
+	3	exp
 
 """
 

@@ -31,7 +31,7 @@ import os
 container: "library://aleone/mycontainers/snakernaseq:1.0"
 
 
-configfile: "/home/aleone/snakeRnaSeq/dataset/v1/config.yaml"
+configfile: "config.yaml"
 
 
 if os.path.exists("Snakefile_versioned.sk"):

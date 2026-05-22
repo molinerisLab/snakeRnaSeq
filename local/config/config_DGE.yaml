@@ -74,7 +74,7 @@ DGE:
     #NB: do not comment LIMMA_FACTORS but leave empty if not required
     #e.g. LIMMA_FACTORS:=-f "genotype treatment"
 
-    MIN_NUM_OF_EXPRESSED_SAMPLE: 4
+    MIN_NUM_OF_EXPRESSED_SAMPLE: 10
     EXPRESSED_GENES_MIN_CPM: 1
     DGE_CONDITION: "condition" 
 

@@ -88,7 +88,7 @@ DGE:
         # KO_vs_WT: "(KO.ND+KO.HFD)-(WT.ND+WT.HFD)"
   LIMMA_DESIGN_FORMULA: "~0+condition"
   LIMMA_FACTORS: ""
-  MIN_NUM_OF_EXPRESSED_SAMPLE: 3
+  MIN_NUM_OF_EXPRESSED_SAMPLE: 10
   EXPRESSED_GENES_MIN_CPM: 1
   DGE_CONDITION: "condition"
   LIMMA_CONTRASTS_NAMES: []
@@ -182,8 +182,8 @@ UCSC_VERSION: hg38
 #LTPM_PRIOR_COUNT = 0.0001
 
 kraken:
-  exclude_classified: True
-  include_children: True
+  exclude_classified: 
+  include_children: 
 
 
 ################

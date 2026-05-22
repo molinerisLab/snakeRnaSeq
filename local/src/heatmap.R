@@ -88,7 +88,7 @@ output = arguments$args[2]
 
 #matrix = read.csv(input_data, row.names = 1)
 matrix = read.delim(input_data, header=TRUE, row.names=1, check.names=FALSE)
-
+matrix = log2(matrix + 1) # added a pseudocount to avoid log of zero, maybe I should make it an option?
 if(!is.na(opt$row_order)){
 	o<-read.table("opt$row_order", header = F, as.is=T, sep = "\t")
 	match(o$V1, row.names(matrix))
@@ -97,7 +97,7 @@ if(!is.na(opt$row_order)){
 
 if(!is.na(opt$ntop)){
 	suppressMessages(library(DESeq2))
-	rv <- rowVars(as.matrix(matrix))
+	rv <- apply(matrix, 1, mad) #rv <- rowVars(as.matrix(matrix)) 
 	select <- order(rv, decreasing = TRUE)[seq_len(min(opt$ntop, length(rv)))]
 	matrix <- matrix[select,]
 }

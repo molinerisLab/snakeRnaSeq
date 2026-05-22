@@ -34,11 +34,6 @@ container: "library://aleone/mycontainers/snakernaseq:1.0"
 configfile: "config.yaml"
 
 
-if os.path.exists("Snakefile_versioned.sk"):
-
-    include: "Snakefile_versioned.sk"
-
-
 ############
 # Include  #
 ############
@@ -138,8 +133,8 @@ rule ALL_infer_experiment:
 
 rule ALL_star:
     input:
-        expand("star/{sample}.bam", sample=SAMPLES),
-
+        expand("Results/star/{sample}.bam", sample=SAMPLES),
+        
 
 rule all_fastq_unmapped:
     input:
@@ -226,3 +221,19 @@ rule all_filbracken:
     input:
         expand("breports_filtered/{sample}.breport", sample=SAMPLES),
         expand("boutputs_filtered/{sample}.braken", sample=SAMPLES),
+
+
+"""
+.META: GEP.count.*.metadata.exp_genes_condition.gz
+	1	condition
+	2	gene
+	3	avg_exp
+	4	median_exp
+	5	min_exp
+
+ .META: GEP.count*metadata.max_exp_in_condition.gz
+ 	1	GeneID
+ 	2	best_condition
+ 	3	exp
+
+"""

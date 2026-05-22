@@ -95,26 +95,6 @@ rule kallisto_quant:
             {input.fq}
         """
 
-
-rule merge_kallisto_transcripts:
-    input:
-        expand("kallisto/{sample}/abundance.tsv", sample=SAMPLES),
-    output:
-        "transcripts_tpm.tsv",
-        "transcripts_counts.tsv",
-    params:
-        names=",".join(SAMPLES),
-        script="dataset/Isella/merge_kallisto.R",
-        files=lambda wc, input: ",".join(map(str, input)),
-    shell:
-        """
-        Rscript {params.script} \
-            --input "{params.files}" \
-            --names "{params.names}" \
-            --output .
-        """
-
-
 ################################
 ### StringTie quantification ###
 ################################
@@ -198,11 +178,6 @@ rule stringtie_prepDE:
 
         python ../../local/src/prepDE.py -i {params.prepDEinput}
         """
-
-
-#################
-### Rename BAM ###
-#################
 
 
 ######################
@@ -492,45 +467,6 @@ rule psiclass_cohort:  #todo, put the trusted introns as config, if i want it or
         """
 
 
-rule gtf_to_bed:
-    input:
-        gtf=GENCODE_ANNOTATION_GTF,
-    output:
-        bed="Resources/annotation/gencode.H.bed12",
-    conda:
-        "../env/PsiCLASS.yaml"
-    log:
-        "logs/gtf_to_bed.log",
-    shell:
-        """
-    gtfToGenePred -genePredExt -geneNameAsName2 {input.gtf} /dev/stdout 2>{log} \
-        | genePredToBed /dev/stdin /dev/stdout \
-        | sed 's/^chr/Hchr/' \
-        > {output.bed} 2>>{log}
-        """
-
-
-rule infer_experiment_psi:
-    input:
-        bam="Results/pass2/{sample}/Aligned.sortedByCoord.out.ribo.ex.H.unique.bam".format(
-            sample=SAMPLES[0]
-        ),
-        bed="Resources/annotation/gencode.H.bed12",
-    output:
-        txt="QC/infer_experiment/{sample}.infer_experiment.txt".format(
-            sample=SAMPLES[0]
-        ),
-    conda:
-        "../../local/env/PsiCLASS.yaml"
-    log:
-        "logs/infer_experiment/{sample}.log".format(sample=SAMPLES[0]),
-    shell:
-        """
-        infer_experiment.py \
-            -r {input.bed} \
-            -i {input.bam} \
-            > {output.txt} 2>{log}
-        """
 
 
 rule annotate_assembly:
@@ -584,7 +520,7 @@ rule filter_kallisto_gtf:
 
         trusted_transcripts = set()
 
-        # PASS 2: Find "j" transcripts in the annotated GTF that pass the threshold
+        # PASS 2: Find non "=" transcripts in the annotated GTF that pass the threshold
         with open(input.annotated_gtf, "r") as f_in:
             for line in f_in:
                 if line.startswith("#") or "\ttranscript\t" not in line:
@@ -595,13 +531,10 @@ rule filter_kallisto_gtf:
                 # gffcompare moves the original PsiCLASS ID to 'oId'
                 orig_id = get_attr(attrs, "oId") or get_attr(attrs, "transcript_id")
                 curr_tid = get_attr(attrs, "transcript_id")
-
-                # We ONLY want 'j' transcripts for your strategy
-                if code == "j" and orig_id in sample_counts:
+                if code != "=" and orig_id in sample_counts:
                     if sample_counts[orig_id] >= params.min_sample_cnt:
                         trusted_transcripts.add(curr_tid)
 
-        # PASS 3: Write out the transcripts and their exons to the final GTF
         with open(input.annotated_gtf, "r") as f_in, open(output.final_gtf, "w") as f_out:
             for line in f_in:
                 if line.startswith("#"):
@@ -613,7 +546,7 @@ rule filter_kallisto_gtf:
                     f_out.write(line)
 
         print(
-            f"Kept {len(trusted_transcripts)} novel 'j' transcripts "
+            f"Kept {len(trusted_transcripts)} transcripts "
             f"(sample_cnt >= {params.min_sample_cnt})"
         )
 
@@ -621,15 +554,15 @@ rule filter_kallisto_gtf:
 
 rule build_kallisto_index_combined:
     input:
-        novel_fa="kallisto_output/novel_transcripts.fa",
-        # Your pre-existing GENCODE transcriptome FASTA (with H prefixes)
-        ref_tx_fa="Resources/gencode.v46.Hchr_transcripts.fa" 
+        novel_fa="kallisto_output/cohort_transcriptome.fasta",
+        ref_tx_fa="Resources/gencode.v46.transcripts.fa" 
     output:
         combined_fa="kallisto_output/combined_transcriptome.fa",
         idx="kallisto_output_combined/kallisto.idx"
     threads: 4
     shell:
         """
+        mkdir -p kallisto_output_combined
         # 1. Concatenate the reference transcriptome with your novel transcripts
         cat {input.ref_tx_fa} {input.novel_fa} > {output.combined_fa}
 
@@ -638,82 +571,11 @@ rule build_kallisto_index_combined:
         """
 
 
-rule build_kallisto_index:
-    input:
-        gtf="kallisto_output/cohort_kallisto_reference.gtf",  
-        genome=GENCODE_GENOME_FASTA,
-    output:
-        fasta="kallisto_output/cohort_transcriptome.fasta",
-        index="kallisto_output/cohort_transcriptome.idx",
-    threads: 4
-    run:
-        import os
-        import re
-        import subprocess
-
-        # Make sure output directory exists
-        os.makedirs(os.path.dirname(output.fasta), exist_ok=True)
-
-        # 1. run gffread into a temp fasta
-        temp_fasta = output.fasta + ".tmp"
-        cmd = f"sed 's/^Hchr/chr/' {input.gtf} | gffread -w {temp_fasta} -g {input.genome} -"
-        subprocess.check_call(cmd, shell=True)
-
-        if not os.path.exists(temp_fasta) or os.path.getsize(temp_fasta) == 0:
-            raise Exception("ERROR: gffread failed to produce FASTA")
-
-        # 2. Extract annotations from GTF
-        tx_info = {}
-        with open(input.gtf, "r") as f:
-            for line in f:
-                if line.startswith("#") or "\\ttranscript\\t" not in line:
-                    continue
-                parts = line.strip().split("\\t")
-                attrs = parts[8]
-
-                def get_attr(key):
-                    m = re.search(f'{key} "([^"]+)"', attrs)
-                    return m.group(1) if m else "-"
-
-                tid = get_attr("transcript_id")
-                gene_id = get_attr("gene_id")
-                ref_gene_id = get_attr("ref_gene_id")
-                cmp_ref = get_attr("cmp_ref")
-                gene_name = get_attr("gene_name")
-                class_code = get_attr("class_code")
-
-                # Use ref_gene_id if available, otherwise fallback to the assembled gene_id
-                g_id = ref_gene_id if ref_gene_id != "-" else gene_id
-
-                # Format mimic GENCODE:
-                # transcript_id|gene_id|HAVANA_gene|HAVANA_transcript|transcript_name|gene_name|length|biotype|
-                piped = f"{tid}|{g_id}|-|{cmp_ref}|{tid}|{gene_name}|-|{class_code}|"
-                tx_info[tid] = piped
-
-        # 3. Rewrite FASTA headers
-        with open(temp_fasta, "r") as fin, open(output.fasta, "w") as fout:
-            for line in fin:
-                if line.startswith(">"):
-                    # gffread headers look like >transcript_id gene_id
-                    tid = line.strip().split()[0][1:]
-                    if tid in tx_info:
-                        fout.write(f">{tx_info[tid]}\\n")
-                    else:
-                        fout.write(line)
-                else:
-                    fout.write(line)
-
-        # clean up temp fasta
-        os.remove(temp_fasta)
-
-        # 4. Build the Kallisto index
-        index_cmd = f"kallisto index -i {output.index} {output.fasta}"
-        subprocess.check_call(index_cmd, shell=True)
-
-
 rule all_kaPSI:
     input:
-        expand("kallisto_PsiCLASS_idx_combined/{sample}/abundance.tsv", sample=SAMPLES),
+        "transcripts_counts.tsv",
+        "transcripts_tpm.tsv",
+
 
 
 rule kallisto_quant_PsiCLASS:
@@ -721,7 +583,9 @@ rule kallisto_quant_PsiCLASS:
         fq=lambda wc: f"fastq/{wc.sample}_R1.fastq.gz",
         index="kallisto_output_combined/kallisto.idx",
     output:
-        "kallisto_PsiCLASS_idx_combined/{sample}/abundance.tsv",
+            tsv="kallisto_PsiCLASS_idx_combined/{sample}/abundance.tsv",
+            h5="kallisto_PsiCLASS_idx_combined/{sample}/abundance.h5",
+
     threads: 4
     conda:
         "transcript_env.yaml"
@@ -743,8 +607,8 @@ rule merge_kallisto_transcripts_psiclass:
     input:
         expand("kallisto_PsiCLASS_idx_combined/{sample}/abundance.h5", sample=SAMPLES),
     output:
-        "transcripts_tpm_psiclass.tsv",
-        "transcripts_counts_psiclass.tsv",
+        "transcripts_counts.tsv",
+        "transcripts_tpm.tsv",
     params:
         names=",".join(SAMPLES),
         script="../../local/src/merge_kallisto.R",
@@ -789,3 +653,24 @@ rule compare_filtered_to_gencode:
         mkdir -p Results/gffcmp_filtered
         gffcompare -r {input.ref} -o Results/gffcmp_filtered/{params.prefix} {input.query}
         """
+
+
+rule filter_tmm:
+    input:
+        counts="{file}.tsv.gz"
+    output:
+        matrix="{file}.tmm.tsv.gz",
+        factors="{file}.tmm.factors.tsv.gz"
+    params:
+        min_cpm=config["DGE"]["EXPRESSED_GENES_MIN_CPM"],
+        min_samples= config["DGE"]["MIN_NUM_OF_EXPRESSED_SAMPLE"]
+    shell:
+        """
+        Rscript ../../local/src/filter_tmm.R \
+            {input.counts} \
+            {output.matrix} \
+            {output.factors} \
+            {params.min_cpm} \
+            {params.min_samples}
+        """
+

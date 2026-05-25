@@ -214,10 +214,22 @@ rule filter_frac:
 
 
 rule collapse_taxid:
-    input: "bracken_merged_abundances.num.txt"
-    output: "bracken_merged_abundances.num.taxid_collapsed.txt"
-    shell: "perl -pe 's/\t/;/; s/\t/;/' {input} > {output}"
-
+    input:
+        "bracken_merged_abundances.num.txt"
+    output:
+        "bracken_merged_abundances.num.taxid_collapsed.txt"
+    # shell: "perl -pe 's/\t/;/; s/\t/;/' {input} > {output}"
+    shell:
+        r"""
+        perl -F'\t' -lane '
+            if ($. == 1) {{
+                print join("\t", "Geneid", @F[3..$#F]);
+            }} else {{
+                $F[0] =~ s/ /_/g;
+                print join("\t", join("_", @F[0..2]), @F[3..$#F]);
+            }}
+        ' {input} > {output}
+        """
 
 
 rule degw:
@@ -434,9 +446,9 @@ rule normalize_abundance:
 
 rule remove_columns:
     input:
-        "bracken_merged_abundances.num.txt"
+        "bracken_merged_abundances.num.taxid_collapsed.txt"
     output:
-        "bracken_merged_abundances.num.cleaned.txt"
+        "bracken_merged_abundances.num.taxid_collapsed.cleaned.txt"
     params:
         cols_to_remove=config["METAGENOMICS"]["COLUMNS_TO_REMOVE"]
     shell: """

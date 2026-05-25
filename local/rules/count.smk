@@ -365,11 +365,11 @@ rule GEP_count_ltmm:
     output: 
         "GEP.count.ltmm.gz"
     shell: """
-        r -e 'library(edgeR);\\
-        x <- read.table("{input}", header=T,check.names=FALSE,row.names=1);\\
-        y <- DGEList(counts=x);\\
-        y <- calcNormFactors(y,method="TMM");\\
-        write.table(y$samples,"{output}.factors", sep="\t", quote=F, col.names=NA, row.names=T);\\
+        r -e 'library(edgeR);
+        x <- read.table("{input}", header=T,check.names=FALSE,row.names=1);
+        y <- DGEList(counts=x);
+        y <- calcNormFactors(y,method="TMM");
+        write.table(y$samples,"{output}.factors", sep="\t", quote=F, col.names=NA, row.names=T);
         write.table(cpm(y, normalized.lib.sizes=TRUE, log=TRUE), "{output}.tmp", sep="\t", quote=F, col.names=NA, row.names = T)'
         (echo -n "Geneid"; cat {output}.tmp) | gzip > {output}
         rm {output}.tmp

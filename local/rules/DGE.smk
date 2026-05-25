@@ -8,16 +8,25 @@
 rule ALL_DGE:
     input:
         expand(
-            "{folder}/{tool}.toptable_clean.ALL_contrast.mark_seqc.header_added.gz",
+            "{folder}/{tool}.toptable_clean.ALL_contrast.mark_seqc.header_added.xlsx",
+            folder="DGE",
+            tool=config["DGE"]["DGE_TOOL"]
+        )
+
+rule ALL_DGE_exp_added:
+    input:
+        expand(
+            "{folder}/{tool}.toptable_clean.ALL_contrast.mark_seqc.exp_in_condition.header_added.xlsx",
             folder="DGE",
             tool=config["DGE"]["DGE_TOOL"]
         )
 
 
 #TODO aggiungere counts_table2eset e append_each_row -> ora hanno env, ma in teoria non serve per forza
+#Renamed bracken_merged_abundances.num.taxid_collapsed.cleaned.txt to GEP.count and gzipped
 rule get_eset:
     input:
-        gep = "bracken_merged_abundances.num.cleaned.txt",
+        gep = "GEP.count.gz",
         metadata = "metadata.txt"
     output:
         "{folder}/eset.rda"
@@ -135,7 +144,7 @@ rule mark_seqc:
 rule max_exp_in_cond:
     input:
         deg_out = "{folder}/{path}.toptable_clean.ALL_contrast.mark_seqc.header_added.gz", 
-        gep = "{folder}/GEP.count.exp_filter.ltmm.lfpkm.metadata.max_exp_in_condition.gz"
+        gep = "{folder}/GEP.count.exp_filter.ltmm.metadata.max_exp_in_condition.gz"
     output:
         "{folder}/{path}.toptable_clean.ALL_contrast.mark_seqc.max_exp_in_condition.header_added.gz"
     shell:"""
@@ -145,11 +154,12 @@ rule max_exp_in_cond:
 rule exp_in_cond:
     input:
         deg_out = "{folder}/{path}.toptable_clean.ALL_contrast.mark_seqc.header_added.gz", 
-        gep = "{folder}/GEP.count.exp_filter.ltmm.metadata.exp_genes_condition.matrix.gz"
+        # gep = "{folder}/GEP.count.exp_filter.ltmm.metadata.exp_genes_condition.matrix.gz"
+        gep = "GEP.count.exp_filter.ltmm.metadata.exp_genes_condition.matrix.gz"
     output:
         "{folder}/{path}.toptable_clean.ALL_contrast.mark_seqc.exp_in_condition.header_added.gz"
     shell:"""
-        bawk '$Pvalue_adj!="NA"' {input.deg_out}| translate -a <(zcat {input.gep}) 2 | gzip > {output}
+        bawk '$Pvalue_adj!="NA"' {input.deg_out}| translate -a -v -e "NA" <(zcat {input.gep}) 2 | gzip > {output}
     """
 
 rule filter_genes:
@@ -174,18 +184,18 @@ rule filter_significant_genes:
 
 rule DEG_count_matrix:
     input:
-        "{path}.toptable_clean.ALL_contrast.mark_seqc.gz"
+        "DGE/{path}.toptable_clean.ALL_contrast.mark_seqc.gz"
     output:
-        "{path}.toptable_clean.ALL_contrast.mark_seqc.DEG_count_matrix"
+        "DGE/{path}.toptable_clean.ALL_contrast.mark_seqc.DEG_count_matrix"
     shell:"""
         bawk '{{print $contrast,$significance}}' {input} | symbol_count | tab2matrix -r contrast > {output}
     """
  
 rule count_significance:
     input:
-        "edger.toptable_clean.ALL_contrast.mark_seqc.gz"
+        "DGE/edger.toptable_clean.ALL_contrast.mark_seqc.gz"
     output:
-        "edger.toptable_clean.ALL_contrast.mark_seqc.count"
+        "DGE/edger.toptable_clean.ALL_contrast.mark_seqc.count"
     shell:
         """
         bawk '{{print $1, $6}}' {input} | symbol_count | tab2matrix -r contrast > {output}

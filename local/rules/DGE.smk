@@ -1,10 +1,6 @@
 # DGE/edger.toptable_clean.ALL_contrast.mark_seqc.max_exp_in_condition.header_added.count.exp_filter.ltmm.gz
 # edger.toptable_clean.ALL_contrast.mark_seqc.max_exp_in_condition.header_added.gz
 
-# rule ALL_DGE:
-#     input:
-#         f"DGE/{config['DGE']['DGE_TOOL']}.toptable_clean.ALL_contrast.mark_seqc.header_added.xlsx"
-
 rule ALL_DGE:
     input:
         expand(

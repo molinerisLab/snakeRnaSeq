@@ -163,3 +163,153 @@ rule clr_pca:
     script:
         "../../local/src/clr_pca.R"
 
+
+
+############################################
+### Story 13 batch-aware summary plotting ###
+############################################
+
+rule prepare_inputs:
+    input:
+        abundance="bracken_merged_abundances.num.taxid_collapsed.cleaned.txt",
+        metadata="metadata.txt",
+        top_table="DGE/edger.toptable_clean.ALL_contrast.mark_seqc.header_added.xlsx"
+    output:
+        filtered_abundance="abundance.noKIS.tsv",
+        filtered_metadata="metadata.noKIS.tsv",
+        top_table_tsv="top_table.tsv"
+    params:
+        script="../../local/src/prepare_inputs.R"
+    shell:
+        """
+        mkdir -p plots/
+        Rscript {params.script} \
+            {input.abundance} \
+            {input.metadata} \
+            {input.top_table} \
+            {output.filtered_abundance} \
+            {output.filtered_metadata} \
+            {output.top_table_tsv}
+        """
+
+
+rule pca:
+    input:
+        abundance="abundance.noKIS.tsv",
+        metadata="metadata.noKIS.tsv"
+    output:
+        raw_pca="plots/pca_clr_raw.pdf",
+        batch_corrected_pca="plots/pca_clr_batch_corrected.pdf"
+    params:
+        script="../../local/src/pca.R"
+    shell:
+        """
+        mkdir -p plots
+        Rscript {params.script} \
+            {input.abundance} \
+            {input.metadata} \
+            {output.raw_pca} \
+            {output.batch_corrected_pca}
+        """
+
+
+rule volcano_ma:
+    input:
+        top_table="top_table.tsv"
+    output:
+        volcano="plots/volcano_resistant_vs_control.pdf",
+        ma="plots/ma_resistant_vs_control.pdf",
+        pvalue_hist="plots/pvalue_histogram.pdf"
+    params:
+        script="../../local/src/volcano_ma.R"
+    shell:
+        """
+        mkdir -p plots
+        Rscript {params.script} \
+            {input.top_table} \
+            {output.volcano} \
+            {output.ma} \
+            {output.pvalue_hist}
+        """
+
+
+rule top_taxa_heatmap:
+    input:
+        abundance="abundance.noKIS.tsv",
+        metadata="metadata.noKIS.tsv",
+        top_table="top_table.tsv"
+    output:
+        heatmap="plots/top30_taxa_clr_heatmap.pdf"
+    params:
+        script="../../local/src/top_taxa_heatmap.R",
+        top_n=30
+    shell:
+        """
+        mkdir -p plots
+        Rscript {params.script} \
+            {input.abundance} \
+            {input.metadata} \
+            {input.top_table} \
+            {output.heatmap} \
+            {params.top_n}
+        """
+
+
+rule batch_boxplots:
+    input:
+        abundance="abundance.noKIS.tsv",
+        metadata="metadata.noKIS.tsv",
+        top_table="top_table.tsv"
+    output:
+        boxplots="plots/top_taxa_batch_faceted_boxplots.pdf"
+    params:
+        script="../../local/src/batch_boxplots.R",
+        top_n=8
+    shell:
+        """
+        mkdir -p plots
+        Rscript {params.script} \
+            {input.abundance} \
+            {input.metadata} \
+            {input.top_table} \
+            {output.boxplots} \
+            {params.top_n}
+        """
+
+
+rule batch_direction_summary:
+    input:
+        abundance="abundance.noKIS.tsv",
+        metadata="metadata.noKIS.tsv",
+        top_table="top_table.tsv"
+    output:
+        summary="tables/top_taxa_batch_direction_summary.tsv",
+        plot="plots/batch_logFC_consistency.pdf"
+    params:
+        script="../../local/src/batch_direction_summary.R",
+        top_n=50
+    shell:
+        """
+        mkdir -p tables plots
+        Rscript {params.script} \
+            {input.abundance} \
+            {input.metadata} \
+            {input.top_table} \
+            {output.summary} \
+            {output.plot} \
+            {params.top_n}
+        """
+
+
+rule story13_summary_plots:
+    input:
+        "story13/plots/pca_clr_raw.pdf",
+        "story13/plots/pca_clr_batch_corrected.pdf",
+        "story13/plots/volcano_resistant_vs_control.pdf",
+        "story13/plots/ma_resistant_vs_control.pdf",
+        "story13/plots/pvalue_histogram.pdf",
+        "story13/plots/top30_taxa_clr_heatmap.pdf",
+        "story13/plots/top_taxa_batch_faceted_boxplots.pdf",
+        "story13/tables/top_taxa_batch_direction_summary.tsv",
+        "story13/plots/batch_logFC_consistency.pdf"
+

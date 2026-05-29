@@ -91,17 +91,17 @@ rule star_align_se:
         fq="fastq/fastq_trimmed/{sample}_R1.fastq.gz",
         idx=STAR_GENOME_DIR,
     output:
-        aln="Results/star/{sample}.bam",
-        log="Results/star/{sample}.Log.out",
-        sj="Results/star/{sample}.SJ.out.tab",
+        aln="Results/star/{sample}/Aligned.sortedByCoord.out.bam",
+        log="Results/star/{sample}/Log.out",
+        sj="Results/star/{sample}/SJ.out.tab",
         unmapped=(
             "Results/star/unmapped/{sample}_unmapped_R1.fastq.gz"
             if config["STAR"]["SAVE_UNMAPPED"] == "FASTQ"
             else []
         ),
-        log_final="Results/star/{sample}.Log.final.out",
+        log_final="Results/star/{sample}/Log.final.out",
     log:
-        "Results/star/{sample}.log",
+        "Results/star/{sample}/star.log",
     threads: 4
     conda:
         "transcript_env.yaml"
@@ -144,9 +144,9 @@ rule star_align_pe:
         fq2="fastq/fastq_trimmed/{sample}_R2.fastq.gz",
         idx=STAR_GENOME_DIR,
     output:
-        aln="Results/star/{sample}.bam",
-        log="Results/star/{sample}.Log.out",
-        sj="Results/star/{sample}.SJ.out.tab",
+        aln="Results/star/{sample}/Aligned.sortedByCoord.out.bam",
+        log="Results/star/{sample}/Log.out",
+        sj="Results/star/{sample}/SJ.out.tab",
         unmapped=(
             [
                 "Results/star/unmapped/{sample}_unmapped_R1.fastq.gz",
@@ -155,9 +155,9 @@ rule star_align_pe:
             if config["STAR"]["SAVE_UNMAPPED"] == "FASTQ"
             else []
         ),
-        log_final="Results/star/{sample}.Log.final.out",
+        log_final="Results/star/{sample}/Log.final.out",
     log:
-        "Results/star/{sample}.log",
+        "Results/star/{sample}/star.log",
     threads: 4
     conda:
         "transcript_env.yaml"
@@ -313,7 +313,6 @@ rule star_align_first_pass:
             --limitSjdbInsertNsj {params.limitSjdb} \
             --outFileNamePrefix {params.tmpdir}/ \
             --outSAMtype None
-            --
         """
 
 

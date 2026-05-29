@@ -1,11 +1,16 @@
 from pathlib import Path
 
-#========================
+
+# ========================
 # CONFIGURATION VARIABLES
-#========================
+# ========================
+wildcard_constraints:
+    sample="[^/]+",
+
 
 TRIMMER = config["TRIMMER"]
 LAYOUT = config["LAYOUT"]
+
 
 def _trimmer_out(sample, read, trimmer=TRIMMER):
     """Return the trimmer-specific output path for a given sample and read (R1/R2)."""
@@ -19,14 +24,14 @@ def _trimmer_out(sample, read, trimmer=TRIMMER):
 
 rule fastp_se:
     input:
-        "fastq/{sample}_R1.fastq.gz",
+        sample="fastq/{sample}_R1.fastq.gz",
     output:
         trimmed="fastq/fastq_trimmed/fastp/{sample}_R1.fastq.gz",
         html="fastq/fastq_trimmed/fastp/{sample}.html",
         json="fastq/fastq_trimmed/fastp/{sample}.json",
     threads: 6
     log:
-        "fastq/fastq_trimmed/fastp/{sample}.log.txt",
+        "fastq/fastq_trimmed/fastp/{sample}.log",
     conda:
         "transcript_env.yaml"
     wrapper:
@@ -68,17 +73,22 @@ rule trim_galore_se:
     params:
         trim_galore_params=config["TRIM_GALORE"]["PARAM"],
         cores=config["CORES"],
+        outdir="fastq/fastq_trimmed/trimgalore",
     conda:
         "transcript_env.yaml"
     log:
         "fastq/fastq_trimmed/trimgalore/{sample}_trim_galore.log",
     shell:
-        "mkdir -p `dirname {output}`; "
-        "trim_galore -j {params.cores} "
-        "-o trimgalore "
-        "{params.trim_galore_params} "
-        "{input}; "
-        "mv trimgalore/{wildcards.sample}_R1_trimmed.fq.gz {output}"
+        """
+        mkdir -p {params.outdir}
+        
+        trim_galore -j {params.cores} \
+            -o {params.outdir} \
+            {params.trim_galore_params} \
+            {input} > {log} 2>&1
+            
+        mv {params.outdir}/{wildcards.sample}_R1_trimmed.fq.gz {output}
+        """
 
 
 rule trim_galore_pe:
@@ -94,20 +104,23 @@ rule trim_galore_pe:
     params:
         trim_galore_params=config["TRIM_GALORE"]["PARAM"],
         cores=config["CORES"],
+        outdir="fastq/fastq_trimmed/trimgalore",
     log:
         "fastq/fastq_trimmed/trimgalore/{sample}_trim_galore.log",
     conda:
         "transcript_env.yaml"
-    wildcard_constraints:
-        sample="[^/]+",
     shell:
-        "mkdir -p `dirname {output}`; "
-        "trim_galore -j {params.cores} "
-        "-o trimgalore "
-        "{params.trim_galore_params} --paired "
-        "{input}; "
-        "mv trimgalore/{wildcards.sample}_R1_val_1.fq.gz {output.fastq_read1}; "
-        "mv trimgalore/{wildcards.sample}_R2_val_2.fq.gz {output.fastq_read2}"
+        """
+        mkdir -p {params.outdir}
+        
+        trim_galore -j {params.cores} \
+            -o {params.outdir} \
+            {params.trim_galore_params} \
+            --paired {input.fastq_read1} {input.fastq_read2} > {log} 2>&1
+            
+        mv {params.outdir}/{wildcards.sample}_R1_val_1.fq.gz {output.fastq_read1}
+        mv {params.outdir}/{wildcards.sample}_R2_val_2.fq.gz {output.fastq_read2}
+        """
 
 
 ##################################
@@ -121,10 +134,12 @@ if LAYOUT == "SINGLE":
             r1=_trimmer_out("{sample}", "R1"),
         output:
             r1="fastq/fastq_trimmed/{sample}_R1.fastq.gz",
-        wildcard_constraints:
-            sample="[^/]+",
+        log:
+            "fastq/fastq_trimmed/linking/{sample}_linking.log",
+        conda:
+            "transcript_env.yaml"
         shell:
-            "ln -srf {input.r1} {output.r1}"
+            "ln -srf {input.r1} {output.r1} > {log} 2>&1"
 
 elif LAYOUT == "PAIRED":
 
@@ -139,8 +154,8 @@ elif LAYOUT == "PAIRED":
             "fastq/fastq_trimmed/linking/{sample}_linking.log",
         conda:
             "transcript_env.yaml"
-        wildcard_constraints:
-            sample="[^/]+",
         shell:
-            "ln -srf {input.r1} {output.r1}\n"
-            "ln -srf {input.r2} {output.r2}"
+            """
+            ln -srf {input.r1} {output.r1} > {log} 2>&1
+            ln -srf {input.r2} {output.r2} >> {log} 2>&1
+            """

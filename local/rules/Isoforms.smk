@@ -607,8 +607,8 @@ rule merge_kallisto_transcripts_psiclass:
     input:
         expand("kallisto_PsiCLASS_idx_combined/{sample}/abundance.h5", sample=SAMPLES),
     output:
-        "transcripts_counts.tsv",
-        "transcripts_tpm.tsv",
+        counts="transcripts_counts.tsv",
+        tpm="transcripts_tpm.tsv",
     params:
         names=",".join(SAMPLES),
         script="../../local/src/merge_kallisto.R",
@@ -620,6 +620,10 @@ rule merge_kallisto_transcripts_psiclass:
             --names "{params.names}" \
             --output . \
             --verbose
+
+        # Insert 'target_id' at the beginning of the first line for both output files
+        sed -i '1s/^/target_id\t/' {output.counts}
+        sed -i '1s/^/target_id\t/' {output.tpm}
         """
 
 
@@ -674,3 +678,62 @@ rule filter_tmm:
             {params.min_samples}
         """
 
+rule plot_kallisto_compare:
+    input: 
+        "transcripts_counts.tmm.tsv.gz",
+        "kallisto_only_transcripts_counts.tmm.tsv.gz"
+    output: 
+        "plots/kallisto_comparison_scatter.png",
+        "plots/kallisto_comparison_scatter.pdf",
+        
+    shell: 
+        "Rscript ../../local/src/compare_kallisto.R"
+
+
+
+    
+# Similar to above, it retains the header as well
+rule transcripts_counts_not_in_kallisto:
+    input:
+        fp1="kallisto_only_transcripts_counts.tmm.tsv.gz",
+        fp2="transcripts_counts.tmm.tsv.gz"
+    output:
+        fpFinal="transcripts_counts_exclude_kallisto_only.tmm.tsv"
+    shell:
+        """
+        awk -F'\\t' 
+            NR==FNR {{ id[$1]; next }}
+            FNR==1  {{ print; next }}
+            !($1 in id)
+        ' <(zcat {input.fp1}) <(zcat {input.fp2}) > {output.fpFinal}
+        """
+
+rule plot_transcript_counts:
+    input:
+        tsv="{file}.tsv"
+    output:
+        plot="{file}_intersect_counts_plot.png"
+    shell:
+        """
+        Rscript -e "
+            library(ggplot2);
+            library(data.table);
+            
+            # (salta la prima colonna degli ID se sono solo conte)
+            df <- fread('{input.tsv}', header=FALSE);
+            
+            matrice_conte <- as.matrix(df[, -1, with=FALSE]);
+            log_conte <- log2(matrice_conte + 1);
+            
+            png('{output.plot}', width=800, height=600);
+            plot(density(log_conte), main='Distribuzione delle Conte (Log2)', 
+                 xlab='Log2(Counts + 1)', col='blue', lwd=2);
+            dev.off();
+        "
+        """
+
+        
+
+   
+
+        

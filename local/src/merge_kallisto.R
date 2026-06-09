@@ -6,30 +6,11 @@
 ###  IMPORTS  ###
 #################
 
-# Function to install and load packages
-install_and_load <- function(package, bioconductor = FALSE) {
-  if (!requireNamespace(package, quietly = TRUE)) {
-    cat(paste("[INFO] Package '", package, "' not found. Installing...\n", sep = ""))
-    if (bioconductor) {
-      if (!requireNamespace("BiocManager", quietly = TRUE)) {
-        install.packages("BiocManager", repos = "https://cloud.r-project.org")
-      }
-      BiocManager::install(package, update = FALSE, ask = FALSE)
-    } else {
-      install.packages(package, repos = "https://cloud.r-project.org")
-    }
-  }
-  if (suppressWarnings(suppressPackageStartupMessages(require(package, character.only = TRUE))) == FALSE) {
-    stop(paste("[ERROR] Package '", package, "' required but could not be loaded! Aborted.", sep = ""))
-  }
-}
-
-# Install and load required packages
-install_and_load("optparse")
-install_and_load("tximport", bioconductor = TRUE)
-install_and_load("rhdf5", bioconductor = TRUE)
-install_and_load("rtracklayer", bioconductor = TRUE)
-
+# Import required packages
+if ( suppressWarnings(suppressPackageStartupMessages(require("optparse"))) == FALSE ) { stop("[ERROR] Package 'optparse' required! Aborted.") }
+if ( suppressWarnings(suppressPackageStartupMessages(require("tximport"))) == FALSE ) { stop("[ERROR] Package 'tximport' required! Aborted.") }
+if ( suppressWarnings(suppressPackageStartupMessages(require("rhdf5"))) == FALSE ) { stop("[ERROR] Package 'rhdf5' required! Aborted.") }
+if ( suppressWarnings(suppressPackageStartupMessages(require("rtracklayer"))) == FALSE ) { stop("[ERROR] Package 'rtracklayer' required! Aborted.") }
 
 #######################
 ###  PARSE OPTIONS  ###

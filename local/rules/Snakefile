@@ -134,7 +134,7 @@ rule ALL_infer_experiment:
 
 rule ALL_star:
     input:
-        expand("Results/star/{sample}.bam", sample=SAMPLES),
+        expand("Results/star/{sample}/Aligned.sortedByCoord.out.bam", sample=SAMPLES),
         
 
 rule all_fastq_unmapped:
@@ -223,6 +223,37 @@ rule all_filbracken:
         expand("breports_filtered/{sample}.breport", sample=SAMPLES),
         expand("boutputs_filtered/{sample}.braken", sample=SAMPLES),
 
+
+rule all_extract_unclassified_reads:
+    input:
+        expand("fastq_idmapped/{sample}_R1.fastq.gz", sample=SAMPLES)
+
+rule all_extract_h_reads:
+    input:
+        expand("fastq/fastq_h_depleted/{sample}_R1.fastq.gz", sample=SAMPLES)
+
+rule all_bam2fasta:
+    input:
+        expand("bowtie2/fasta/{sample}.fa", sample=SAMPLES)
+
+rule all_blast:
+    input:
+        expand("blastn_T2T/{sample}.blastn.out", sample=SAMPLES)
+
+
+rule all_metaphlan4:
+    input:
+        expand("metaphlan4/{sample}.profile.txt", sample=SAMPLES)
+
+rule all_kaiju:
+    input:
+        expand("kaiju/{sample}.kaiju.out", sample=SAMPLES)
+
+rule all_kaiju_report:
+    input:
+        expand("kaiju/report/{sample}.kaiju.tsv", sample=SAMPLES)
+
+        
 
 """
 .META: GEP.count.*.metadata.exp_genes_condition.gz

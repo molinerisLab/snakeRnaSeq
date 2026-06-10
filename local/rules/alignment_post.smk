@@ -22,9 +22,11 @@ rule all_bai:
 rule get_bai:
     """Index a BAM file to create a .bai file."""
     input: 
-        "Results/pass2/{sample}/Aligned.sortedByCoord.out.ribo.ex.H.unique.bam"
+        "{file}.bam"
     output: 
-        "Results/pass2/{sample}/Aligned.sortedByCoord.out.ribo.ex.H.unique.bam.bai"
+        "{file}.bam.bai"
+    wildcard_constraints:
+        file=".*Results/pass2.*|.*star_2pass.*"
     shell: 
         "samtools index {input}"
 
@@ -45,6 +47,19 @@ rule bam2bed:
         "{file}.bed"
     shell: 
         "bedtools bamtobed -splitD < {input} | bsort -k1,1V -k2,2n > {output}"
+
+rule bam_unique:
+    input:
+        bam="Results/pass2/{sample}/Aligned.sortedByCoord.out.ribo.ex.bam",
+    output:
+        unique_bam="Results/pass2/{sample}/Aligned.sortedByCoord.out.ribo.ex.unique.bam",
+    shell:
+        """
+        samtools view -h {input.bam} \
+        | awk '$1 ~ /^@/ || $0 ~ /NH:i:1/' \
+        | samtools view -b -o {output.unique_bam}
+        samtools index {output.unique_bam}
+        """
 
 # =============================================================================
 # 2. BIGWIG AND BEDGRAPH (VISUALIZATION)

@@ -135,7 +135,7 @@ if LAYOUT == "SINGLE":
         output:
             r1="fastq/fastq_trimmed/{sample}_R1.fastq.gz",
         log:
-            "fastq/fastq_trimmed/linking/{sample}_linking.log",
+            "fastq/fastq_trimmed/{sample}_linking.log",
         conda:
             "transcript_env.yaml"
         shell:
@@ -151,7 +151,7 @@ elif LAYOUT == "PAIRED":
             r1="fastq/fastq_trimmed/{sample}_R1.fastq.gz",
             r2="fastq/fastq_trimmed/{sample}_R2.fastq.gz",
         log:
-            "fastq/fastq_trimmed/linking/{sample}_linking.log",
+            "fastq/fastq_trimmed/{sample}_linking.log",
         conda:
             "transcript_env.yaml"
         shell:

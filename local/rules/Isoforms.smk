@@ -213,21 +213,6 @@ rule spladder_build:
         """
 
 
-# rule spladder_merge:
-#    input:
-#        gtf = GENCODE_ANNOTATION_GTF
-#
-#    output:
-#    shell:
-#        """
-#        spladder build \
-#            -o out_spladder \
-#            -a {input.gtf}
-#            -b alignment.txt
-
-
-# rule spladder_quant:
-
 
 ###############################
 ### Sambamba sort and index BAM ###
@@ -408,8 +393,8 @@ rule addXS_prepare:
         bam="Results/pass2/{sample}/Aligned.sortedByCoord.out.bam",
         ref_seq=GENCODE_GENOME_FASTA,
     output:
-        xs_bam="xs_bams/{sample}.out.ribo.ex.H.bam",
-        bai="xs_bams/{sample}.out.ribo.ex.H.bai",
+        xs_bam="xs_bams/{sample}.out.ribo.ex.bam",
+        bai="xs_bams/{sample}.out.ribo.ex.bai",
     threads: 4
     shell:
         """
@@ -424,7 +409,7 @@ rule addXS_prepare:
 rule create_bamlist:
     input:
         bams=expand(
-            "Results/pass2/{sample}/Aligned.sortedByCoord.out.ribo.ex.H.unique.bam",
+            "Results/pass2/{sample}/Aligned.sortedByCoord.out.ribo.ex.unique.bam",
             sample=SAMPLES,
         ),
     output:
@@ -440,7 +425,7 @@ rule psiclass_cohort:  #todo, put the trusted introns as config, if i want it or
     input:
         bamlist="PsiCLASS/bamlist.txt",
         bams=expand(
-            "Results/pass2/{sample}/Aligned.sortedByCoord.out.ribo.ex.H.unique.bam",
+            "Results/pass2/{sample}/Aligned.sortedByCoord.out.ribo.ex.unique.bam",
             sample=SAMPLES,
         ),
     output:
@@ -550,7 +535,18 @@ rule filter_kallisto_gtf:
             f"(sample_cnt >= {params.min_sample_cnt})"
         )
 
-
+rule extract_novel_transcripts:
+    input:
+        gtf="kallisto_output/cohort_kallisto_reference.gtf",
+        genome=GENCODE_GENOME_FASTA  
+    output:
+        novel_fa="kallisto_output/cohort_transcriptome.fasta" 
+    conda:
+        "../env/gffread.yaml" 
+    shell:
+        """
+        gffread -w {output.novel_fa} -g {input.genome} {input.gtf}
+        """
 
 rule build_kallisto_index_combined:
     input:

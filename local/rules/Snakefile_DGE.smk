@@ -21,7 +21,7 @@ RAW_DATA_DIR= ["."]
 
 #TODO aggiungere counts_table2eset e append_each_row -> ora hanno env, ma in teoria non serve per forza
 
-rule all:
+rule all_DGE:
     input:
         "edger.toptable_clean.ALL_contrast.mark_seqc.exp_in_condition.header_added.gz"
 

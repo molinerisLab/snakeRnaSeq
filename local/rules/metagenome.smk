@@ -79,7 +79,7 @@ rule remove_taxid_reads:
         taxids=lambda wc: " ".join(
             [
                 str(t)
-                for t in config.get("CONTAMINANT_INFO", {}).get("humanID", ["9606"])
+                for t in config.get("CONTAMINANT_INFO", {}).get("humanID", [])
                 + config.get("CONTAMINANT_INFO", {}).get("contaminant", [])
             ]
         ),
@@ -151,8 +151,32 @@ rule braken:
         bracken -d {config[kraken_db]} -i {input} -r {config[BRACKEN][braken_read_len]} -l {config[BRACKEN][braken_level]} -t {config[BRACKEN][braken_min_reads]} -o {output.out} -w {output.report}
         """
 
-
 rule bracken_merged:
+    input:
+        reports=expand("breports/{sample}.breport", sample=SAMPLES),
+        outputs=expand("boutputs/{sample}.braken", sample=SAMPLES),
+    output:
+        "bracken_not_filtered_merged_abbundances.txt",
+    log:
+        "log/Bracken_merged.log",
+    shell:
+        """
+        combine_bracken_outputs.py --files {input.outputs} -o {output} 2> {log} 
+        """
+
+rule filbraken:
+    input:
+        "kreports_filtered/{sample}.k2report",
+    output:
+        report="breports_filtered/{sample}.breport",
+        out="boutputs_filtered/{sample}.braken",
+    shell:
+        """
+        mkdir -p breports_filtered boutputs_filtered
+        bracken -d {config[kraken_db]} -i {input} -r {config[BRACKEN][braken_read_len]} -l {config[BRACKEN][braken_level]} -t {config[BRACKEN][braken_min_reads]} -o {output.out} -w {output.report}
+        """
+
+rule filbracken_merged:
     input:
         reports=expand("breports_filtered/{sample}.breport", sample=SAMPLES),
         outputs=expand("boutputs_filtered/{sample}.braken", sample=SAMPLES),
@@ -166,17 +190,7 @@ rule bracken_merged:
         """
 
 
-rule filbraken:
-    input:
-        "kreports_filtered/{sample}.k2report",
-    output:
-        report="breports_filtered/{sample}.breport",
-        out="boutputs_filtered/{sample}.braken",
-    shell:
-        """
-        mkdir -p breports_filtered boutputs_filtered
-        bracken -d {config[kraken_db]} -i {input} -r {config[BRACKEN][braken_read_len]} -l {config[BRACKEN][braken_level]} -t {config[BRACKEN][braken_min_reads]} -o {output.out} -w {output.report}
-        """
+
 
 
 ########################

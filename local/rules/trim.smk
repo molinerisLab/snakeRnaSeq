@@ -24,7 +24,7 @@ def _trimmer_out(sample, read, trimmer=TRIMMER):
 
 rule fastp_se:
     input:
-        sample="fastq/{sample}_R1.fastq.gz",
+        sample=["fastq/{sample}_R1.fastq.gz"],
     output:
         trimmed="fastq/fastq_trimmed/fastp/{sample}_R1.fastq.gz",
         html="fastq/fastq_trimmed/fastp/{sample}.html",

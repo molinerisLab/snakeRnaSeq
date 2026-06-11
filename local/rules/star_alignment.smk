@@ -316,7 +316,7 @@ rule star_align_first_pass:
             --readFilesIn {input.fq} \
             --readFilesCommand {params.read_cmd} \
             --limitSjdbInsertNsj {params.limitSjdb} \
-            --outFileNamePrefix {params.tmpdir}/ \
+            --outFileNamePrefix {params.tmpdir}/{wildcards.sample}_ \
             --outSAMtype None
         """
 

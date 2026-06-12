@@ -457,7 +457,7 @@ rule psiclass_cohort:  #todo, put the trusted introns as config, if i want it or
 rule annotate_assembly:
     input:
         gtf="PsiCLASS/combined_vote.gtf",
-        ref="Resources/gencode46_Hprefixed.annotation.gtf",
+        ref=GENCODE_ANNOTATION_GTF,
     output:
         annotated="Results/gffcmp/gffcmp.annotated.gtf",
         stats="Results/gffcmp/gffcmp.stats",
@@ -541,8 +541,6 @@ rule extract_novel_transcripts:
         genome=GENCODE_GENOME_FASTA  
     output:
         novel_fa="kallisto_output/cohort_transcriptome.fasta" 
-    conda:
-        "../env/gffread.yaml" 
     shell:
         """
         gffread -w {output.novel_fa} -g {input.genome} {input.gtf}
@@ -551,7 +549,7 @@ rule extract_novel_transcripts:
 rule build_kallisto_index_combined:
     input:
         novel_fa="kallisto_output/cohort_transcriptome.fasta",
-        ref_tx_fa="Resources/gencode.v46.transcripts.fa" 
+        ref_tx_fa=GENCODE_GENOME_FASTA
     output:
         combined_fa="kallisto_output/combined_transcriptome.fa",
         idx="kallisto_output_combined/kallisto.idx"
@@ -583,8 +581,6 @@ rule kallisto_quant_PsiCLASS:
             h5="kallisto_PsiCLASS_idx_combined/{sample}/abundance.h5",
 
     threads: 4
-    conda:
-        "transcript_env.yaml"
     shell:
         """
         mkdir -p kallisto_PsiCLASS_idx_combined/{wildcards.sample}

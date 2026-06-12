@@ -11,13 +11,14 @@ if config["LAYOUT"] == "SINGLE":
     ruleorder: generate_unmapped_single > generate_unmapped_R1
     ruleorder: generate_unmapped_single > generate_unmapped_R2
     ruleorder: star_twopass_basic_se > star_twopass_basic_pe
+    ruleorder: star_second_pass > star_align_se
 
 elif config["LAYOUT"] == "PAIRED":
 
     ruleorder: generate_unmapped_R1 > generate_unmapped_single
     ruleorder: generate_unmapped_R2 > generate_unmapped_single
     ruleorder: star_twopass_basic_pe > star_twopass_basic_se
-
+    ruleorder: star_second_pass > star_align_pe
 
 if config["aligner"] == "star" and config["STAR"]["SAVE_UNMAPPED"] == "FASTQ":
     ruleorder: link_unmapped > generate_unmapped_R1
@@ -211,7 +212,7 @@ rule link_unmapped:
     conda:
         "transcript_env.yaml"
     shell:
-        "ln -s {input} {output}"
+        "ln -srf $(realpath {input}) {output}"
 
 
 rule generate_unmapped_single:
@@ -355,6 +356,18 @@ rule star_second_pass:
     output:
         bam="Results/pass2/{sample}/Aligned.sortedByCoord.out.bam",
         gene_counts="Results/pass2/{sample}/ReadsPerGene.out.tab",
+        unmapped=(
+            [
+                "Results/star/unmapped/{sample}_unmapped_R1.fastq.gz",
+                "Results/star/unmapped/{sample}_unmapped_R2.fastq.gz",
+            ]
+            if config["STAR"]["SAVE_UNMAPPED"] == "FASTQ" and config["LAYOUT"] == "PAIRED"
+            else (
+                ["Results/star/unmapped/{sample}_unmapped_R1.fastq.gz"]
+                if config["STAR"]["SAVE_UNMAPPED"] == "FASTQ"
+                else []
+            )
+        ),
     threads: 8
     conda:
         "transcript_env.yaml"
@@ -367,9 +380,12 @@ rule star_second_pass:
         read_cmd=config["STAR"]["readFilesCommand"],
         limitSjdb=config["STAR"]["limitSjdbInsertNsj"],
         tmpdir=lambda wc, output: os.path.dirname(output.bam),
+        save_unmapped=config["STAR"]["SAVE_UNMAPPED"],
     shell:
         """
         mkdir -p {params.tmpdir}
+        mkdir -p Results/star/unmapped
+        
         STAR \
             --runThreadN {threads} \
             --genomeDir {input.idx} \
@@ -380,7 +396,17 @@ rule star_second_pass:
             --limitSjdbInsertNsj {params.limitSjdb} \
             --outFileNamePrefix {params.tmpdir}/ \
             --outSAMtype {params.out_samtype} \
-            --quantMode {params.quant_mode}
+            --quantMode {params.quant_mode} \
+            $([ "{params.save_unmapped}" = "FASTQ" ] && echo "--outReadsUnmapped Fastx --outSAMunmapped Within" || echo "")
+
+        if [ "{params.save_unmapped}" = "FASTQ" ]; then
+            if [ -f "{params.tmpdir}/Unmapped.out.mate1" ]; then
+                gzip -c {params.tmpdir}/Unmapped.out.mate1 > Results/star/unmapped/{wildcards.sample}_unmapped_R1.fastq.gz
+            fi
+            if [ -f "{params.tmpdir}/Unmapped.out.mate2" ]; then
+                gzip -c {params.tmpdir}/Unmapped.out.mate2 > Results/star/unmapped/{wildcards.sample}_unmapped_R2.fastq.gz
+            fi
+        fi
         """
 
 

@@ -41,7 +41,7 @@ rule kraken_nr_paired_ends:
     threads: 6
     shell:
         """
-        k2 --db {config[kraken_db_nr]} {config[kraken_options]} \
+        kraken2 --db {config[kraken_db_nr]} {config[kraken_options]} \
             --threads {threads} \
             --report {output.report}\
             --output {output.out} \
@@ -114,7 +114,7 @@ rule kraken_se_pass2:
     threads: 6
     shell:
         """
-        k2 --db {config[kraken_db]} {config[kraken_options]} \
+        kraken2 --db {config[kraken_db]} {config[kraken_options]} \
             --threads {threads} \
             --report-minimizer-data \
             --memory-mapping \

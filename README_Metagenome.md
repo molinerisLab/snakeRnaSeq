@@ -2,8 +2,14 @@
 
 The primary objective of this pipeline is to discover and quantify microbial populations (such as bacteria, viruses, and fungi) present in biological samples, leveraging data that is already generated during standard sequencing protocols.
 
-While sequencing experiments (like RNA-seq) are often designed to study a host organism (e.g., Human or Mouse), they simultaneously capture genetic material from the microbiome. By efficiently recycling the "leftover" unmapped sequencing reads that would otherwise be discarded, this pipeline provides a significant dual-benefit: investigating the host's transcriptomic profile while simultaneously obtaining a comprehensive snapshot of the sample's microbiome.
+While sequencing experiments (like RNA-seq) are often designed to study a host organism, such as a human patient or a mouse model, these samples simultaneously capture genetic material from the *microbiome*---the community of microorganisms residing in or on the host. This pipeline takes advantage of the "leftover" sequencing reads that fail to align to the host genome, repurposing them to characterize the microbial composition and estimate their relative abundances.
 
+### 🐍 How It Works
+The pipeline is based on *Snakemake*, a workflow management system designed for reproducible and scalable data analyses. In Snakemake, the entire analysis is broken down into modular components called _rules_. Each rule defines a specific processing step along with its required input files and expected output files. 
+
+By automatically tracking the dependencies between these files, Snakemake connects the rules into a continuous chain. This ensures that every tool is executed in the exact correct order, seamlessly linking them together into a streamlined, fully automated workflow.
+
+The overall process follows a structured, step-by-step path to filter, classify, and quantify microbial taxa from the raw sequencing data.
 ---
 ## 🚀 Pipeline at a Glance
 ```mermaid
@@ -46,49 +52,62 @@ flowchart TD
     class B,C,E,F,G,H,J,K,M,N,O toolNode;
 ```
 
----
 
-
-## 🧬 Taxonomic Classification Strategy
-
-When performing Kraken, to ensure the highest accuracy and mitigate the risk of false positives, the pipeline includes two distinct databases:
-
-* **NCBI PlusPF Database**: A broad, standard database covering bacteria, archaea, viruses, and fungi. *Limitation:* Due to the over-representation of clinical isolates in public repositories, it is prone to erroneously assigning novel environmental sequences to well-studied taxa (database bias).
-* **GTDB (Genome Taxonomy Database)**: A highly standardized database focused specifically on high-quality bacterial and archaeal genomes. *Limitation:* It relies exclusively on prokaryotic phylogenies, making it inherently blind to viruses and fungi.
-
-
----
 
 <details>
 <summary><b>📖 Click to read detailed pipeline step descriptions</b></summary>
 <br>
 
 **1. Quality Control (`fastp`)**<br>
-Before biological analysis, the raw sequencing data undergoes rigorous quality control. *fastp* ensures the removal of low-quality bases and technical artifacts (such as adapter sequences).
+Before biological analysis, the raw sequencing data undergoes rigorous quality control. *fastp* ensures the removal of low-quality bases and technical artifacts (such as adapter sequences) to provide a clean dataset for downstream alignment.
 
 **2. Host Read Separation (`STAR`)**<br>
-*STAR* aligns all sequences against the respective host reference genome. Any read that successfully maps to the host is separated for standard transcriptomic analysis. What remains is a collection of unmapped reads.
+Because the initial sequencing targeted the host organism (e.g., Human or Mouse), the vast majority of the reads belong to the host. *STAR* aligns all the sequences against the respective host reference genome. Any read that successfully maps to the host is separated and set aside for standard transcriptomic analysis.
+
+What remains is a collection of *unmapped* reads. This leftover data serves as the core input for the metagenomic analysis, as it contains the genetic signatures of the microbiome, alongside potential uncharacterized biological elements.
 
 **3. Initial Taxonomic Classification (`Kraken2`)**<br>
-The remaining unmapped sequences are queried against the NCBI PlusPF database for an initial broad classification.
+Once the host data is depleted, the remaining unmapped sequences are queried by *Kraken2* against comprehensive databases of known microbial genomes to achieve a robust taxonomic classification.
+
+  To ensure the highest accuracy and mitigate the risk of false positives, the pipeline cross-references the data against two distinct databases:
+  - **NCBI PlusPF Database**: A broad, standard database covering bacteria, archaea, viruses, and fungi. *Limitation:* Due to the over-representation of clinical isolates in public repositories, it is prone to erroneously assigning novel environmental sequences to well-studied taxa (database bias).
+  - **GTDB (Genome Taxonomy Database)**: A highly standardized database focused specifically on high-quality bacterial and archaeal genomes. *Limitation:* It relies exclusively on prokaryotic phylogenies, making it inherently blind to viruses and fungi.
 
 **4. Secondary Host Depletion (`KrakenTools`)**<br>
-Despite the initial alignment step, some residual host reads can escape detection. Any sequence classified as *Homo sapiens* (TaxID: 9606) in the first pass is explicitly flagged and computationally extracted to prevent contamination.
+Despite the initial alignment step, some residual host reads can still escape detection. During the first Kraken2 classification against the NCBI PlusPF database, any sequence that is classified as _Homo sapiens_ (TaxID: 9606) is explicitly flagged.
+These residual host reads are computationally extracted and removed from the unmapped dataset.
 
 **5. Second-Pass Classification (`Kraken2`)**<br>
 Kraken2 is executed a second time on this strictly depleted dataset. This rigorous two-pass approach ensures that the final microbial profile is not skewed by human sequences.
 
 **6. Abundance Estimation & Noise Filtering (`Bracken`)**<br>
-Because Kraken2 is a conservative classifier that assigns ambiguous reads to higher taxonomic ranks (like genus or family), *Bracken* employs a Bayesian probabilistic model to mathematically redistribute these reads down to the species level. Concurrently, it applies essential noise filtering by discarding taxa that appear below a defined abundance threshold.
+After the initial taxonomic classification, the pipeline estimates the precise *relative abundance* of the identified microbial populations. 
+Because Kraken2 is a conservative classifier, reads that share sequence similarities with multiple species are assigned to a higher taxonomic rank (such as the genus or family level) rather than guessing a specific species. To resolve this, *Bracken* employs a Bayesian probabilistic model to evaluate these ambiguously classified reads. It mathematically redistributes them down to the species level based on the relative abundance of reads that were unambiguously assigned. 
+Concurrently, *Bracken* applies essential noise filtering by discarding taxa that appear below a defined abundance threshold. This combined approach of probabilistic reallocation and noise reduction ensures that the final output reports only confident, reliable microbial identifications rather than background computational artifacts.
 
 **7. Data Aggregation & Differential Abundance (Custom Scripts + R)**<br>
-The pipeline aggregates the data across the entire cohort into a unified matrix. It applies stringent prevalence filters to remove sparse taxa, and performs statistical testing (e.g., Wilcoxon rank-sum test) to pinpoint significantly enriched or depleted microbial populations.
+Once the individual microbial profiles are refined, the pipeline aggregates the data across the entire cohort. It merges the sample-level abundances into a unified, cohort-wide matrix.
+To identify biologically meaningful differences, the pipeline applies stringent prevalence and expression filters to remove sparse taxa. Finally, it integrates experimental metadata and performs statistical testing (e.g., Wilcoxon rank-sum test) to pinpoint which microbial populations are significantly enriched or depleted between different biological conditions.
 
 **8. Interactive Visualizations (`Krona` & `R/ggplot2`)**<br>
-*Krona* renders dynamic, multi-layered pie charts that allow researchers to visually explore the microbiome. Customized *R/ggplot2* scripts generate graphics to summarize the cohort.
+*Krona* renders dynamic, multi-layered pie charts that allow researchers to visually explore the microbiome. Customized *R/ggplot2* scripts generate publication-ready graphics to summarize the cohort, including:
+* **Top 10 Taxa**: Summary barplots highlighting the most abundant microbes across all samples.
+* **Abundance Heatmaps**: Visualizations to identify microbial clustering patterns across the cohort.
+* **Read Tracking**: Stacked barplots detailing the proportion of initial raw reads, unmapped reads, and successfully classified reads.
+
+**9. Targeted Genomic Validation (Optional)**<br>
+To confirm the biological presence of a specific microbe of interest (e.g., a suspected pathogen), the pipeline includes an orthogonal validation module. First, reads that were computationally assigned to the taxon of interest are explicitly extracted and converted back into FASTQ format using *KrakenTools*.
+These targeted reads are then rigorously aligned against the specific reference genome of that species using *Minimap2*. Finally, the resulting alignments are merged and prepared for visualization in *IGV*. This allows researchers to visually inspect the genomic coverage and physically confirm whether the reads map evenly across the microbe's genome, ruling out localized sequence artifacts or false positives.
 </details>
 
 ---
+### 🧩 Alternative Profiling Strategies (Optional)
+While the core pipeline relies on k-mer based classification with *Kraken2*, it also natively integrates alternative classifiers to provide rigorous cross-validation and orthogonal profiling:
+
+* **`MetaPhlAn4`**: Employs a curated database of unique clade-specific marker genes, providing highly precise species-level identification for bacteria and archaea.
+* **`Kaiju`**: Translates unmapped sequencing reads into amino acids and classifies them at the protein level. This approach is highly effective for identifying divergent or novel organisms that may evade standard nucleotide-based detection.
+
+
 
 ## ⚙️ Technical Requirements & Database Sizes
 

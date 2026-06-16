@@ -6,7 +6,6 @@ While sequencing experiments (like RNA-seq) are often designed to study a host o
 
 ---
 ## 🚀 Pipeline at a Glance
-
 ```mermaid
 flowchart TD
     %% Core Pipeline
@@ -35,11 +34,11 @@ flowchart TD
         O --> P((✅ Verified Microbial Presence))
     end
     
-    %% Styling
-    classDef default fill:#f9f9f9,stroke:#333,stroke-width:1px;
-    classDef matrix fill:#e1f5fe,stroke:#0288d1,stroke-width:2px;
-    classDef endpoint fill:#e8f5e9,stroke:#388e3c,stroke-width:2px;
-    classDef toolNode fill:#fff8e1,stroke:#ffb300,stroke-width:2px;
+    %% Styling - Explicitly locking text to black (color:#000) for Dark Mode compatibility
+    classDef default fill:#f9f9f9,stroke:#333,stroke-width:1px,color:#000;
+    classDef matrix fill:#e1f5fe,stroke:#0288d1,stroke-width:2px,color:#000;
+    classDef endpoint fill:#e8f5e9,stroke:#388e3c,stroke-width:2px,color:#000;
+    classDef toolNode fill:#fff8e1,stroke:#ffb300,stroke-width:2px,color:#000;
     
     %% Applying Classes
     class I matrix;
@@ -100,11 +99,11 @@ This pipeline relies on several memory-intensive steps, particularly during host
 | Tool | Component / Database | Disk Space (Index/DB) | Expected RAM Usage |
 | :--- | :--- | :--- | :--- |
 | **`STAR`** | Host Genome (e.g., GRCh38/mm10) | ~27 GB | ~30 GB |
-| **`Kraken2`** | NCBI PlusPF Database | ~80–104 GB | ~65–85 GB |
-| **`Kraken2`** | GTDB v226 Database | ~650 GB | ~650 GB |
+| **`Kraken2`** | NCBI PlusPF Database | ~80–104 GB | ~128 GB |
+| **`Kraken2`** | GTDB v226 Database | ~650 GB | ~700 GB |
 | **`Kraken2`** | NCBI core_nt Database (Optional) | ~316 GB | ~320 GB |
-| **`MetaPhlAn4`** | `mpa_vJun23_CHOCOPhlAnSGB` (Optional)| ~19 GB | ~19 GB |
-| **`Kaiju`** | `nr_euk` Database (Optional) | ~40–50 GB | ~45 GB |
+| **`MetaPhlAn4`** | `mpa_vJun23_CHOCOPhlAnSGB` (Optional)| ~19 GB | ~24 GB |
+| **`Kaiju`** | `nr_euk` Database (Optional) | ~40–50 GB | ~60 GB |
 | **`Minimap2`** | Microbial Reference (per species) | < 1 GB | ~4 GB |
 
 ### General Tool Requirements

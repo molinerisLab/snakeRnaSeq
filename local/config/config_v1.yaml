@@ -30,7 +30,6 @@ GENCODE:
   GENOME: "GRCh38.p14" # GRCh38.primary_assembly | GRCm38.primary_assembly
   ANNOTATION: "primary_assembly.annotation" # primary_assembly.annotation | basic.annotation
 
-GENOME_ASSEMBLY: "GRCh38.p14"
 # ========================
 # ALIGNMENT (STAR)
 # ========================
@@ -137,11 +136,11 @@ BRACKEN:
   braken_min_reads: 5
   braken_level: "S"
 
-kraken_db: "/mnt/nobackup/home/reference_data/bioinfotree/task/kraken/GTDB/v226" #/mnt/nobackup/home/reference_data/bioinfotree/task/kraken/GTDB/v226 #/home/reference_data/bioinfotree/task/kraken/nobackup/k2_pluspf_20250402
+kraken_db: "/mnt/nvme_raid0/molinerislab/GTDB/v226" #/mnt/nobackup/home/reference_data/bioinfotree/task/kraken/GTDB/v226 #/home/reference_data/bioinfotree/task/kraken/nobackup/k2_pluspf_20250402
 kraken_db_nr: "/home/reference_data/bioinfotree/task/kraken/nobackup/k2_nt"
 kraken_options: "--minimum-hit-groups 2"
 kraken_k2d: "/home/reference_data/bioinfotree/task/kraken/nobackup/k2_pluspf_20250402/taxo.k2d"
-
+kraken_extract_taxid: "150191" 
 # ========================
 # FEATURE FILTERING
 # ========================
@@ -203,3 +202,74 @@ kaiju:
   db_Names: "/mnt/nobackup/home/reference_data/bioinfotree/task/kaiju/names.dmp"
 
 kaiju_merge: lca
+
+
+
+###############
+# GSEA CONFIG #
+###############
+
+MSIGDB_VERSION: "v7.5.1"
+# e.g. v7.5.1|v2022.1.Mm/
+
+# Dashed list of msigdb collection of geneset to be investigated
+MSIGDB_TYPES:
+        "v7.5.1":
+                - "h.all" # hallmark gene sets
+                - "c1.all" # positional gene sets
+                - "c2.cgp" # curated gene sets - chemical and genetic perturbations
+                - "c2.cp.biocarta" # curated gene sets - BioCarta
+                - "c2.cp.kegg" # curated gene sets - KEGG
+                - "c2.cp.reactome" # curated gene sets - Reactome
+                - "c2.cp" # curated gene sets - Canonical pathways
+                - "c3.mir" # regulatory target gene sets - miRNA
+                - "c3.tft" # regulatory target gene sets - TF
+                - "c4.cgn" # computational gene sets - cancer gene neighborhoods
+                - "c4.cm" # computational gene sets - cancer modules
+                - "c5.go.mf" # ontology gene sets - Molecular Function
+                - "c5.go.bp" # ontology gene sets - Biological Process
+                - "c5.go.cc" # ontology gene sets - Cellular Component
+                - "c6.all" # oncogenic signature gene sets
+                - "c7.all" # immunologic signature gene sets
+                - "c8.all" # cell type signature gene sets
+        "v2022.1.Mm":
+                - "m1.all"
+                - "m2.cgp"
+                - "m2.cp.biocarta"
+                - "m2.cp.reactome"
+                - "m2.cp"
+                - "m2.cp.wikipathways"
+                - "m3.gtrd"
+                - "m3.mirdb"
+                - "m5.go.bp"
+                - "m5.go.cc"
+                - "m5.go.mf"
+                - "m5.go"
+                - "m5.mpt"
+                - "m8.all"
+                - "mh.all"
+
+
+
+RNK_METRIC: "logFC_pval"
+# e.g. logFC|logFC_pval
+
+MAX_GENES_IN_SET: 5000
+MIN_GENES_IN_SET: 5
+
+GSEA_WEIGHT: 0 
+# e.g. 0|1
+# https://www.biostars.org/p/263074/
+
+MSIGDB_DIR: DAP_REFERENCE_ROOT + "/msigdb/dataset/" + MSIGDB_VERSION
+
+
+#################
+#
+# Publish params
+#
+
+GSEA_PUBLISH_HOST: 192.168.186.10
+GSEA_PUBLISH_USER: aleone
+GSEA_PUBLISH_REPLACE_FROM: \/home
+GSEA_PUBLISH_REPLACE_TO: /home/aleone/SnakeGSEA/dataset/v1

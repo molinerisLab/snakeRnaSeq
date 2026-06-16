@@ -316,7 +316,7 @@ rule extract_kraken_reads:
         kraken2_report="kreports/{sample}.k2report",
         fastq_r1="fastq/unmapped/{sample}_unmapped_R1.fastq.gz",
     output:
-        fastq_r1_unclassified="fastq_idmapped/{sample}_R1.fastq.gz",
+        fastq_r1_unclassified="fastq_idmapped/{taxid}/{sample}_R1.fastq.gz",
     params:
         taxid=config.get("kraken_extract_taxid"),
     shell:
@@ -678,11 +678,25 @@ rule combine_all_beds:
 # =============================================================================
 # minimap2 alignment of extracted reads vs generic references
 # =============================================================================
-
+rule fetch_gtdb_representative:
+    output:
+        fasta="Resources/genomes/Paracoccus_marinus/genome.fna"
+    params:
+        accession="GCA_030161055.1"
+    shell:
+        """
+        # Download the specific assembly
+        datasets download genome accession {params.accession} --include genome --filename {params.accession}.zip
+        
+        # Extract the sequence and stream it to the desired output, then clean up
+        unzip -p {params.accession}.zip "ncbi_dataset/data/{params.accession}/*.fna" > {output.fasta}
+        rm {params.accession}.zip
+        """
+        
 MINIMAP2 = "/home/molinerislab/IsellaIsoforms/local/env/conda/bin/minimap2"
 
 # Define available references here. You can add more species as needed.
-MINIMAP2_REFS = "Resources/GCF_022494545.1_ASM2249454v1_genomic.fna"
+MINIMAP2_REFS = "Resources/genomes/Paracoccus_marinus/genome.fna"
 # {
 #     "aureus": "Resources/GCF_022494545.1_ASM2249454v1_genomic.fna",
 #     "cerus": "Resources/b_cerus/ncbi_dataset/data/GCF_030518615.1/GCF_030518615.1_ASM3051861v1_genomic.fna"
@@ -695,13 +709,13 @@ ruleorder: minimap2_merge > minimap2_index
 rule all_minimap2:
     """Align FASTA reads against all defined references and merge them."""
     input:
-        expand("minimap2_{species}/merged_all_samples.bam.bai", species="aureus"),
+        expand("minimap2_{species}/merged_all_samples.bam.bai", species="parococcus_marinus"),
 
 
 rule minimap2_align:
     """Align extracted reads (FASTA) with minimap2 short-read preset to a specific species."""
     input:
-        fq="fastq_idmapped/{sample}_R1.fastq.gz",
+        fq="fastq_idmapped/150191/{sample}_R1.fastq.gz",
     output:
         bam="minimap2_{species}/{sample}.bam",
     params:
@@ -859,3 +873,4 @@ rule blast_overrepresented_nt:
             touch {output.out}
         fi
         """
+

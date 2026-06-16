@@ -239,3 +239,10 @@ rule clean_bam_downstream:
             echo "no downstream processed bai files found"
         fi
     """
+rule symlink_star_bai_short:
+    input:
+        "Results/star/{sample}/Aligned.sortedByCoord.out.bam.bai"
+    output:
+        "star/{sample}.bai"
+    shell:
+        "mkdir -p star; ln -sfr {input} {output}"

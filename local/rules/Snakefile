@@ -225,7 +225,7 @@ rule all_filbracken:
 
 rule all_extract_reads:
     input:
-        expand("fastq_idmapped/{sample}_R1.fastq.gz", sample=SAMPLES)
+        expand("fastq_idmapped/{taxid}/{sample}_R1.fastq.gz", sample=SAMPLES, taxid=config.get("kraken_extract_taxid"))
 
 rule all_extract_h_reads:
     input:

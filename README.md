@@ -62,3 +62,10 @@ snakemake examplerule
 ## 📊 DGE analysis
 For any DGE analysis, please set the dge_tool in the config.yaml. Then you should run snakemake with the --use-conda flag and ask for the file to be made in the DGE folder
     e.g. snakemake -j 1 --use-conda DGE/edger.toptable_clean.ALL_contrast.gz
+
+---
+
+## 🦠 Metagenomics Pipeline
+In addition to standard RNA-seq analysis, this workflow includes a metagenomics module to discover and quantify microbial populations from unmapped reads. 
+
+[👉 View the Metagenomics Pipeline Overview](README_Metagenome.md)

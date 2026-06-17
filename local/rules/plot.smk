@@ -44,3 +44,53 @@ rule plot_top_mad_transcripts:
         mkdir -p plots
         Rscript --vanilla {input.rscript}
         """
+
+########################
+### Rules for krona  ###
+########################
+
+
+rule krona_txt:
+    input:
+        "breports_filtered/{sample}.breport",
+    output:
+        "b_krona_txt/{sample}.b.krona.txt",
+    shell:
+        """
+        kreport2krona.py -r {input} -o {output} --no-intermediate-ranks
+    """
+
+
+rule krona_html:
+    input:
+        "b_krona_txt/{sample}.b.krona.txt",
+    output:
+        "krona_html/{sample}.krona.html",
+    shell:
+        """
+        ktImportText {input} -o {output}
+        """
+
+rule common_taxa_in_samples:
+    input:
+        expand("boutputs_filtered/{sample}.braken", sample=SAMPLES),
+    output:
+        "results/common_taxa.csv",
+        directory("results"),
+    params:
+        samples=SAMPLES,
+    shell:
+        """
+        mkdir -p results 
+        Rscript ../../local/src/common_species.R
+        """
+
+
+rule reads_human_contam_classified:
+    output:
+        "classified_vs_human_contaminant_barplot_normalized.png",
+        "classified_vs_human_contaminant_barplot_percentage.png",
+    shell:
+        """
+        Rscript /home/molinerislab/NeriMetagenome/workflow/src/plot_reads.R
+        """

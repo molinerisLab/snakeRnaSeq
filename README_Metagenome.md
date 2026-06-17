@@ -14,6 +14,7 @@ The overall process follows a structured, step-by-step path to filter, classify,
 ## 🚀 Pipeline at a Glance
 ```mermaid
 flowchart TD
+linkStyle default stroke:#333,stroke-width:2px,color:#000;
     %% Core Pipeline
     A[📦 Raw FASTQ Reads] --> B(🛠️ <b>fastp</b>: QC & Adapter Trimming)
     B --> C(🧬 <b>STAR</b>: Host Read Alignment & Separation)
@@ -56,48 +57,49 @@ flowchart TD
 
 <details>
 <summary><b>📖 Click to read detailed pipeline step descriptions</b></summary>
+
 <br>
 
-**1. Quality Control (`fastp`)**<br>
-Before biological analysis, the raw sequencing data undergoes rigorous quality control. *fastp* ensures the removal of low-quality bases and technical artifacts (such as adapter sequences) to provide a clean dataset for downstream alignment.
+**1. Quality Control (`fastp`)**
+* Before biological analysis, the raw sequencing data undergoes rigorous quality control. *fastp* ensures the removal of low-quality bases and technical artifacts (such as adapter sequences) to provide a clean dataset for downstream alignment.
 
-**2. Host Read Separation (`STAR`)**<br>
-Because the initial sequencing targeted the host organism (e.g., Human or Mouse), the vast majority of the reads belong to the host. *STAR* aligns all the sequences against the respective host reference genome. Any read that successfully maps to the host is separated and set aside for standard transcriptomic analysis.
+**2. Host Read Separation (`STAR`)**
+* **Host Alignment:** Because the initial sequencing targeted the host organism (e.g., Human or Mouse), the vast majority of the reads belong to the host. *STAR* aligns all the sequences against the respective host reference genome. Any read that successfully maps to the host is separated and set aside for standard transcriptomic analysis.
+* **Microbiome Isolation:** What remains is a collection of *unmapped* reads. This leftover data serves as the core input for the metagenomic analysis, as it contains the genetic signatures of the microbiome, alongside potential uncharacterized biological elements.
 
-What remains is a collection of *unmapped* reads. This leftover data serves as the core input for the metagenomic analysis, as it contains the genetic signatures of the microbiome, alongside potential uncharacterized biological elements.
+**3. Initial Taxonomic Classification (`Kraken2`)**
+* **The Process:** Once the host data is depleted, the remaining unmapped sequences are queried by *Kraken2* against comprehensive databases of known microbial genomes to achieve a robust taxonomic classification.
+* **Dual-Database Strategy:** To ensure the highest accuracy and mitigate the risk of false positives, the pipeline cross-references the data against two distinct databases:
+  * **NCBI PlusPF Database:** A broad, standard database covering bacteria, archaea, viruses, and fungi. *(Limitation: Due to the over-representation of clinical isolates in public repositories, it is prone to erroneously assigning novel environmental sequences to well-studied taxa—database bias).*
+  * **GTDB (Genome Taxonomy Database):** A highly standardized database focused specifically on high-quality bacterial and archaeal genomes. *(Limitation: It relies exclusively on prokaryotic phylogenies, making it inherently blind to viruses and fungi).*
 
-**3. Initial Taxonomic Classification (`Kraken2`)**<br>
-Once the host data is depleted, the remaining unmapped sequences are queried by *Kraken2* against comprehensive databases of known microbial genomes to achieve a robust taxonomic classification.
+**4. Secondary Host Depletion (`KrakenTools`)**
+* **Flagging Residuals:** Despite the initial alignment step, some residual host reads can still escape detection. During the first Kraken2 classification against the NCBI PlusPF database, any sequence that is classified as _Homo sapiens_ (TaxID: 9606) is explicitly flagged.
+* **Extraction:** These residual host reads are computationally extracted and removed from the unmapped dataset.
 
-  To ensure the highest accuracy and mitigate the risk of false positives, the pipeline cross-references the data against two distinct databases:
-  - **NCBI PlusPF Database**: A broad, standard database covering bacteria, archaea, viruses, and fungi. *Limitation:* Due to the over-representation of clinical isolates in public repositories, it is prone to erroneously assigning novel environmental sequences to well-studied taxa (database bias).
-  - **GTDB (Genome Taxonomy Database)**: A highly standardized database focused specifically on high-quality bacterial and archaeal genomes. *Limitation:* It relies exclusively on prokaryotic phylogenies, making it inherently blind to viruses and fungi.
+**5. Second-Pass Classification (`Kraken2`)**
+* Kraken2 is executed a second time on this strictly depleted dataset. This rigorous two-pass approach ensures that the final microbial profile is not skewed by human sequences.
 
-**4. Secondary Host Depletion (`KrakenTools`)**<br>
-Despite the initial alignment step, some residual host reads can still escape detection. During the first Kraken2 classification against the NCBI PlusPF database, any sequence that is classified as _Homo sapiens_ (TaxID: 9606) is explicitly flagged.
-These residual host reads are computationally extracted and removed from the unmapped dataset.
+**6. Abundance Estimation & Noise Filtering (`Bracken`)**
+* **Resolving Ambiguity:** After the initial taxonomic classification, the pipeline estimates the precise *relative abundance* of the identified microbial populations. Because Kraken2 is a conservative classifier, reads that share sequence similarities with multiple species are assigned to a higher taxonomic rank (such as the genus or family level) rather than guessing a specific species. 
+* **Probabilistic Reallocation:** To resolve this, *Bracken* employs a Bayesian probabilistic model to evaluate these ambiguously classified reads. It mathematically redistributes them down to the species level based on the relative abundance of reads that were unambiguously assigned. 
+* **Noise Reduction:** Concurrently, *Bracken* applies essential noise filtering by discarding taxa that appear below a defined abundance threshold. This combined approach of probabilistic reallocation and noise reduction ensures that the final output reports only confident, reliable microbial identifications rather than background computational artifacts.
 
-**5. Second-Pass Classification (`Kraken2`)**<br>
-Kraken2 is executed a second time on this strictly depleted dataset. This rigorous two-pass approach ensures that the final microbial profile is not skewed by human sequences.
+**7. Data Aggregation & Differential Abundance (Custom Scripts + R)**
+* **Matrix Generation:** Once the individual microbial profiles are refined, the pipeline aggregates the data across the entire cohort. It merges the sample-level abundances into a unified, cohort-wide matrix.
+* **Statistical Analysis:** To identify biologically meaningful differences, the pipeline applies stringent prevalence and expression filters to remove sparse taxa. Finally, it integrates experimental metadata and performs statistical testing (e.g., Wilcoxon rank-sum test) to pinpoint which microbial populations are significantly enriched or depleted between different biological conditions.
 
-**6. Abundance Estimation & Noise Filtering (`Bracken`)**<br>
-After the initial taxonomic classification, the pipeline estimates the precise *relative abundance* of the identified microbial populations. 
-Because Kraken2 is a conservative classifier, reads that share sequence similarities with multiple species are assigned to a higher taxonomic rank (such as the genus or family level) rather than guessing a specific species. To resolve this, *Bracken* employs a Bayesian probabilistic model to evaluate these ambiguously classified reads. It mathematically redistributes them down to the species level based on the relative abundance of reads that were unambiguously assigned. 
-Concurrently, *Bracken* applies essential noise filtering by discarding taxa that appear below a defined abundance threshold. This combined approach of probabilistic reallocation and noise reduction ensures that the final output reports only confident, reliable microbial identifications rather than background computational artifacts.
+**8. Interactive Visualizations (`Krona` & `R/ggplot2`)**
+* *Krona* renders dynamic, multi-layered pie charts that allow researchers to visually explore the microbiome. 
+* Customized *R/ggplot2* scripts generate publication-ready graphics to summarize the cohort, including:
+  * **Top 10 Taxa:** Summary barplots highlighting the most abundant microbes across all samples.
+  * **Abundance Heatmaps:** Visualizations to identify microbial clustering patterns across the cohort.
+  * **Read Tracking:** Stacked barplots detailing the proportion of initial raw reads, unmapped reads, and successfully classified reads.
 
-**7. Data Aggregation & Differential Abundance (Custom Scripts + R)**<br>
-Once the individual microbial profiles are refined, the pipeline aggregates the data across the entire cohort. It merges the sample-level abundances into a unified, cohort-wide matrix.
-To identify biologically meaningful differences, the pipeline applies stringent prevalence and expression filters to remove sparse taxa. Finally, it integrates experimental metadata and performs statistical testing (e.g., Wilcoxon rank-sum test) to pinpoint which microbial populations are significantly enriched or depleted between different biological conditions.
+**9. Targeted Genomic Validation (Optional)**
+* **Read Extraction:** To confirm the biological presence of a specific microbe of interest (e.g., a suspected pathogen), the pipeline includes an orthogonal validation module. First, reads that were computationally assigned to the taxon of interest are explicitly extracted and converted back into FASTQ format using *KrakenTools*.
+* **Re-alignment & Inspection:** These targeted reads are then rigorously aligned against the specific reference genome of that species using *Minimap2*. Finally, the resulting alignments are merged and prepared for visualization in *IGV*. This allows researchers to visually inspect the genomic coverage and physically confirm whether the reads map evenly across the microbe's genome, ruling out localized sequence artifacts or false positives.
 
-**8. Interactive Visualizations (`Krona` & `R/ggplot2`)**<br>
-*Krona* renders dynamic, multi-layered pie charts that allow researchers to visually explore the microbiome. Customized *R/ggplot2* scripts generate publication-ready graphics to summarize the cohort, including:
-* **Top 10 Taxa**: Summary barplots highlighting the most abundant microbes across all samples.
-* **Abundance Heatmaps**: Visualizations to identify microbial clustering patterns across the cohort.
-* **Read Tracking**: Stacked barplots detailing the proportion of initial raw reads, unmapped reads, and successfully classified reads.
-
-**9. Targeted Genomic Validation (Optional)**<br>
-To confirm the biological presence of a specific microbe of interest (e.g., a suspected pathogen), the pipeline includes an orthogonal validation module. First, reads that were computationally assigned to the taxon of interest are explicitly extracted and converted back into FASTQ format using *KrakenTools*.
-These targeted reads are then rigorously aligned against the specific reference genome of that species using *Minimap2*. Finally, the resulting alignments are merged and prepared for visualization in *IGV*. This allows researchers to visually inspect the genomic coverage and physically confirm whether the reads map evenly across the microbe's genome, ruling out localized sequence artifacts or false positives.
 </details>
 
 ---
@@ -128,3 +130,46 @@ This pipeline relies on several memory-intensive steps, particularly during host
 ### General Tool Requirements
 * **`fastp`, `KrakenTools`, `Bracken`, `Krona`, `R Stats`**: These utilities are relatively lightweight and will run comfortably on standard compute nodes with **8–16 GB RAM**.
 * **Storage**: In addition to the database sizes listed above, ensure you have sufficient temporary disk space to handle intermediate fastq files (unmapped reads) and `.sam`/`.bam` alignments.
+
+## 🔬 Visualizing Results with IGV (Remote Server Setup)
+
+Once the targeted validation module successfully maps extracted reads against a reference genome, you can visually inspect the `.bam` alignments. If your pipeline runs on a headless remote server, you can securely stream the files to your local browser or desktop app without downloading massive BAM files.
+
+### Step 1: Open a Secure SSH Tunnel
+Bind a local port on your machine to the remote server to route the data securely. Run this on your **local machine's terminal**:
+
+```bash
+ssh -L 8080:localhost:8080 user@server_address
+```
+
+### Step 2: Start the Smart Python Server
+IGV relies on "Byte-Range" requests to stream only the specific genomic coordinates you are viewing. The default Python HTTP server will crash when attempting this. Instead, use `RangeHTTPServer`.
+
+Navigate to the root directory of your pipeline on the **remote server** and run:
+
+```bash
+# Install if not already present: pip install RangeHTTPServer
+python3 -m RangeHTTPServer 8080
+```
+*(Tip: You can run this inside a `tmux` session to keep the server alive in the background permanently).*
+
+### Step 3: Stream to IGV
+Open the **[IGV Web App](https://igv.org/app/)** (or the IGV Desktop App) on your local machine.
+
+**1. Load the Reference Genome (and Annotations):**
+* Click **Tracks** > **URL...** (or *File > Load from URL* in Desktop).
+* **Fasta URL:** `http://localhost:8080/Resources/genomes/<TaxID>/genome.fna`
+* **Index URL:** `http://localhost:8080/Resources/genomes/<TaxID>/genome.fna.fai`
+* *(Optional)* **Annotation GFF:** `http://localhost:8080/Resources/genomes/<TaxID>/annotation.gff`
+
+**2. Load the Read Alignments:**
+* Click **Tracks** > **URL...**
+* **Track URL (BAM):** `http://localhost:8080/alignments_merged/<TaxID>/merged_all_samples.bam`
+* **Index URL (BAI):** `http://localhost:8080/alignments_merged/<TaxID>/merged_all_samples.bam.bai`
+
+### Step 4: Locating High-Coverage Contigs
+If your reference genome is highly fragmented (e.g., hundreds of contigs), do not guess where your reads landed. Use `samtools` on your server to instantly rank the contigs by read depth:
+
+```bash
+samtools idxstats alignments_merged/<TaxID>/merged_all_samples.bam | sort -k3,3nr | head -n 10
+```

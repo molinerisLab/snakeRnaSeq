@@ -1,14 +1,42 @@
+##########################################################################
+# Helper function to fetch assembly accessions for download based on TaxID
+##########################################################################
+# TODO: change the absolute path 
+MINIMAP2 = "/home/molinerislab/IsellaIsoforms/local/env/conda/bin/minimap2"
+
+import pandas as pd
+
+import os
+
+if os.path.exists("./final_taxid_mapping.tsv"):
+    TAX_MAP = pd.read_csv("./final_taxid_mapping.tsv", sep="\t", dtype=str).set_index("kraken_taxid")
+else:
+    TAX_MAP = pd.DataFrame()
+
+# Create a helper function to dynamically fetch the accession
+def get_accession_for_download(wildcards):
+    taxid_str = str(wildcards.taxid)
+    if taxid_str in TAX_MAP.index:
+        return TAX_MAP.loc[taxid_str, "assembly_accession"]
+    else:
+        raise ValueError(f"CRITICAL FAULT: TaxID {taxid_str} is missing from kraken_master_map.tsv")
+
+if config["LAYOUT"] == "PAIRED":
+    ruleorder: kraken_pe_pass1 > kraken_se_pass1
+    ruleorder: remove_taxid_reads_pe > remove_taxid_reads_se
+    ruleorder: kraken_pe_pass2 > kraken_se_pass2
+else:
+    ruleorder: kraken_se_pass1 > kraken_pe_pass1
+    ruleorder: remove_taxid_reads_se > remove_taxid_reads_pe
+    ruleorder: kraken_se_pass2 > kraken_pe_pass2
+
+
 ##########################
 ### Rules for Kraken2  ###
 ##########################
-if config["LAYOUT"] == "PAIRED":
-
-    ruleorder: kraken_pe_pass1 > kraken_se_pass1
-
-else:
-
-    ruleorder: kraken_se_pass1 > kraken_pe_pass1
-
+rule all_metagenome:
+    input:
+        expand("alignments_merged/{taxid}/merged_all_samples.bam.bai", taxid=config["kraken_extract_taxid"])
 
 rule kraken_pe_pass1:
     input:
@@ -22,32 +50,13 @@ rule kraken_pe_pass1:
     threads: 6
     shell:
         """
-        kraken2 --db {config[kraken_db]} \
+        kraken2 --db {config[kraken_db_pass1]} {config[kraken_options]}\
             --threads {threads} \
             --report {output.report} \
             --output {output.out} \
             --paired {input.R1} {input.R2} \
             --unclassified-out unclassified/{wildcards.sample}_unclassified_#.fq
     """
-
-
-rule kraken_nr_paired_ends:
-    input:
-        R1="fastq/unmapped/{sample}_unmapped_R1.fastq.gz",
-        R2="fastq/unmapped/{sample}_unmapped_R2.fastq.gz",
-    output:
-        report="kreports_nr/{sample}.k2report",
-        out="koutputs_nr/{sample}.kraken2",
-    threads: 6
-    shell:
-        """
-        kraken2 --db {config[kraken_db_nr]} {config[kraken_options]} \
-            --threads {threads} \
-            --report {output.report}\
-            --output {output.out} \
-            --paired {input.R1} {input.R2}
-    """
-
 
 rule kraken_se_pass1:
     input:
@@ -58,17 +67,16 @@ rule kraken_se_pass1:
     threads: 6
     shell:
         """
-        kraken2 --db {config[kraken_db]} {config[kraken_options]} \
+        kraken2 --db {config[kraken_db_pass1]} {config[kraken_options]} \
             --threads {threads} \
             --report-minimizer-data \
-            --memory-mapping \
             --report {output.report} \
             --output {output.out} \
             {input.R1}
         """
 
 
-rule remove_taxid_reads:
+rule remove_taxid_reads_se:
     input:
         kraken2_output="koutputs/{sample}.kraken2",
         kraken2_report="kreports/{sample}.k2report",
@@ -103,7 +111,52 @@ rule remove_taxid_reads:
 
         gzip -f "$tmp"
         """
+rule remove_taxid_reads_pe:
+    input:
+        kraken2_output="koutputs/{sample}.kraken2",
+        kraken2_report="kreports/{sample}.k2report",
+        fastq_r1="fastq/unmapped/{sample}_unmapped_R1.fastq.gz",
+        fastq_r2="fastq/unmapped/{sample}_unmapped_R2.fastq.gz", # Added R2 input
+    output:
+        fastq_r1_nonhost="fastq/fastq_taxid_depleted/{sample}_R1.fastq.gz",
+        fastq_r2_nonhost="fastq/fastq_taxid_depleted/{sample}_R2.fastq.gz", # Added R2 output
+    params:
+        taxids=lambda wc: " ".join(
+            [
+                str(t)
+                for t in config.get("CONTAMINANT_INFO", {}).get("humanID", [])
+                + config.get("CONTAMINANT_INFO", {}).get("contaminant", [])
+            ]
+        ),
+        exclude_opt="--exclude",
+        children_opt="--include-children",
+    shell:
+        r"""
+        mkdir -p fastq/fastq_taxid_depleted
+        
+        # Strip the .gz extension to create temporary uncompressed targets
+        out1="{output.fastq_r1_nonhost}"
+        tmp1=$(printf '%s\n' "$out1" | sed 's/\.gz$//')
+        
+        out2="{output.fastq_r2_nonhost}"
+        tmp2=$(printf '%s\n' "$out2" | sed 's/\.gz$//')
 
+        # Execute extraction for both strands
+        extract_kraken_reads.py \
+            -k {input.kraken2_output} \
+            -s1 {input.fastq_r1} \
+            -s2 {input.fastq_r2} \
+            -t {params.taxids} \
+            -r {input.kraken2_report} \
+            {params.exclude_opt} \
+            {params.children_opt} \
+            -o "$tmp1" \
+            -o2 "$tmp2" \
+            --fastq-output
+
+        # Compress both files in parallel
+        gzip -f "$tmp1" "$tmp2"
+        """
 
 rule kraken_se_pass2:
     input:
@@ -123,6 +176,24 @@ rule kraken_se_pass2:
             {input.R1}
         """
 
+rule kraken_pe_pass2:
+    input:
+        R1="fastq/fastq_taxid_depleted/{sample}_R1.fastq.gz",
+        R2="fastq/fastq_taxid_depleted/{sample}_R2.fastq.gz",
+    output:
+        report="kreports_filtered/{sample}.k2report",
+        out="koutput_filtered/{sample}.kraken2",
+    threads: 6
+    shell:
+        """
+        kraken2 --db {config[kraken_db]} {config[kraken_options]} \
+            --threads {threads} \
+            --report-minimizer-data \
+            --memory-mapping \
+            --report {output.report} \
+            --output {output.out} \
+            --paired {input.R1} {input.R2}
+        """
 
 """
 .META: *.kreport
@@ -135,11 +206,10 @@ rule kraken_se_pass2:
 
 https://github.com/DerrickWood/kraken2/wiki/Manual#classification
 """
-
-
 #########################
 ### Rules for Bracken ###
 #########################
+
 rule braken:
     input:
         "kreports/{sample}.k2report",
@@ -189,35 +259,6 @@ rule filbracken_merged:
         combine_bracken_outputs.py --files {input.outputs} -o {output} 2> {log} 
         """
 
-
-
-
-
-########################
-### Rules for krona  ###
-########################
-
-
-rule krona_txt:
-    input:
-        "breports_filtered/{sample}.breport",
-    output:
-        "b_krona_txt/{sample}.b.krona.txt",
-    shell:
-        """
-        kreport2krona.py -r {input} -o {output} --no-intermediate-ranks
-    """
-
-
-rule krona_html:
-    input:
-        "b_krona_txt/{sample}.b.krona.txt",
-    output:
-        "krona_html/{sample}.krona.html",
-    shell:
-        """
-        ktImportText {input} -o {output}
-        """
 
 
 rule spit_merged:
@@ -298,7 +339,7 @@ rule degw:
         | bawk 'NR==1 {{$1="name\ttaxonomy_id\tlevel"; print}} NR>1{{gsub(/;/, "\t", $1); print}}' > {output}
     """
 
-
+# TODO: Check if is needed. Use the extract_kraken_reads instead
 rule extract_unclassified_id_paired:
     input:
         "koutput_filtered/{sample}.kraken2",
@@ -309,29 +350,133 @@ rule extract_unclassified_id_paired:
         awk '{{print $2,$1}}' {input} | collapsesets 2 | bawk '$2=="U"' > {output}
     """
 
+#############################################
+# Extract TAXID and map to reference genome #
+#############################################
 
 rule extract_kraken_reads:
     input:
-        kraken2_output="koutputs/{sample}.kraken2",
-        kraken2_report="kreports/{sample}.k2report",
-        fastq_r1="fastq/unmapped/{sample}_unmapped_R1.fastq.gz",
+        kraken2_output="koutput_filtered/{sample}.kraken2",
+        kraken2_report="kreports_filtered/{sample}.k2report",
+        fastq_r1="fastq/fastq_taxid_depleted/{sample}_R1.fastq.gz",
+        fastq_r2="fastq/fastq_taxid_depleted/{sample}_R2.fastq.gz" if config["LAYOUT"] == "PAIRED" else []
     output:
         fastq_r1_unclassified="fastq_idmapped/{taxid}/{sample}_R1.fastq.gz",
+        fastq_r2_unclassified="fastq_idmapped/{taxid}/{sample}_R2.fastq.gz" if config["LAYOUT"] == "PAIRED" else []
     params:
-        taxid=config.get("kraken_extract_taxid"),
+        # Pass the layout variable down to the shell block
+        layout=config["LAYOUT"]
     shell:
-        """
-        mkdir -p fastq_idmapped
-        extract_kraken_reads.py \
-            -k {input.kraken2_output} \
-            --taxid {params.taxid} \
-            --include-children \
-            -s {input.fastq_r1} \
-            --report {input.kraken2_report} \
-            --fastq-output \
-            -o >(gzip > {output.fastq_r1_unclassified}) 
+        r"""
+        mkdir -p fastq_idmapped/{wildcards.taxid}
+        
+        out1="{output.fastq_r1_unclassified}"
+        tmp1=$(printf '%s\n' "$out1" | sed 's/\.gz$//')
+
+        
+        if [ "{params.layout}" = "PAIRED" ]; then
+            out2="{output.fastq_r2_unclassified}"
+            tmp2=$(printf '%s\n' "$out2" | sed 's/\.gz$//')
+            
+            extract_kraken_reads.py \
+                -k {input.kraken2_output} \
+                --taxid {wildcards.taxid} \
+                --include-children \
+                -s {input.fastq_r1} \
+                -s2 {input.fastq_r2} \
+                --report {input.kraken2_report} \
+                --fastq-output \
+                -o "$tmp1" \
+                -o2 "$tmp2"
+                
+            gzip -f "$tmp1" "$tmp2"
+        else
+            extract_kraken_reads.py \
+                -k {input.kraken2_output} \
+                --taxid {wildcards.taxid} \
+                --include-children \
+                -s {input.fastq_r1} \
+                --report {input.kraken2_report} \
+                --fastq-output \
+                -o "$tmp1"
+                
+            gzip -f "$tmp1"
+        fi
         """
 
+rule fetch_gtdb_representative:
+    output:
+        fasta="Resources/genomes/{taxid}/genome.fna",
+        fai="Resources/genomes/{taxid}/genome.fna.fai",
+        gff="Resources/genomes/{taxid}/annotation.gff" 
+    params:
+        accession=get_accession_for_download
+    shell:
+        """
+        datasets download genome accession {params.accession} --include genome,gff3 --filename {params.accession}.zip
+        unzip -p {params.accession}.zip "ncbi_dataset/data/{params.accession}/*.fna" > {output.fasta}
+        unzip -p {params.accession}.zip "ncbi_dataset/data/{params.accession}/genomic.gff" > {output.gff}
+        rm {params.accession}.zip
+        samtools faidx {output.fasta}
+        """
+        
+
+ruleorder: minimap2_merge > minimap2_index
+
+
+
+rule minimap2_align:
+    """Align extracted reads with minimap2 short-read preset to the dynamic reference."""
+    input:
+        fq1="fastq_idmapped/{taxid}/{sample}_R1.fastq.gz",
+        # Dynamically expect R2 if paired
+        fq2="fastq_idmapped/{taxid}/{sample}_R2.fastq.gz" if config["LAYOUT"] == "PAIRED" else [],
+        ref="Resources/genomes/{taxid}/genome.fna"
+    output:
+        bam="alignments/{taxid}/{sample}.bam",
+    params:
+        layout=config["LAYOUT"]
+    threads: 8
+    shell:
+        """
+        if [ "{params.layout}" = "PAIRED" ]; then
+            # Feed both fq1 and fq2 to minimap2
+            {MINIMAP2} -ax sr -t {threads} --secondary=no \
+                {input.ref} {input.fq1} {input.fq2} \
+                | samtools view -bS -F 4 \
+                | samtools sort -o {output.bam}
+        else
+            # Feed only fq1
+            {MINIMAP2} -ax sr -t {threads} --secondary=no \
+                {input.ref} {input.fq1} \
+                | samtools view -bS -F 4 \
+                | samtools sort -o {output.bam}
+        fi
+        """
+
+rule minimap2_index:
+    """Universal indexer for single-sample BAMs."""
+    input:
+        "alignments/{taxid}/{sample}.bam"
+    output:
+        "alignments/{taxid}/{sample}.bam.bai"
+    shell:
+        "samtools index {input}"
+
+rule minimap2_merge:
+    """Merge all per-sample minimap2 BAMs into a single file for IGV/coverage."""
+    input:
+        bams=expand("alignments/{{taxid}}/{sample}.bam", sample=SAMPLES),
+        bais=expand("alignments/{{taxid}}/{sample}.bam.bai", sample=SAMPLES)
+    output:
+        bam="alignments_merged/{taxid}/merged_all_samples.bam",
+        bai="alignments_merged/{taxid}/merged_all_samples.bam.bai"
+    shell:
+        """
+        mkdir -p alignments_merged/{wildcards.taxid}
+        samtools merge -f {output.bam} {input.bams}
+        samtools index {output.bam}
+        """
 
 #########################
 ### MEGAHIT assembly ####
@@ -434,33 +579,9 @@ rule metaphlan4:
         metaphlan {input} --input_type fastq --bowtie2db {params.db} --index mpa_vJan25_CHOCOPhlAnSGB_202503 --bowtie2out {output.bowtie2out} --nproc {threads}  -o {output.profile} --offline
         """
 
-
-##########Metagenomic Analysis and Plot#######################
-
-
-rule common_taxa_in_samples:
-    input:
-        expand("boutputs_filtered/{sample}.braken", sample=SAMPLES),
-    output:
-        "results/common_taxa.csv",
-        directory("results"),
-    params:
-        samples=SAMPLES,
-    shell:
-        """
-        mkdir -p results 
-        Rscript ../../local/src/common_species.R
-        """
-
-
-rule reads_human_contam_classified:
-    output:
-        "classified_vs_human_contaminant_barplot_normalized.png",
-        "classified_vs_human_contaminant_barplot_percentage.png",
-    shell:
-        """
-        Rscript /home/molinerislab/NeriMetagenome/workflow/src/plot_reads.R
-        """
+#########################
+# Kaiju and Kaiju-merge #
+#########################
 
 
 rule kaiju:
@@ -579,11 +700,6 @@ rule kaiju_kraken_merge:
         """
 
 
-rule all_kkreport:
-    input:
-        expand("kaiju_kraken_merged/{sample}.k2report", sample=SAMPLES),
-
-
 rule kaiju_kraken_merge_report:
     input:
         merged="kaiju/filtered/{sample}.kaiju.out",
@@ -596,9 +712,6 @@ rule kaiju_kraken_merge_report:
         """
 
 
-rule all_bowtie2:
-    input:
-        expand("bowtie2/{sample}.sam", sample=SAMPLES),
 
 
 rule bowtie2:
@@ -675,83 +788,6 @@ rule combine_all_beds:
         """
 
 
-# =============================================================================
-# minimap2 alignment of extracted reads vs generic references
-# =============================================================================
-rule fetch_gtdb_representative:
-    output:
-        fasta="Resources/genomes/Paracoccus_marinus/genome.fna"
-    params:
-        accession="GCA_030161055.1"
-    shell:
-        """
-        # Download the specific assembly
-        datasets download genome accession {params.accession} --include genome --filename {params.accession}.zip
-        
-        # Extract the sequence and stream it to the desired output, then clean up
-        unzip -p {params.accession}.zip "ncbi_dataset/data/{params.accession}/*.fna" > {output.fasta}
-        rm {params.accession}.zip
-        """
-        
-MINIMAP2 = "/home/molinerislab/IsellaIsoforms/local/env/conda/bin/minimap2"
-
-# Define available references here. You can add more species as needed.
-MINIMAP2_REFS = "Resources/genomes/Paracoccus_marinus/genome.fna"
-# {
-#     "aureus": "Resources/GCF_022494545.1_ASM2249454v1_genomic.fna",
-#     "cerus": "Resources/b_cerus/ncbi_dataset/data/GCF_030518615.1/GCF_030518615.1_ASM3051861v1_genomic.fna"
-# }
-
-
-ruleorder: minimap2_merge > minimap2_index
-
-
-rule all_minimap2:
-    """Align FASTA reads against all defined references and merge them."""
-    input:
-        expand("minimap2_{species}/merged_all_samples.bam.bai", species="parococcus_marinus"),
-
-
-rule minimap2_align:
-    """Align extracted reads (FASTA) with minimap2 short-read preset to a specific species."""
-    input:
-        fq="fastq_idmapped/150191/{sample}_R1.fastq.gz",
-    output:
-        bam="minimap2_{species}/{sample}.bam",
-    params:
-        ref=MINIMAP2_REFS,
-    threads: 8
-    shell:
-        """
-        {MINIMAP2} -ax sr -t {threads} --secondary=no \
-            {params.ref} {input.fq} \
-            | samtools view -bS -F 4 \
-            | samtools sort -o {output.bam}
-        """
-
-
-rule minimap2_index:
-    input:
-        "minimap2_{species}/{sample}.bam",
-    output:
-        "minimap2_{species}/{sample}.bam.bai",
-    shell:
-        "samtools index {input}"
-
-
-rule minimap2_merge:
-    """Merge all per-sample minimap2 BAMs into a single file for IGV/coverage."""
-    input:
-        bams=expand("minimap2_{{species}}/{sample}.bam", sample=SAMPLES),
-        bais=expand("minimap2_{{species}}/{sample}.bam.bai", sample=SAMPLES),
-    output:
-        bam="minimap2_{species}/merged_all_samples.bam",
-        bai="minimap2_{species}/merged_all_samples.bam.bai",
-    shell:
-        """
-        samtools merge -f {output.bam} {input.bams}
-        samtools index {output.bam}
-        """
 
 
 rule all_unmapped_fastqc:

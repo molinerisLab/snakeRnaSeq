@@ -12,8 +12,9 @@ By automatically tracking the dependencies between these files, Snakemake connec
 The overall process follows a structured, step-by-step path to filter, classify, and quantify microbial taxa from the raw sequencing data.
 ---
 ## 🚀 Pipeline at a Glance
+```mermaid
 flowchart TD
-    linkStyle default stroke:#333,stroke-width:2px,color:#000;
+    linkStyle default stroke:#333,stroke-width:2px
     
     %% Core Pipeline
     A[📦 Raw FASTQ Reads] --> B(🛠️ <b>fastp</b>: QC & Adapter Trimming)
@@ -41,7 +42,7 @@ flowchart TD
         O --> P((✅ Verified Microbial Presence))
     end
     
-    %% Styling - Explicitly locking text to black (color:#000) for Dark Mode compatibility
+    %% Styling - Explicitly locking text to black for Dark Mode compatibility
     classDef default fill:#f9f9f9,stroke:#333,stroke-width:1px,color:#000;
     classDef matrix fill:#e1f5fe,stroke:#0288d1,stroke-width:2px,color:#000;
     classDef endpoint fill:#e8f5e9,stroke:#388e3c,stroke-width:2px,color:#000;
@@ -126,6 +127,15 @@ This pipeline relies on several memory-intensive steps, particularly during host
 | **`MetaPhlAn4`** | `mpa_vJun23_CHOCOPhlAnSGB` (Optional)| ~19 GB | ~24 GB |
 | **`Kaiju`** | `nr_euk` Database (Optional) | ~40–50 GB | ~60 GB |
 | **`Minimap2`** | Microbial Reference (per species) | < 1 GB | ~4 GB |
+
+### 💾 Running Kraken2 with Limited RAM (Memory Mapping)
+
+By default, Kraken2 loads its entire database into RAM to maximize classification speed. This is why databases like GTDB require massive amounts of memory (~700 GB).
+
+If your system lacks sufficient RAM, you can execute Kraken2 with the `--memory-mapping` flag. This flag prevents the full database from being loaded into memory at once, mapping it directly from the storage disk instead.
+
+**⚠️ Warning on Disk Speeds:** 
+When using `--memory-mapping`, the classification speed is completely bottlenecked by your storage drive's read/write capabilities. To avoid severe performance degradation, the database **must be placed on an very fast disk**, ideally high-performance NVMe SSDs configured in a **RAID0 partition**. Running this natively on standard HDDs or slow network drives will make the classification impractically slow.
 
 ### General Tool Requirements
 * **`fastp`, `KrakenTools`, `Bracken`, `Krona`, `R Stats`**: These utilities are relatively lightweight and will run comfortably on standard compute nodes with **8–16 GB RAM**.

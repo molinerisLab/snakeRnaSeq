@@ -12,9 +12,9 @@ By automatically tracking the dependencies between these files, Snakemake connec
 The overall process follows a structured, step-by-step path to filter, classify, and quantify microbial taxa from the raw sequencing data.
 ---
 ## 🚀 Pipeline at a Glance
-```mermaid
 flowchart TD
-linkStyle default stroke:#333,stroke-width:2px,color:#000;
+    linkStyle default stroke:#333,stroke-width:2px,color:#000;
+    
     %% Core Pipeline
     A[📦 Raw FASTQ Reads] --> B(🛠️ <b>fastp</b>: QC & Adapter Trimming)
     B --> C(🧬 <b>STAR</b>: Host Read Alignment & Separation)

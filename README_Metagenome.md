@@ -135,7 +135,7 @@ By default, Kraken2 loads its entire database into RAM to maximize classificatio
 If your system lacks sufficient RAM, you can execute Kraken2 with the `--memory-mapping` flag. This flag prevents the full database from being loaded into memory at once, mapping it directly from the storage disk instead.
 
 **⚠️ Warning on Disk Speeds:** 
-When using `--memory-mapping`, the classification speed is completely bottlenecked by your storage drive's read/write capabilities. To avoid severe performance degradation, the database **must be placed on an very fast disk**, ideally high-performance NVMe SSDs configured in a **RAID0 partition**. Running this natively on standard HDDs or slow network drives will make the classification impractically slow.
+When using `--memory-mapping`, the classification speed is completely bottlenecked by your storage drive's read/write capabilities. To avoid severe performance degradation, the database **must be placed on an very fast disk**, ideally high-performance NVMe SSDs. Running this natively on standard HDDs or slow network drives will make the classification impractically slow.
 
 ### General Tool Requirements
 * **`fastp`, `KrakenTools`, `Bracken`, `Krona`, `R Stats`**: These utilities are relatively lightweight and will run comfortably on standard compute nodes with **8–16 GB RAM**.

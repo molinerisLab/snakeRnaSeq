@@ -270,7 +270,7 @@ rule spit_merged:
     shell:
         """
         "grep_columns -k 1,2,3 braken_num  < {input} | perl -pe '$.==1; s/.braken_num//g'  > {output.num};"
-        "grep_columns -k 1,2,3 braken_frac < {input} | perl -pe '$.==1; s/.braken_frac//g' > {output.frac}"
+        "grep_columns -kƒme 1,2,3 braken_frac < {input} | perl -pe '$.==1; s/.braken_frac//g' > {output.frac}"
         """
 
 
@@ -478,26 +478,6 @@ rule minimap2_merge:
         samtools index {output.bam}
         """
 
-#########################
-### MEGAHIT assembly ####
-#########################
-
-
-rule megahit_assembly:
-    input:
-        "fastq/unmapped/{sample}_unmapped_R1.fastq.gz",
-    output:
-        assembly="Megahit/{sample}_assembly/final.contigs.fa",
-        split_dir=directory("Megahit/{sample}_assembly/split_fasta"),
-    params:
-        outdir="Megahit/{sample}_assembly",
-    threads: 8
-    shell:
-        """
-        megahit -r {input}  -o {params.outdir} -t {threads} --preset meta-sensitive --keep-tmp
-        mkdir -p {output.split_dir}
-        seqkit split {output.assembly} -p 20 -O {output.split_dir}
-        """
 
 
 #################################
@@ -908,5 +888,141 @@ rule blast_overrepresented_nt:
         else
             touch {output.out}
         fi
+        """
+
+
+
+#########################
+### MEGAHIT assembly ####
+#########################
+
+
+LAYOUT = config["LAYOUT"].upper()
+
+if LAYOUT not in {"PAIRED", "SINGLE"}:
+    raise ValueError(
+        f"Unsupported LAYOUT={LAYOUT!r}; expected 'PAIRED' or 'SINGLE'"
+    )
+
+
+rule megahit_coassembly:
+    input:
+        r1=lambda wc: expand(
+            "fastq_idmapped/{taxid}/{sample}_R1.fastq.gz",
+            taxid=wc.taxid,
+            sample=SAMPLES
+        ),
+        r2=lambda wc: (
+            expand(
+                "fastq_idmapped/{taxid}/{sample}_R2.fastq.gz",
+                taxid=wc.taxid,
+                sample=SAMPLES
+            )
+            if LAYOUT == "PAIRED"
+            else []
+        )
+    output:
+        assembly=(
+            "Megahit/{taxid}/combined_assembly/final.contigs.fa"
+        ),
+        split_dir=directory(
+            "Megahit/{taxid}/combined_assembly/split_fasta"
+        )
+    params:
+        layout=LAYOUT,
+        outdir="Megahit/{taxid}/combined_assembly",
+        r1_csv=lambda wc, input: ",".join(map(str, input.r1)),
+        r2_csv=lambda wc, input: (
+            ",".join(map(str, input.r2))
+            if input.r2
+            else ""
+        )
+    threads: 8
+    resources:
+        mem_mb=64000
+    log:
+        "logs/megahit/{taxid}/combined_assembly.log"
+    shell:
+        r"""
+        set -euo pipefail
+
+        mkdir -p "$(dirname {log:q})"
+
+        # MEGAHIT requires a non-existing output directory.
+        rm -rf {params.outdir:q}
+
+        if [[ "{params.layout}" == "PAIRED" ]]; then
+            megahit \
+                -1 {params.r1_csv:q} \
+                -2 {params.r2_csv:q} \
+                -o {params.outdir:q} \
+                -t {threads} \
+                --presets meta-sensitive \
+                > {log:q} 2>&1
+        else
+            megahit \
+                -r {params.r1_csv:q} \
+                -o {params.outdir:q} \
+                -t {threads} \
+                --presets meta-sensitive \
+                > {log:q} 2>&1
+        fi
+
+        mkdir -p {output.split_dir:q}
+
+        seqkit split \
+            {output.assembly:q} \
+            --by-part 20 \
+            --out-dir {output.split_dir:q} \
+            >> {log:q} 2>&1
+        """
+
+
+
+
+rule diamond_blastx:
+    input:
+        fasta="Megahit/{sample}_assembly/final.contigs.fa"
+    output:
+        tsv="results/diamond_identification/{taxid}_assembly_diamond.tsv"
+    threads: 24
+    log:
+        "logs/diamond/{taxid}_diamond.log"
+    params:
+        # Provide the path to the pre-compiled nr database WITHOUT the .dmnd extension
+        db="/home/reference_data/bioinfotree/task/blast/nr/nr.gz", 
+        outfmt="6 qseqid sseqid stitle pident length mismatch evalue bitscore"
+    shell:
+        """
+        diamond blastx \
+            --db {params.db} \
+            --query {input.fasta} \
+            --out {output.tsv} \
+            --outfmt {params.outfmt} \
+            --threads {threads} \
+            --max-target-seqs 5 \
+            --evalue 1e-5 > {log} 2>&1
+        """
+
+
+rule run_transdecoder:
+    input:
+        fasta="results/trinity_coassembly/{taxid}/trinity_out/Trinity.fasta"
+    output:
+        pep="results/transdecoder/{taxid}/Trinity.fasta.transdecoder.pep",
+        bed="results/transdecoder/{taxid}/Trinity.fasta.transdecoder.bed"
+    params:
+        outdir=lambda wildcards, output: os.path.dirname(output.pep)
+    threads: 8
+    shell:
+        """
+        mkdir -p {params.outdir}
+        cd {params.outdir}
+        
+        # 1. Estrazione delle ORF lunghe (almeno 100 amminoacidi di default)
+        TransDecoder.LongOrfs -t ../../../{input.fasta}
+        
+        # 2. Predizione delle ORF più probabili
+        TransDecoder.Predict -t ../../../{input.fasta}
         """
 

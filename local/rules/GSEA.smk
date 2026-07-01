@@ -36,15 +36,15 @@ GSEA_PUBLISH_HOST = config["GSEA_PUBLISH_HOST"]
 (RNK_FILES,) = glob_wildcards("{rnk_file}.rnk")
 
 if not RNK_FILES:
-    GLOB = glob_wildcards("../../../{dgetool}.toptable_clean.contrast_{contrast}.gz")
+    # GLOB = glob_wildcards("../../../{dgetool}.toptable_clean.contrast_{contrast}.gz")
+    GLOB = glob_wildcards("Results/DGE/{dgetool}.toptable_clean.contrast_{contrast}.gz")
     RNK_FILES = [
         "{d}.{c}.{r}".format(d=dge, c=cont, r=config["RNK_METRIC"])
         for dge, cont in zip(GLOB.dgetool, GLOB.contrast)
     ]
 if not RNK_FILES:
-    exit(
-        "Files .rnk not found and can not find suitable files in BiT RNAseq pipeline, see https://github.com/molinerisLab/SnakeGSEA/"
-    )
+    print("WARNING: Files .rnk not found. GSEA rules will not have their targets defined.")
+    RNK_FILES = []
 
 ##############
 #

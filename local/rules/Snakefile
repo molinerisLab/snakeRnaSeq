@@ -136,10 +136,6 @@ rule ALL_star:
         expand("Results/star/{sample}/Aligned.sortedByCoord.out.bam", sample=SAMPLES),
         
 
-rule all_fastq_unmapped:
-    input:
-        expand("fastq_unmapped/{sample}_R1.fastq.gz", sample=SAMPLES),
-        expand("fastq_unmapped/{sample}_R2.fastq.gz", sample=SAMPLES),
 
 
 rule all_star_sp:
@@ -210,6 +206,7 @@ rule all_fastq_unclassified:
 rule all_filter_kraken:
     input:
         expand("koutput_filtered/{sample}.kraken2", sample=SAMPLES),
+        expand("kreports_filtered/{sample}.k2report", sample=SAMPLES),
 
 
 rule all_k2rfilter:

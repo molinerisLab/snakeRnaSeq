@@ -29,7 +29,7 @@ rule fastp_se:
         trimmed="fastq/fastq_trimmed/fastp/{sample}_R1.fastq.gz",
         html="fastq/fastq_trimmed/fastp/{sample}.html",
         json="fastq/fastq_trimmed/fastp/{sample}.json",
-    threads: 6
+    threads: 4
     log:
         "fastq/fastq_trimmed/fastp/{sample}.log",
     conda:

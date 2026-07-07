@@ -1,15 +1,13 @@
 ##########################################################################
 # Helper function to fetch assembly accessions for download based on TaxID
 ##########################################################################
-# TODO: change the absolute path 
-MINIMAP2 = "/home/molinerislab/IsellaIsoforms/local/env/conda/bin/minimap2"
 
 import pandas as pd
 
 import os
 
-if os.path.exists("./final_taxid_mapping.tsv"):
-    TAX_MAP = pd.read_csv("./final_taxid_mapping.tsv", sep="\t", dtype=str).set_index("kraken_taxid")
+if os.path.exists("../../local/bin/GTDB_NCBI_bact_table.tsv"):
+    TAX_MAP = pd.read_csv("../../local/bin/GTDB_NCBI_bact_table.tsv", sep="\t", dtype=str).set_index("kraken_taxid")
 else:
     TAX_MAP = pd.DataFrame()
 
@@ -40,8 +38,8 @@ rule all_metagenome:
 
 rule kraken_pe_pass1:
     input:
-        R1="fastq/unmapped/{sample}_unmapped_R1.fastq.gz",
-        R2="fastq/unmapped/{sample}_unmapped_R2.fastq.gz",
+        R1="Results/star/unmapped/{sample}_unmapped_R1.fastq.gz",
+        R2="Results/star/unmapped/{sample}_unmapped_R2.fastq.gz",
     output:
         report="kreports/{sample}.k2report",
         out="koutputs/{sample}.kraken2",
@@ -60,10 +58,12 @@ rule kraken_pe_pass1:
 
 rule kraken_se_pass1:
     input:
-        R1="fastq/unmapped/{sample}_unmapped_R1.fastq.gz",
+        R1="Results/star/unmapped/{sample}_unmapped_R1.fastq.gz",
     output:
         report="kreports/{sample}.k2report",
         out="koutputs/{sample}.kraken2",
+    resources:
+        mem_mb=120000
     threads: 6
     shell:
         """
@@ -80,7 +80,7 @@ rule remove_taxid_reads_se:
     input:
         kraken2_output="koutputs/{sample}.kraken2",
         kraken2_report="kreports/{sample}.k2report",
-        fastq_r1="fastq/unmapped/{sample}_unmapped_R1.fastq.gz",
+        fastq_r1="Results/star/unmapped/{sample}_unmapped_R1.fastq.gz",
     output:
         fastq_r1_nonhost="fastq/fastq_taxid_depleted/{sample}_R1.fastq.gz",
     params:
@@ -115,8 +115,8 @@ rule remove_taxid_reads_pe:
     input:
         kraken2_output="koutputs/{sample}.kraken2",
         kraken2_report="kreports/{sample}.k2report",
-        fastq_r1="fastq/unmapped/{sample}_unmapped_R1.fastq.gz",
-        fastq_r2="fastq/unmapped/{sample}_unmapped_R2.fastq.gz", # Added R2 input
+        fastq_r1="Results/star/unmapped/{sample}_unmapped_R1.fastq.gz",
+        fastq_r2="Results/star/unmapped/{sample}_unmapped_R2.fastq.gz", # Added R2 input
     output:
         fastq_r1_nonhost="fastq/fastq_taxid_depleted/{sample}_R1.fastq.gz",
         fastq_r2_nonhost="fastq/fastq_taxid_depleted/{sample}_R2.fastq.gz", # Added R2 output
@@ -441,13 +441,13 @@ rule minimap2_align:
         """
         if [ "{params.layout}" = "PAIRED" ]; then
             # Feed both fq1 and fq2 to minimap2
-            {MINIMAP2} -ax sr -t {threads} --secondary=no \
+            minimap2 -ax sr -t {threads} --secondary=no \
                 {input.ref} {input.fq1} {input.fq2} \
                 | samtools view -bS -F 4 \
                 | samtools sort -o {output.bam}
         else
             # Feed only fq1
-            {MINIMAP2} -ax sr -t {threads} --secondary=no \
+            minimap2 -ax sr -t {threads} --secondary=no \
                 {input.ref} {input.fq1} \
                 | samtools view -bS -F 4 \
                 | samtools sort -o {output.bam}
@@ -982,16 +982,16 @@ rule megahit_coassembly:
 
 rule diamond_blastx:
     input:
-        fasta="Megahit/{sample}_assembly/final.contigs.fa"
+        fasta="results/trinity_coassembly/150191/trinity_out/Trinity.fasta"
     output:
-        tsv="results/diamond_identification/{taxid}_assembly_diamond.tsv"
-    threads: 24
+        tsv="results/diamond_megahit_nr/{taxid}_assembly_diamond.tsv"
+    threads: 12
     log:
         "logs/diamond/{taxid}_diamond.log"
     params:
         # Provide the path to the pre-compiled nr database WITHOUT the .dmnd extension
         db="/home/reference_data/bioinfotree/task/blast/nr/nr.gz", 
-        outfmt="6 qseqid sseqid stitle pident length mismatch evalue bitscore"
+        outfmt="100"
     shell:
         """
         diamond blastx \
@@ -1026,3 +1026,13 @@ rule run_transdecoder:
         TransDecoder.Predict -t ../../../{input.fasta}
         """
 
+rule samtools_contigs_2_fasta: 
+    input:
+        contigs = "contigs_to_blast_paracoccus.txt", 
+        ref = "Resources/genomes/150191/GCA_030161055.1/GCA_030161055.1_ASM3016105v1_genomic.fna"
+    output: 
+        fasta = "targets_to_blast_paracoccus_ref.fasta"
+    shell:
+        """
+        samtools faidx {input.ref} $(cat {input.contigs} | tr '\n' ' ') > {output.fasta}
+        """

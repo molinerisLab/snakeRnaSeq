@@ -32,61 +32,6 @@ else:
 ##############
 
 
-# rule star_align_se_mapped_taxa:
-#     input:
-#         fq="fastq_unclassified/{sample}_R1.fa",
-#         idx=STAR_GENOME_DIR,
-#     output:
-#         aln="{taxa}/{sample}.bam",
-#         log="{taxa}/{sample}.Log.out",
-#         sj="{taxa}/{sample}.SJ.out.tab",
-#         unmapped=(
-#             "{taxa}/unmapped/{sample}_unmapped_R1.fastq.gz"
-#             if config["STAR"]["SAVE_UNMAPPED"] == "FASTQ"
-#             else []
-#         ),
-#         log_final="{taxa}/{sample}.Log.final.out",
-#     log:
-#         "{taxa}/{sample}.log",
-#     threads: 4
-#     conda:
-#         "transcript_env.yaml"
-#     params:
-#         multiscorerange=config["STAR"]["MULTIMAP_SCORE_RANGE"],
-#         outfiltermismatch=config["STAR"]["OUT_FILTER_MISMATCH_NMAX"],
-#         outfiltermultimapnmax=config["STAR"]["OUT_FILTER_MULTIMAP_NMAX"],
-#         outfiltermismatchnover=config["STAR"]["OUT_FILTER_MISMATCH_NOVER_LMAX"],
-#         out_samtype=config["STAR"]["OUT_SAM_TYPE"],
-#         quant_mode=config["STAR"]["quantMode"],
-#         sjdbOver=config["STAR"]["sjdbOverhang"],
-#         read_cmd=config["STAR"]["readFilesCommand"],
-#         tmpdir=lambda wc, output: os.path.dirname(output.aln),
-#     shell:
-#         """
-#         mkdir -p {params.tmpdir}
-        
-#         STAR \
-#             --runThreadN {threads} \
-#             --genomeLoad NoSharedMemory \
-#             --genomeDir {input.idx} \
-#             --readFilesIn {input.fq} \
-#             --sjdbOverhang {params.sjdbOver} \
-#             --outFileNamePrefix {params.tmpdir}/{wildcards.sample}. \
-#             --outSAMtype {params.out_samtype} \
-#             --outSAMstrandField intronMotif \
-#             --outFilterMultimapScoreRange {params.multiscorerange} \
-#             --outFilterMismatchNmax {params.outfiltermismatch} \
-#             --outFilterMultimapNmax {params.outfiltermultimapnmax} \
-#             --outFilterMismatchNoverLmax {params.outfiltermismatchnover} \
-#             --outSAMattributes All
-
-#         mv {params.tmpdir}/{wildcards.sample}.Aligned.sortedByCoord.out.bam {output.aln}
-#         if [ "{config[STAR][SAVE_UNMAPPED]}" = "FASTQ" ]; then
-#             mkdir -p $(dirname {output.unmapped})
-#             touch {output.unmapped}
-#         fi
-#         """
-
 rule star_align_se:
     input:
         fq="fastq/fastq_trimmed/{sample}_R1.fastq.gz",
@@ -103,7 +48,7 @@ rule star_align_se:
         log_final="Results/star/{sample}/Log.final.out",
     log:
         "Results/star/{sample}/star.log",
-    threads: 4
+    threads: 16
     conda:
         "transcript_env.yaml"
     params:
@@ -121,7 +66,7 @@ rule star_align_se:
         mkdir -p {params.tmpdir}
         STAR \
             --runThreadN {threads} \
-            --genomeLoad NoSharedMemory \
+            --genomeLoad LoadAndKeep \
             --genomeDir {input.idx} \
             --readFilesIn {input.fq} \
             --readFilesCommand {params.read_cmd} \
@@ -134,6 +79,7 @@ rule star_align_se:
             --outFilterMismatchNmax {params.outfiltermismatch} \
             --outFilterMultimapNmax {params.outfiltermultimapnmax} \
             --outFilterMismatchNoverLmax {params.outfiltermismatchnover} \
+            $([ "{params.save_unmapped}" = "FASTQ" ] && echo "--outReadsUnmapped Fastx --outSAMunmapped Within" || echo "") \
             --outSAMattributes All
         """
 
@@ -314,6 +260,7 @@ rule star_align_first_pass:
         STAR \
             --runThreadN {threads} \
             --genomeDir {input.idx} \
+            --genomeLoad LoadAndKeep \
             --readFilesIn {input.fq} \
             --readFilesCommand {params.read_cmd} \
             --limitSjdbInsertNsj {params.limitSjdb} \
@@ -368,13 +315,14 @@ rule star_second_pass:
                 else []
             )
         ),
-    threads: 8
+    threads: 12
     conda:
         "transcript_env.yaml"
     log:
         "Results/pass2/{sample}/{sample}_star_pass2.log",
     params:
         out_samtype=config["STAR"]["OUT_SAM_TYPE"],
+        outfiltermultimapnmax=config["STAR"]["OUT_FILTER_MULTIMAP_NMAX"],
         quant_mode=config["STAR"]["quantMode"],
         sjdbOver=config["STAR"]["sjdbOverhang"],
         read_cmd=config["STAR"]["readFilesCommand"],
@@ -391,13 +339,16 @@ rule star_second_pass:
             --genomeDir {input.idx} \
             --readFilesIn {input.fq} \
             --readFilesCommand {params.read_cmd} \
+            --outFilterMultimapNmax {params.outfiltermultimapnmax} \
             --sjdbFileChrStartEnd {input.sj} \
             --sjdbOverhang {params.sjdbOver} \
             --limitSjdbInsertNsj {params.limitSjdb} \
+            --genomeLoad NoSharedMemory \
             --outFileNamePrefix {params.tmpdir}/ \
+            --outSAMunmapped Within \
             --outSAMtype {params.out_samtype} \
             --quantMode {params.quant_mode} \
-            $([ "{params.save_unmapped}" = "FASTQ" ] && echo "--outReadsUnmapped Fastx --outSAMunmapped Within" || echo "")
+            $([ "{params.save_unmapped}" = "FASTQ" ] && echo "--outReadsUnmapped Fastx" || echo "")
 
         if [ "{params.save_unmapped}" = "FASTQ" ]; then
             if [ -f "{params.tmpdir}/Unmapped.out.mate1" ]; then

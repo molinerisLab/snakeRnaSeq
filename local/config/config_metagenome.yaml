@@ -25,9 +25,9 @@ psitrand: "un"
 # ========================
 
 GENCODE:
-  SPECIES: "hsapiens"      # hsapiens | mmusculus | mmusculus_hsapiens_combined
-  VERSION: "46"            # 32 | M23
-  GENOME: "GRCh38.p14" # GRCh38.primary_assembly | GRCm38.primary_assembly
+  SPECIES: "mmusculus_hsapiens_combined"      # hsapiens | mmusculus | mmusculus_hsapiens_combined
+  VERSION: "M39_50"            # 32 | M23
+  GENOME: "GRCh38_GRCm39.primary_assembly" # GRCh38.primary_assembly | GRCm38.primary_assembly #GRCh38_GRCm39.primary_assembly #GRCh38.p14
   ANNOTATION: "primary_assembly.annotation" # primary_assembly.annotation | basic.annotation
 
 # ========================
@@ -39,7 +39,7 @@ STAR:
   OUT_SAM_TYPE: "BAM SortedByCoordinate"
   readFilesCommand: "zcat"
   ADDITIONAL_OUTPUT: ""
-  quantMode: "GeneCounts TranscriptomeSAM"
+  quantMode: "GeneCounts"
   # Alignment Filters
   OUT_FILTER_TYPE: "BySJout"
   OUT_FILTER_MULTIMAP_NMAX: 2000           
@@ -55,7 +55,7 @@ STAR:
   ALIGN_MATES_GAP_MAX: 1000000
   # Additional Parameters
   sjdbOverhang: 149
-  limitSjdbInsertNsj: 1000000
+  limitSjdbInsertNsj: 1376300
   SAVE_UNMAPPED: "FASTQ" # BAM | FASTQ 
   # Version
   VERSION: "2.7.11b"
@@ -137,12 +137,12 @@ BRACKEN:
   braken_min_reads: 5
   braken_level: "S"
 
-kraken_db: "/mnt/nvme_raid0/molinerislab/GTDB/v226" #/mnt/nobackup/home/reference_data/bioinfotree/task/kraken/GTDB/v226 #/home/reference_data/bioinfotree/task/kraken/nobackup/k2_pluspf_20250402
-kraken_db_pass1: "/home/reference_data/bioinfotree/task/kraken/nobackup/k2_pluspf_20250402"
+kraken_db: "/mnt/nvme_raid0/molinerislab/GTDB/v226/" #/mnt/nobackup/home/reference_data/bioinfotree/task/kraken/GTDB/v226 #/home/reference_data/bioinfotree/task/kraken/nobackup/k2_pluspf_20250402
+kraken_db_pass1: "/home/reference_data/bioinfotree/task/kraken/dataset/k2_pluspf_20260226"
 kraken_db_nr: "/home/reference_data/bioinfotree/task/kraken/nobackup/k2_nt"
 kraken_options: "--minimum-hit-groups 2"
 kraken_k2d: "/home/reference_data/bioinfotree/task/kraken/nobackup/k2_pluspf_20250402/taxo.k2d"
-kraken_extract_taxid: "150191" 
+kraken_extract_taxid: "60227" 
 # ========================
 # FEATURE FILTERING
 # ========================

@@ -39,8 +39,8 @@ if os.path.exists("Snakefile_versioned.sk"):
 
     include: "Snakefile_versioned.sk"
 
-
 include: "../../local/config/config_v1.sk"
+include: "../../local/rules/preflight.smk"
 include: "../../local/rules/plot.smk"
 include: "../../local/rules/alignment_post.smk"
 include: "../../local/rules/utils.smk"

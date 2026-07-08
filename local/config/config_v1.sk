@@ -30,8 +30,13 @@ print("Detected samples:", SAMPLES)
 # Reference root  #
 ###################
 
-REFERENCE_ROOT=os.environ.get("REFERENCE_ROOT")
-
+REFERENCE_ROOT = os.environ.get("REFERENCE_ROOT") or config.get("REFERENCE_ROOT", "")
+if not REFERENCE_ROOT:
+    raise WorkflowError(
+        "\n[preflight] REFERENCE_ROOT is not set. Either:\n"
+        "  • export REFERENCE_ROOT=/path/to/references  (shell / .envrc)\n"
+        "  • add 'REFERENCE_ROOT: /path/to/references'  (config.yaml)"
+    )
 ###########
 # Params #
 ###########
@@ -47,7 +52,8 @@ gff3 = GENCODE_DIR+"/"+config["GENCODE"]["ANNOTATION"]+".basic.annotation.gff3"
 GENCODE_ANNOTATION_BED=GENCODE_DIR+"/"+config["GENCODE"]["ANNOTATION"]+".bed"
 RSEQC_REF_BED=GENCODE_DIR+"/basic.annotation.bed"
 GENOME_KEY = "GRCh"
-transcriptome_fasta_path = GENCODE_DIR + "/"+ "gencode.v" + "config['GENCODE']['VERSION']"+ ".transcripts.fa"
+transcriptome_fasta_path = GENCODE_DIR + "/" + "gencode.v" + config["GENCODE"]["VERSION"] + ".transcripts.fa"
+
 ##########
 # Star  #
 ##########
@@ -62,5 +68,3 @@ LTPM_PRIOR_COUNT = 0.0001
 
 
 ##############
-
-

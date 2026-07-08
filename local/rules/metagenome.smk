@@ -28,13 +28,69 @@ else:
     ruleorder: remove_taxid_reads_se > remove_taxid_reads_pe
     ruleorder: kraken_se_pass2 > kraken_pe_pass2
 
+ruleorder: minimap2_merge > minimap2_index
 
+_unclassified_se = (
+    "fastq/unclassified/{sample}_unclassified_R1.fastq.gz"
+    if config.get("SAVE_UNCLASSIFIED", False)
+    else temp("fastq/unclassified/{sample}_unclassified_R1.fastq.gz")
+)
+_unclassified_pe_r1 = (
+    "fastq/unclassified/{sample}_unclassified_R1.fastq.gz"
+    if config.get("SAVE_UNCLASSIFIED", False)
+    else temp("fastq/unclassified/{sample}_unclassified_R1.fastq.gz")
+)
+_unclassified_pe_r2 = (
+    "fastq/unclassified/{sample}_unclassified_R2.fastq.gz"
+    if config.get("SAVE_UNCLASSIFIED", False)
+    else temp("fastq/unclassified/{sample}_unclassified_R2.fastq.gz")
+)
 ##########################
 ### Rules for Kraken2  ###
 ##########################
 rule all_metagenome:
     input:
         expand("alignments_merged/{taxid}/merged_all_samples.bam.bai", taxid=config["kraken_extract_taxid"])
+
+
+# ── Daemon lifecycle rules ─────────────────────────────────────────────────
+
+rule k2_daemon_start:
+    """Load the kraken2 database into RAM"""
+    input:
+        expand("fastq/fastq_taxid_depleted/{sample}_R1.fastq.gz", sample=SAMPLES),
+    output:
+        temp(".k2_daemon.sentinel")
+    params:
+        db=config["kraken_db"],
+        use_daemon=config.get("USE_K2_DAEMON", False),
+    shell:
+        """
+        if [ "{params.use_daemon}" = "True" ]; then
+            k2 clean --stop-daemon 2>/dev/null || true
+            echo "" | k2 classify --db {params.db} --use-daemon \
+                --output /dev/null --report /dev/null - 2>/dev/null || true
+        fi
+        touch {output}
+        """
+
+rule k2_daemon_stop:
+    """Stop the daemon after all pass2 classifications finish."""
+    input:
+        kreports=expand("kreports_filtered/{sample}.k2report", sample=SAMPLES),
+        sentinel=".k2_daemon.sentinel",
+    output:
+        temp(".k2_daemon_stopped.sentinel")
+    params:
+        use_daemon=config.get("USE_K2_DAEMON", False),
+    shell:
+        """
+        if [ "{params.use_daemon}" = "True" ]; then
+            k2 clean --stop-daemon || true
+        fi
+        touch {output}
+        """
+
 
 rule kraken_pe_pass1:
     input:
@@ -45,15 +101,15 @@ rule kraken_pe_pass1:
         out="koutputs/{sample}.kraken2",
         unclassified1="unclassified/{sample}_unclassified_1.fq",
         unclassified2="unclassified/{sample}_unclassified_2.fq",
-    threads: 6
+    threads: config["CORES"]["kraken2"]
     shell:
         """
-        kraken2 --db {config[kraken_db_pass1]} {config[kraken_options]}\
+        k2 classify --db {config[kraken_db_pass1]} {config[kraken_options]}\
             --threads {threads} \
             --report {output.report} \
             --output {output.out} \
             --paired {input.R1} {input.R2} \
-            --unclassified-out unclassified/{wildcards.sample}_unclassified_#.fq
+            --unclassified-out unclassified/{wildcards.sample}_unclassified#.fq
     """
 
 rule kraken_se_pass1:
@@ -62,12 +118,10 @@ rule kraken_se_pass1:
     output:
         report="kreports/{sample}.k2report",
         out="koutputs/{sample}.kraken2",
-    resources:
-        mem_mb=120000
-    threads: 6
+    threads: config["CORES"]["kraken2"]
     shell:
         """
-        kraken2 --db {config[kraken_db_pass1]} {config[kraken_options]} \
+        k2 classify --db {config[kraken_db_pass1]} {config[kraken_options]} \
             --threads {threads} \
             --report-minimizer-data \
             --report {output.report} \
@@ -161,38 +215,54 @@ rule remove_taxid_reads_pe:
 rule kraken_se_pass2:
     input:
         R1="fastq/fastq_taxid_depleted/{sample}_R1.fastq.gz",
+        daemon=".k2_daemon.sentinel",
     output:
         report="kreports_filtered/{sample}.k2report",
         out="koutput_filtered/{sample}.kraken2",
-    threads: 6
+        unclassified=_unclassified_se,
+    params:
+        use_daemon=config.get("USE_K2_DAEMON", False),
+    threads: config["CORES"]["kraken2"]
     shell:
         """
-        kraken2 --db {config[kraken_db]} {config[kraken_options]} \
+        mkdir -p fastq/unclassified
+        k2 classify --db {config[kraken_db]} {config[kraken_options]} \
             --threads {threads} \
+            $([ "{params.use_daemon}" = "True" ] && echo "--use-daemon" || echo "") \
             --report-minimizer-data \
-            --memory-mapping \
+            --unclassified-out fastq/unclassified/{wildcards.sample}_unclassified_R1.fq \
             --report {output.report} \
             --output {output.out} \
             {input.R1}
+        gzip -f fastq/unclassified/{wildcards.sample}_unclassified_R1.fq
         """
 
 rule kraken_pe_pass2:
     input:
         R1="fastq/fastq_taxid_depleted/{sample}_R1.fastq.gz",
         R2="fastq/fastq_taxid_depleted/{sample}_R2.fastq.gz",
+        daemon=".k2_daemon.sentinel",
     output:
         report="kreports_filtered/{sample}.k2report",
         out="koutput_filtered/{sample}.kraken2",
-    threads: 6
+        unclassified_r1=_unclassified_pe_r1,
+        unclassified_r2=_unclassified_pe_r2,
+    params:
+        use_daemon=config.get("USE_K2_DAEMON", False),
+    threads: config["CORES"]["kraken2"]
     shell:
         """
-        kraken2 --db {config[kraken_db]} {config[kraken_options]} \
+        mkdir -p fastq/unclassified
+        k2 classify --db {config[kraken_db]} {config[kraken_options]} \
             --threads {threads} \
+            $([ "{params.use_daemon}" = "True" ] && echo "--use-daemon" || echo "") \
             --report-minimizer-data \
-            --memory-mapping \
+            --unclassified-out fastq/unclassified/{wildcards.sample}_unclassified_#.fq \
             --report {output.report} \
             --output {output.out} \
             --paired {input.R1} {input.R2}
+        gzip -f fastq/unclassified/{wildcards.sample}_unclassified_1.fq
+        gzip -f fastq/unclassified/{wildcards.sample}_unclassified_R2.fq
         """
 
 """
@@ -212,13 +282,20 @@ https://github.com/DerrickWood/kraken2/wiki/Manual#classification
 
 rule braken:
     input:
-        "kreports/{sample}.k2report",
+        report="kreports/{sample}.k2report",
     output:
         report="breports/{sample}.breport",
         out="boutputs/{sample}.braken",
+    params:
+        db=config["kraken_db"],
+        read_len=config["BRACKEN"]["braken_read_len"],
+        level=config["BRACKEN"]["braken_level"],
+        min_reads=config["BRACKEN"]["braken_min_reads"],
     shell:
         """
-        bracken -d {config[kraken_db]} -i {input} -r {config[BRACKEN][braken_read_len]} -l {config[BRACKEN][braken_level]} -t {config[BRACKEN][braken_min_reads]} -o {output.out} -w {output.report}
+        bracken -d {params.db} -i {input.report} \
+            -r {params.read_len} -l {params.level} -t {params.min_reads} \
+            -o {output.out} -w {output.report}
         """
 
 rule bracken_merged:
@@ -236,14 +313,22 @@ rule bracken_merged:
 
 rule filbraken:
     input:
-        "kreports_filtered/{sample}.k2report",
+        report="kreports_filtered/{sample}.k2report",
+        daemon_stopped=".k2_daemon_stopped.sentinel",  
     output:
         report="breports_filtered/{sample}.breport",
         out="boutputs_filtered/{sample}.braken",
+    params:
+        db=config["kraken_db"],
+        read_len=config["BRACKEN"]["braken_read_len"],
+        level=config["BRACKEN"]["braken_level"],
+        min_reads=config["BRACKEN"]["braken_min_reads"],
     shell:
         """
         mkdir -p breports_filtered boutputs_filtered
-        bracken -d {config[kraken_db]} -i {input} -r {config[BRACKEN][braken_read_len]} -l {config[BRACKEN][braken_level]} -t {config[BRACKEN][braken_min_reads]} -o {output.out} -w {output.report}
+        bracken -d {params.db} -i {input.report} \
+            -r {params.read_len} -l {params.level} -t {params.min_reads} \
+            -o {output.out} -w {output.report}
         """
 
 rule filbracken_merged:
@@ -261,7 +346,7 @@ rule filbracken_merged:
 
 
 
-rule spit_merged:
+rule split_merged:
     input:
         "bracken_merged_abbundances.txt",
     output:
@@ -270,7 +355,7 @@ rule spit_merged:
     shell:
         """
         "grep_columns -k 1,2,3 braken_num  < {input} | perl -pe '$.==1; s/.braken_num//g'  > {output.num};"
-        "grep_columns -kƒme 1,2,3 braken_frac < {input} | perl -pe '$.==1; s/.braken_frac//g' > {output.frac}"
+        "grep_columns -k 1,2,3 braken_frac < {input} | perl -pe '$.==1; s/.braken_frac//g' > {output.frac}"
         """
 
 
@@ -280,6 +365,7 @@ rule feature_filter:
         metadata="metadata.txt",
     output:
         filtered="bracken_merged_abbundances.num.filtered.txt",
+        tmp=temp("bracken_merged_abbundances.num.tmp"),
     params:
         condition=config["feature_filter"]["condition"],
         g1=config["feature_filter"]["g1"],
@@ -289,13 +375,13 @@ rule feature_filter:
         min_samples_ratio=config["feature_filter"]["min_samples_ratio"],
     shell:
         """
-        perl -pe 's/\t/;/; s/\t/;/' {input.abundances} > {input.abundances}.tmp;\
+        perl -pe 's/\t/;/; s/\t/;/' {input.abundances} > {output.tmp}
         echo -en "name\\ttaxonomy_id\\ttaxonomy_lv\\t" > {output.filtered}
-        feature_filter {input.abundances}.tmp {input.metadata} \
+        feature_filter {output.tmp} {input.metadata} \
             --condition={params.condition} --g1 {params.g1} --g2 {params.g2} \
-            --use_raw_counts --min_exp {params.min_exp} --min_samples_ratio {params.min_samples_ratio} \
-        | perl -pe 's/;/\t/; s/;/\t/' >> {output.filtered};\
-        rm {input.abundances}.tmp
+            $([ "{params.use_raw_counts}" = "True" ] && echo "--use_raw_counts" || echo "") \
+            --min_exp {params.min_exp} --min_samples_ratio {params.min_samples_ratio} \
+        | perl -pe 's/;/\t/; s/;/\t/' >> {output.filtered}
         """
 
 
@@ -339,17 +425,6 @@ rule degw:
         | bawk 'NR==1 {{$1="name\ttaxonomy_id\tlevel"; print}} NR>1{{gsub(/;/, "\t", $1); print}}' > {output}
     """
 
-# TODO: Check if is needed. Use the extract_kraken_reads instead
-rule extract_unclassified_id_paired:
-    input:
-        "koutput_filtered/{sample}.kraken2",
-    output:
-        "fastq_unclassified/{sample}.id",
-    shell:
-        """
-        awk '{{print $2,$1}}' {input} | collapsesets 2 | bawk '$2=="U"' > {output}
-    """
-
 #############################################
 # Extract TAXID and map to reference genome #
 #############################################
@@ -361,8 +436,8 @@ rule extract_kraken_reads:
         fastq_r1="fastq/fastq_taxid_depleted/{sample}_R1.fastq.gz",
         fastq_r2="fastq/fastq_taxid_depleted/{sample}_R2.fastq.gz" if config["LAYOUT"] == "PAIRED" else []
     output:
-        fastq_r1_unclassified="fastq_idmapped/{taxid}/{sample}_R1.fastq.gz",
-        fastq_r2_unclassified="fastq_idmapped/{taxid}/{sample}_R2.fastq.gz" if config["LAYOUT"] == "PAIRED" else []
+        fastq_r1_extracted="fastq_idmapped/{taxid}/{sample}_R1.fastq.gz",
+        fastq_r2_extracted="fastq_idmapped/{taxid}/{sample}_R2.fastq.gz" if config["LAYOUT"] == "PAIRED" else []
     params:
         # Pass the layout variable down to the shell block
         layout=config["LAYOUT"]
@@ -370,12 +445,12 @@ rule extract_kraken_reads:
         r"""
         mkdir -p fastq_idmapped/{wildcards.taxid}
         
-        out1="{output.fastq_r1_unclassified}"
+        out1="{output.fastq_r1_extracted}"
         tmp1=$(printf '%s\n' "$out1" | sed 's/\.gz$//')
 
         
         if [ "{params.layout}" = "PAIRED" ]; then
-            out2="{output.fastq_r2_unclassified}"
+            out2="{output.fastq_r2_extracted}"
             tmp2=$(printf '%s\n' "$out2" | sed 's/\.gz$//')
             
             extract_kraken_reads.py \
@@ -420,8 +495,6 @@ rule fetch_gtdb_representative:
         samtools faidx {output.fasta}
         """
         
-
-ruleorder: minimap2_merge > minimap2_index
 
 
 

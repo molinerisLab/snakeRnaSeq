@@ -4,7 +4,6 @@ import os
 #############
 # Ruleorder #
 #############
-# configfile: "/home/aleone/snakeRnaSeq/local/config/config_v1.yaml"
 
 if config["LAYOUT"] == "SINGLE":
 
@@ -27,6 +26,30 @@ else:
     ruleorder: generate_unmapped_R1 > link_unmapped
     ruleorder: generate_unmapped_R2 > link_unmapped
 
+
+######
+# LINK
+######
+_star_mode = config.get("STAR_MODE", "two_pass_manual")
+
+_bam_sources = {
+    "single_pass":      lambda wc: f"Results/star/{wc.sample}/Aligned.sortedByCoord.out.bam",
+    "two_pass_manual":  lambda wc: f"Results/pass2/{wc.sample}/Aligned.sortedByCoord.out.bam",
+    "two_pass_basic":   lambda wc: f"star_2pass/{wc.sample}/Aligned.sortedByCoord.out.bam",
+}
+
+rule link_bam:
+    input:
+        _bam_sources[_star_mode],
+    output:
+        "Results/bam/{sample}/Aligned.sortedByCoord.out.bam",
+    log:
+        "Results/bam/{sample}/link_bam.log",
+    conda:
+        "transcript_env.yaml"
+    shell:
+        "ln -srf {input} {output} > {log} 2>&1"
+
 ##############
 # STAR RULES #
 ##############
@@ -48,7 +71,7 @@ rule star_align_se:
         log_final="Results/star/{sample}/Log.final.out",
     log:
         "Results/star/{sample}/star.log",
-    threads: 16
+    threads: config["CORES"]["star"]
     conda:
         "transcript_env.yaml"
     params:
@@ -61,12 +84,14 @@ rule star_align_se:
         sjdbOver=config["STAR"]["sjdbOverhang"],
         read_cmd=config["STAR"]["readFilesCommand"],
         tmpdir=lambda wc, output: os.path.dirname(output.aln),
+        save_unmapped=config["STAR"]["SAVE_UNMAPPED"],
     shell:
         """
         mkdir -p {params.tmpdir}
+
         STAR \
             --runThreadN {threads} \
-            --genomeLoad LoadAndKeep \
+            --genomeLoad NoSharedMemory \
             --genomeDir {input.idx} \
             --readFilesIn {input.fq} \
             --readFilesCommand {params.read_cmd} \
@@ -79,8 +104,13 @@ rule star_align_se:
             --outFilterMismatchNmax {params.outfiltermismatch} \
             --outFilterMultimapNmax {params.outfiltermultimapnmax} \
             --outFilterMismatchNoverLmax {params.outfiltermismatchnover} \
-            $([ "{params.save_unmapped}" = "FASTQ" ] && echo "--outReadsUnmapped Fastx --outSAMunmapped Within" || echo "") \
-            --outSAMattributes All
+            --outSAMattributes All \
+            $([ "{params.save_unmapped}" = "FASTQ" ] && echo "--outReadsUnmapped Fastx --outSAMunmapped Within" || echo "")
+
+        if [ "{params.save_unmapped}" = "FASTQ" ]; then
+            mkdir -p Results/star/unmapped
+            gzip -c {params.tmpdir}/Unmapped.out.mate1 > Results/star/unmapped/{wildcards.sample}_unmapped_R1.fastq.gz
+        fi
         """
 
 
@@ -104,7 +134,7 @@ rule star_align_pe:
         log_final="Results/star/{sample}/Log.final.out",
     log:
         "Results/star/{sample}/star.log",
-    threads: 4
+    threads: config["CORES"]["star"]
     conda:
         "transcript_env.yaml"
     params:
@@ -164,7 +194,7 @@ rule link_unmapped:
 rule generate_unmapped_single:
     input:
         lambda wildcards: (
-            f"Results/star/{wildcards.sample}.bam"
+            f"Results/star/{wildcards.sample}/Aligned.sortedByCoord.out.bam"
             if config["aligner"] == "star"
             else f"aligned_bwa/{wildcards.sample}.aligned.bam"
         ),
@@ -183,7 +213,7 @@ rule generate_unmapped_single:
 rule generate_unmapped_R1:
     input:
         lambda wildcards: (
-            f"Results/star/{wildcards.sample}.bam"
+            f"Results/star/{wildcards.sample}/Aligned.sortedByCoord.out.bam"
             if config["aligner"] == "star"
             else f"aligned_bwa/{wildcards.sample}.aligned.bam"
         ),
@@ -205,7 +235,7 @@ rule generate_unmapped_R1:
 rule generate_unmapped_R2:
     input:
         lambda wildcards: (
-            f"Results/star/{wildcards.sample}.bam"
+            f"Results/star/{wildcards.sample}/Aligned.sortedByCoord.out.bam"
             if config["aligner"] == "star"
             else f"aligned_bwa/{wildcards.sample}.aligned.bam"
         ),
@@ -245,7 +275,7 @@ rule star_align_first_pass:
         log="Results/pass1/{sample}/{sample}_Log.out",
         log_final="Results/pass1/{sample}/{sample}_Log.final.out",
         log_progress="Results/pass1/{sample}/{sample}_Log.progress.out",
-    threads: 16
+    threads: config["CORES"]["star"]
     conda:
         "transcript_env.yaml"
     log:
@@ -299,7 +329,7 @@ rule star_second_pass:
             else [f"fastq/fastq_trimmed/{wc.sample}_R1.fastq.gz"]
         ),
         idx=STAR_GENOME_DIR,
-        sj=lambda wc: f"Results/pass1/merged_filtered_SJ.out.tab",
+        sj="Results/pass1/merged_filtered_SJ.out.tab",
     output:
         bam="Results/pass2/{sample}/Aligned.sortedByCoord.out.bam",
         gene_counts="Results/pass2/{sample}/ReadsPerGene.out.tab",
@@ -315,7 +345,7 @@ rule star_second_pass:
                 else []
             )
         ),
-    threads: 12
+    threads: config["CORES"]["star"]
     conda:
         "transcript_env.yaml"
     log:
@@ -345,10 +375,9 @@ rule star_second_pass:
             --limitSjdbInsertNsj {params.limitSjdb} \
             --genomeLoad NoSharedMemory \
             --outFileNamePrefix {params.tmpdir}/ \
-            --outSAMunmapped Within \
             --outSAMtype {params.out_samtype} \
             --quantMode {params.quant_mode} \
-            $([ "{params.save_unmapped}" = "FASTQ" ] && echo "--outReadsUnmapped Fastx" || echo "")
+            $([ "{params.save_unmapped}" = "FASTQ" ] && echo "--outReadsUnmapped Fastx --outSAMunmapped Within" || echo "")
 
         if [ "{params.save_unmapped}" = "FASTQ" ]; then
             if [ -f "{params.tmpdir}/Unmapped.out.mate1" ]; then
@@ -379,7 +408,7 @@ rule star_twopass_basic_se:
         gene_counts="star_2pass/{sample}/ReadsPerGene.out.tab",
         log="star_2pass/{sample}/Log.out",
         log_final="star_2pass/{sample}/Log.final.out",
-    threads: 8
+    threads: config["CORES"]["star"]
     conda:
         "transcript_env.yaml"
     log:
@@ -389,6 +418,8 @@ rule star_twopass_basic_se:
         out_dir=lambda wc, output: os.path.dirname(output.bam),
         gtf=GENCODE_ANNOTATION_GTF,
         sjdbOverhang=config["STAR"]["sjdbOverhang"],
+        outsamtype = config["STAR"]["OUT_SAM_TYPE"], 
+        quantmode= config["STAR"]["quantMode"]
     shell:
         """
         mkdir -p {params.out_dir}
@@ -402,8 +433,8 @@ rule star_twopass_basic_se:
             --sjdbGTFfile {params.gtf} \
             --sjdbOverhang {params.sjdbOverhang} \
             --outFileNamePrefix {params.out_dir}/ \
-            --outSAMtype BAM SortedByCoordinate \
-            --quantMode GeneCounts TranscriptomeSAM
+            --outSAMtype {params.outsamtype} \
+            --quantMode {params.quantmode} 
         """
 
 
@@ -426,7 +457,7 @@ rule star_twopass_basic_pe:
         gene_counts="star_2pass/{sample}/ReadsPerGene.out.tab",
         log="star_2pass/{sample}/Log.out",
         log_final="star_2pass/{sample}/Log.final.out",
-    threads: 8
+    threads: config["CORES"]["star"]
     conda:
         "transcript_env.yaml"
     log:
@@ -437,6 +468,8 @@ rule star_twopass_basic_pe:
         twopass1readsN=config["STAR"].get("twopass1readsN", -1),
         gtf=GENCODE_ANNOTATION_GTF,
         sjdbOverhang=config["STAR"]["sjdbOverhang"],
+        outsamtype = config["STAR"]["OUT_SAM_TYPE"], 
+        quantmode= config["STAR"]["quantMode"], 
     shell:
         """
         mkdir -p {params.out_dir}
@@ -451,7 +484,7 @@ rule star_twopass_basic_pe:
             --sjdbGTFfile {params.gtf} \
             --sjdbOverhang {params.sjdbOverhang} \
             --outFileNamePrefix {params.out_dir}/ \
-            --outSAMtype BAM SortedByCoordinate \
-            --quantMode GeneCounts TranscriptomeSAM
+            --outSAMtype {params.outsamtype} \
+            --quantMode {params.quantmode} 
         """
 

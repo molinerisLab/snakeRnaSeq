@@ -1,5 +1,3 @@
-from pathlib import Path
-
 
 # ========================
 # CONFIGURATION VARIABLES
@@ -20,7 +18,7 @@ def _trimmer_out(sample, read, trimmer=TRIMMER):
 # =============================================================================
 # FASTP (QC AND TRIMMING)
 # =============================================================================
-
+#TODO: conda env per each rule, missing in fastp
 
 rule fastp_se:
     input:
@@ -29,7 +27,9 @@ rule fastp_se:
         trimmed="fastq/fastq_trimmed/fastp/{sample}_R1.fastq.gz",
         html="fastq/fastq_trimmed/fastp/{sample}.html",
         json="fastq/fastq_trimmed/fastp/{sample}.json",
-    threads: 4
+    threads: config["CORES"]["fastp"]
+    params:
+        extra=config["FASTP"]["extra"]
     log:
         "fastq/fastq_trimmed/fastp/{sample}.log",
     conda:
@@ -50,9 +50,9 @@ rule fastp_pe:
         json="fastq/fastq_trimmed/fastp/{sample}.json",
     log:
         "fastq/fastq_trimmed/fastp/{sample}.log",
-    conda:
-        "transcript_env.yaml"
-    threads: 6
+    params:
+        extra=config["FASTP"]["extra"] 
+    threads: config["CORES"]["fastp"]
     wrapper:
         "v3.3.6/bio/fastp"
 
@@ -72,7 +72,7 @@ rule trim_galore_se:
         "fastq/fastq_trimmed/trimgalore/{sample}_R1.fastq.gz",
     params:
         trim_galore_params=config["TRIM_GALORE"]["PARAM"],
-        cores=config["CORES"],
+        cores= config["CORES"]["trimgalore"],
         outdir="fastq/fastq_trimmed/trimgalore",
     conda:
         "transcript_env.yaml"
@@ -83,6 +83,7 @@ rule trim_galore_se:
         mkdir -p {params.outdir}
         
         trim_galore -j {params.cores} \
+            --basename {wildcards.sample}_R1 \
             -o {params.outdir} \
             {params.trim_galore_params} \
             {input} > {log} 2>&1
@@ -103,7 +104,7 @@ rule trim_galore_pe:
         fastq_read2="fastq/fastq_trimmed/trimgalore/{sample}_R2.fastq.gz",
     params:
         trim_galore_params=config["TRIM_GALORE"]["PARAM"],
-        cores=config["CORES"],
+        cores=config["CORES"]["trimgalore"],
         outdir="fastq/fastq_trimmed/trimgalore",
     log:
         "fastq/fastq_trimmed/trimgalore/{sample}_trim_galore.log",
@@ -115,11 +116,13 @@ rule trim_galore_pe:
         
         trim_galore -j {params.cores} \
             -o {params.outdir} \
+            --basename {wildcards.sample} \
             {params.trim_galore_params} \
             --paired {input.fastq_read1} {input.fastq_read2} > {log} 2>&1
             
-        mv {params.outdir}/{wildcards.sample}_R1_val_1.fq.gz {output.fastq_read1}
-        mv {params.outdir}/{wildcards.sample}_R2_val_2.fq.gz {output.fastq_read2}
+            mv {params.outdir}/{wildcards.sample}_val_1.fq.gz {output.fastq_read1}
+            mv {params.outdir}/{wildcards.sample}_val_2.fq.gz {output.fastq_read2}
+
         """
 
 

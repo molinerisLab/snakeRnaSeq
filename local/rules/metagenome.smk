@@ -344,7 +344,7 @@ rule filbracken_merged:
         combine_bracken_outputs.py --files {input.outputs} -o {output} 2> {log} 
         """
 
-
+ 
 
 rule split_merged:
     input:

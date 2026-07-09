@@ -421,7 +421,8 @@ rule degw:
         """
         DEGWilcox.R {input.abundances} {input.metadata} \
             --condition={params.condition} --g1 {params.g1} --g2 {params.g2} \
-            --use_raw_counts --min_exp {params.min_exp} --min_samples_ratio {params.min_samples_ratio} \
+            $([ "{params.use_raw_counts}" = "True" ] && echo "--use_raw_counts" || echo "") \
+            --min_exp {params.min_exp} --min_samples_ratio {params.min_samples_ratio} \
         | bawk 'NR==1 {{$1="name\ttaxonomy_id\tlevel"; print}} NR>1{{gsub(/;/, "\t", $1); print}}' > {output}
     """
 
@@ -576,15 +577,16 @@ rule blast:
     output:
         out="blastn_T2T/{sample}.blastn.out",
     threads: 8
+    params: 
+        db = config["blast_db"]
     shell:
         """
         mkdir -p blastn_T2T
-        export BLASTDB=/mnt/nobackup/home/reference_data/bioinfotree/task/blast/T2T-CHM13
 
         if [ -s {input.fasta} ]; then
             blastn -task blastn \
                 -query {input.fasta} \
-                -db T2T-CHM13 \
+                -db {params.db} \
                 -outfmt "6 qseqid sseqid staxids sscinames pident length evalue bitscore" \
                 -evalue 10 \
                 -word_size 11 \
@@ -624,12 +626,13 @@ rule metaphlan4:
         profile="metaphlan4/{sample}.profile.txt",
         bowtie2out="metaphlan4/{sample}.bowtie2.bz2",
     params:
-        db="/home/reference_data/bioinfotree/task/metaphlan/dataset/nobackup/mpa_vJan25_CHOCOPhlAnSGB_202503",
+        db= config["metaphlan_db"],
+        idx = config["metaphlan_index"]
     threads: 4
     shell:
         """
         mkdir -p metaphlan4
-        metaphlan {input} --input_type fastq --bowtie2db {params.db} --index mpa_vJan25_CHOCOPhlAnSGB_202503 --bowtie2out {output.bowtie2out} --nproc {threads}  -o {output.profile} --offline
+        metaphlan {input} --input_type fastq --bowtie2db {params.db} --index {params.idx} --bowtie2out {output.bowtie2out} --nproc {threads}  -o {output.profile} --offline
         """
 
 #########################
@@ -639,7 +642,7 @@ rule metaphlan4:
 
 rule kaiju:
     input:
-        "fastq/unmapped/{sample}_unmapped_R1.fastq.gz",
+        "Results/star/unmapped/{sample}_unmapped_R1.fastq.gz",
     output:
         report="kaiju/{sample}.kaiju.out",
     log:
@@ -656,7 +659,7 @@ rule kaiju:
 
 rule kaiju_multi:
     input:
-        expand("fastq/unmapped/{sample}_unmapped_R1.fastq.gz", sample=SAMPLES),
+        expand("Results/star/unmapped/{sample}_unmapped_R1.fastq.gz", sample=SAMPLES),
     output:
         reports=expand("kaiju/{sample}.kaiju.out", sample=SAMPLES),
     log:
@@ -692,7 +695,7 @@ rule kaiju_report:
     shell:
         """
         mkdir -p kaiju/report
-        kaiju2table -t {params.db_Nodes} -n {params.db_Names} -r {params.taxa_level} -o {output} {input} -r species -u -p 
+        kaiju2table -t {params.db_Nodes} -n {params.db_Names} -r {params.taxa_level} -o {output} {input} -u -p
         """
 
 
@@ -761,7 +764,7 @@ rule kaiju_kraken_merge_report:
         report="kaiju_kraken_merged/{sample}.k2report",
     shell:
         """
-        /home/molinerislab/NeriMetagenome/workflow/kraken2/src/k2report {input.db} {input.merged} {output.report}
+        k2report {input.db} {input.merged} {output.report}
         """
 
 
@@ -845,27 +848,27 @@ rule combine_all_beds:
 
 rule all_unmapped_fastqc:
     input:
-        expand("fastqc/fastq_h_depleted/{sample}_R1_fastqc.zip", sample=SAMPLES),
-        expand("fastqc/fastq_h_depleted/{sample}_R1_fastqc.html", sample=SAMPLES),
+        expand("fastqc/fastq_taxid_depleted/{sample}_R1_fastqc.zip", sample=SAMPLES),
+        expand("fastqc/fastq_taxid_depleted/{sample}_R1_fastqc.html", sample=SAMPLES),
 
 
 rule unmapped_fastqc:
     input:
-        fastq="fastq/fastq_h_depleted/{sample}_R1.fastq.gz",
+        fastq="fastq/fastq_taxid_depleted/{sample}_R1.fastq.gz",
     output:
-        zip_out="fastqc/fastq_h_depleted/{sample}_R1_fastqc.zip",
-        html_out="fastqc/fastq_h_depleted/{sample}_R1_fastqc.html",
+        zip_out="fastqc/fastq_taxid_depleted/{sample}_R1_fastqc.zip",
+        html_out="fastqc/fastq_taxid_depleted/{sample}_R1_fastqc.html",
     threads: 8
     shell:
         """
-        mkdir -p fastqc/fastq_h_depleted/
-        fastqc --threads {threads} --quiet --outdir fastqc/fastq_h_depleted/ {input.fastq}
+        mkdir -p fastqc/fastq_taxid_depleted/
+        fastqc --threads {threads} --quiet --outdir fastqc/fastq_taxid_depleted/ {input.fastq}
         """
 
 
 rule extract_overrepresented:
     input:
-        zips=expand("fastqc/fastq_h_depleted/{sample}_R1_fastqc.zip", sample=SAMPLES),
+        zips=expand("fastqc/fastq_taxid_depleted/{sample}_R1_fastqc.zip", sample=SAMPLES),
     output:
         fasta="diagnostics/overrepresented_sequences.fasta",
     shell:
@@ -916,15 +919,16 @@ rule blast_overrepresented_t2t:
         # A single summary TSV file for the entire cohort
         out="diagnostics/blastn_T2T_overrepresented.tsv",
     threads: 8
+    params: 
+        db = config["blast_db"]
     shell:
         """
-        export BLASTDB=/mnt/nobackup/home/reference_data/bioinfotree/task/blast/T2T-CHM13
 
         # Safety check: ensure the FASTA is not empty before launching BLAST
         if [ -s {input.fasta} ]; then
             blastn -task blastn \
                 -query {input.fasta} \
-                -db T2T-CHM13 \
+                -db {params.db} \
                 -outfmt "6 qseqid sseqid staxids sscinames pident length evalue bitscore stitle" \
                 -max_target_seqs 1 \
                 -evalue 10 \

@@ -344,11 +344,9 @@ rule t_introns:
         txt="t_introns.txt",
     threads: 2
     run:
-        import os
         import re
         from collections import defaultdict
 
-        os.makedirs(PSI_DIR, exist_ok=True)
         exons = defaultdict(list)
         with open(input.gtf, "r") as f:
             for line in f:
@@ -394,7 +392,7 @@ rule addXS_prepare:
         ref_seq=GENCODE_GENOME_FASTA,
     output:
         xs_bam="xs_bams/{sample}.out.ribo.ex.bam",
-        bai="xs_bams/{sample}.out.ribo.ex.bai",
+        bai="xs_bams/{sample}.out.ribo.ex.bam.bai",,
     threads: 4
     shell:
         """
@@ -421,9 +419,10 @@ rule create_bamlist:
                 f.write(os.path.abspath(b) + "\n")
 
 
-rule psiclass_cohort:  #todo, put the trusted introns as config, if i want it or not to be used
+rule psiclass_cohort:
     input:
         bamlist="PsiCLASS/bamlist.txt",
+        trusted="t_introns.txt" if config.get("USE_TRUSTED_INTRONS", False) else [],
         bams=expand(
             "Results/pass2/{sample}/Aligned.sortedByCoord.out.ribo.ex.unique.bam",
             sample=SAMPLES,
@@ -439,10 +438,12 @@ rule psiclass_cohort:  #todo, put the trusted introns as config, if i want it or
         sa=1.0,
         c=0.05,
         stranded=config["psitrand"],
+        trusted_flag=lambda wc, input: f"-s {input.trusted}" if config.get("USE_TRUSTED_INTRONS", False) else "",
     shell:
         """
         psiclass \
             --lb {input.bamlist} \
+            {params.trusted_flag} \
             -p {threads} \
             -o {params.outprefix} \
             --stranded {params.stranded} \
@@ -549,7 +550,7 @@ rule extract_novel_transcripts:
 rule build_kallisto_index_combined:
     input:
         novel_fa="kallisto_output/cohort_transcriptome.fasta",
-        ref_tx_fa=GENCODE_GENOME_FASTA
+        ref_tx_fa=transcriptome_fasta_path
     output:
         combined_fa="kallisto_output/combined_transcriptome.fa",
         idx="kallisto_output_combined/kallisto.idx"
@@ -574,7 +575,7 @@ rule all_kaPSI:
 
 rule kallisto_quant_PsiCLASS:
     input:
-        fq=lambda wc: f"fastq/{wc.sample}_R1.fastq.gz",
+        fq=lambda wc: f"fastq/fastq_trimmed/{wc.sample}_R1.fastq.gz",
         index="kallisto_output_combined/kallisto.idx",
     output:
             tsv="kallisto_PsiCLASS_idx_combined/{sample}/abundance.tsv",

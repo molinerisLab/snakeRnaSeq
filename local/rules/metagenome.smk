@@ -11,7 +11,6 @@ if os.path.exists("../../local/bin/GTDB_NCBI_bact_table.tsv"):
 else:
     TAX_MAP = pd.DataFrame()
 
-# Create a helper function to dynamically fetch the accession
 def get_accession_for_download(wildcards):
     taxid_str = str(wildcards.taxid)
     if taxid_str in TAX_MAP.index:

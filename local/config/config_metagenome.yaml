@@ -60,7 +60,7 @@ STRANDED: "0"       # 0 -> unstranded, 1 -> forward, 2 -> reverse  (kept quoted:
 aligner: "star"     # star | bwa
 TRIMMER: "fastp"    # fastp | trimgalore
 psitrand: "un"
-
+USE_TRUSTED_INTRONS: false
 SPECIES: human
 UCSC_VERSION: hg38
 

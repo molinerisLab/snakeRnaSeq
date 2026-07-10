@@ -383,6 +383,7 @@ rule star_second_pass:
             --genomeDir {input.idx} \
             --readFilesIn {input.fq} \
             --readFilesCommand {params.read_cmd} \
+            --outSAMstrandField intronMotif \
             --outFilterMultimapNmax {params.outfiltermultimapnmax} \
             --sjdbFileChrStartEnd {input.sj} \
             --sjdbOverhang {params.sjdbOver} \
@@ -402,6 +403,7 @@ rule star_second_pass:
             fi
         fi
         """
+
 
 
 rule star_twopass_basic_se:
@@ -443,6 +445,7 @@ rule star_twopass_basic_se:
             --genomeDir {input.idx} \
             --readFilesIn {input.fq} \
             --readFilesCommand {params.read_cmd} \
+            --outSAMstrandField intronMotif \
             --twopassMode Basic \
             --sjdbGTFfile {params.gtf} \
             --sjdbOverhang {params.sjdbOverhang} \
@@ -451,6 +454,7 @@ rule star_twopass_basic_se:
             --outSAMunmapped Within \
             --quantMode {params.quantmode}
         """
+
 
 
 rule all_s2p_basic:
@@ -494,6 +498,7 @@ rule star_twopass_basic_pe:
             --genomeDir {input.idx} \
             --readFilesIn {input.fq1} {input.fq2} \
             --readFilesCommand {params.read_cmd} \
+            --outSAMstrandField intronMotif \
             --twopassMode Basic \
             --twopass1readsN {params.twopass1readsN} \
             --sjdbGTFfile {params.gtf} \
@@ -503,4 +508,5 @@ rule star_twopass_basic_pe:
             --outSAMunmapped Within \
             --quantMode {params.quantmode}
         """
+
 

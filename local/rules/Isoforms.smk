@@ -392,7 +392,7 @@ rule addXS_prepare:
         ref_seq=GENCODE_GENOME_FASTA,
     output:
         xs_bam="xs_bams/{sample}.out.ribo.ex.bam",
-        bai="xs_bams/{sample}.out.ribo.ex.bam.bai",,
+        bai="xs_bams/{sample}.out.ribo.ex.bam.bai",
     threads: 4
     shell:
         """

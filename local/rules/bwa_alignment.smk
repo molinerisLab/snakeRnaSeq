@@ -11,36 +11,35 @@ rule align_pe_bwa:
     output:
         bam="aligned_bwa/{sample}.aligned.bam"
     params:
-        reference="/home/molinerislab/NeriMetagenome/Reference_genome/bwa/GRCh38.p14.genome.fa", 
-        threads=4  
+        reference=config["bwa_db"]
+    threads: config["CORES"]["bwa"]
     log:
         "aligned_bwa/logs/{sample}_bwa.log"
     shell:
         """
-        T=$(mktemp -d) &&  \
-        bwa mem -t {params.threads} {params.reference} {input.trimmed_fastq1} {input.trimmed_fastq2} 2> {log} | \
+        T=$(mktemp -d)
+        trap 'rm -rf $T' EXIT
+        bwa mem -t {threads} {params.reference} {input.trimmed_fastq1} {input.trimmed_fastq2} 2> {log} | \
         samtools view -b | \
-        sambamba sort --tmpdir=$T -t 4 --memory-limit 4GB -o {output.bam} /dev/stdin ; \
-        rm -rf $T
+        sambamba sort --tmpdir=$T -t {threads} --memory-limit 4GB -o {output.bam} /dev/stdin
         """
 
 
 rule align_se_bwa:
     input:
-        trimmed_fastq="fastq/fastq_trimmed/{sample}_R1.fastq.gz",
+        trimmed_fastq="fastq/fastq_trimmed/{sample}_R1.fastq.gz"
     output:
         bam="aligned_bwa/{sample}.aligned.bam"
     params:
-        reference="/home/molinerislab/NeriMetagenome/Reference_genome/bwa/GRCh38.p14.genome.fa", 
-        threads=4  
+        reference=config["bwa_db"]
+    threads: config["CORES"]["bwa"]
     log:
         "aligned_bwa/logs/{sample}_bwa.log"
     shell:
         """
-        T=$(mktemp -d) &&  \
-        bwa mem -t {params.threads} {params.reference} {input.trimmed_fastq} 2> {log} | \
+        T=$(mktemp -d)
+        trap 'rm -rf $T' EXIT
+        bwa mem -t {threads} {params.reference} {input.trimmed_fastq} 2> {log} | \
         samtools view -b | \
-        sambamba sort --tmpdir=$T -t 4 --memory-limit 4GB -o {output.bam} /dev/stdin ; \
-        rm -rf $T
+        sambamba sort --tmpdir=$T -t {threads} --memory-limit 4GB -o {output.bam} /dev/stdin
         """
-

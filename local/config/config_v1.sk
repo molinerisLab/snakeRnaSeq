@@ -68,3 +68,4 @@ LTPM_PRIOR_COUNT = 0.0001
 
 
 ##############
+MSIGDB_DIR = REFERENCE_ROOT + "/msigdb/dataset/" + config["MSIGDB_VERSION"]

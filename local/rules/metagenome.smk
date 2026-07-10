@@ -45,15 +45,20 @@ _unclassified_pe_r2 = (
     if config.get("SAVE_UNCLASSIFIED", False)
     else temp("fastq/unclassified/{sample}_unclassified_R2.fastq.gz")
 )
-##########################
-### Rules for Kraken2  ###
-##########################
+
+
+##############################################################################
+## 0. TARGETS
+##############################################################################
+
 rule all_metagenome:
     input:
         expand("alignments_merged/{taxid}/merged_all_samples.bam.bai", taxid=config["kraken_extract_taxid"])
 
 
-# ── Daemon lifecycle rules ─────────────────────────────────────────────────
+##############################################################################
+## 1. K2 DAEMON LIFECYCLE
+##############################################################################
 
 rule k2_daemon_start:
     """Load the kraken2 database into RAM"""
@@ -92,6 +97,10 @@ rule k2_daemon_stop:
         """
 
 
+##############################################################################
+## 2. KRAKEN2 CLASSIFICATION  (pass1 -> host/contaminant depletion -> pass2)
+##############################################################################
+
 rule kraken_pe_pass1:
     input:
         R1="Results/star/unmapped/{sample}_unmapped_R1.fastq.gz",
@@ -129,7 +138,6 @@ rule kraken_se_pass1:
             {input.R1}
         """
 
-
 rule remove_taxid_reads_se:
     input:
         kraken2_output="koutputs/{sample}.kraken2",
@@ -165,15 +173,16 @@ rule remove_taxid_reads_se:
 
         gzip -f "$tmp"
         """
+
 rule remove_taxid_reads_pe:
     input:
         kraken2_output="koutputs/{sample}.kraken2",
         kraken2_report="kreports/{sample}.k2report",
         fastq_r1="Results/star/unmapped/{sample}_unmapped_R1.fastq.gz",
-        fastq_r2="Results/star/unmapped/{sample}_unmapped_R2.fastq.gz", # Added R2 input
+        fastq_r2="Results/star/unmapped/{sample}_unmapped_R2.fastq.gz", 
     output:
         fastq_r1_nonhost="fastq/fastq_taxid_depleted/{sample}_R1.fastq.gz",
-        fastq_r2_nonhost="fastq/fastq_taxid_depleted/{sample}_R2.fastq.gz", # Added R2 output
+        fastq_r2_nonhost="fastq/fastq_taxid_depleted/{sample}_R2.fastq.gz", 
     params:
         taxids=lambda wc: " ".join(
             [
@@ -276,9 +285,11 @@ rule kraken_pe_pass2:
 
 https://github.com/DerrickWood/kraken2/wiki/Manual#classification
 """
-#########################
-### Rules for Bracken ###
-#########################
+
+
+##############################################################################
+## 3. BRACKEN + ABUNDANCE FILTERING & STATS
+##############################################################################
 
 rule braken:
     input:
@@ -344,8 +355,6 @@ rule filbracken_merged:
         combine_bracken_outputs.py --files {input.outputs} -o {output} 2> {log} 
         """
 
- 
-
 rule split_merged:
     input:
         "bracken_merged_abbundances.txt",
@@ -357,7 +366,6 @@ rule split_merged:
         grep_columns -k 1,2,3 braken_num  < {input} | perl -pe '$.==1; s/.braken_num//g'  > {output.num};
         grep_columns -k 1,2,3 braken_frac < {input} | perl -pe '$.==1; s/.braken_frac//g' > {output.frac}
         """
-
 
 rule feature_filter:
     input:
@@ -384,7 +392,6 @@ rule feature_filter:
         | perl -pe 's/;/\t/; s/;/\t/' >> {output.filtered}
         """
 
-
 rule filter_frac:
     input:
         num_filter="bracken_merged_abbundances.num.filtered.txt",
@@ -394,7 +401,6 @@ rule filter_frac:
     shell:
         "filter_1col 3 <(cut -f 3 {input.num_filter}) < {input.frac} > {output}"
 
-
 rule collapse_taxid:
     input:
         "bracken_merged_abbundances.num.filtered.txt",
@@ -402,7 +408,6 @@ rule collapse_taxid:
         "bracken_merged_abbundances.num.filtered.taxid_collapsed.txt",
     shell:
         "perl -pe 's/\t/;/; s/\t/;/' {input} > {output}"
-
 
 rule degw:
     input:
@@ -426,9 +431,10 @@ rule degw:
         | bawk 'NR==1 {{$1="name\ttaxonomy_id\tlevel"; print}} NR>1{{gsub(/;/, "\t", $1); print}}' > {output}
     """
 
-#############################################
-# Extract TAXID and map to reference genome #
-#############################################
+
+##############################################################################
+## 4. TAXID EXTRACTION -> REFERENCE FETCH -> MINIMAP2 MAPPING
+##############################################################################
 
 rule extract_kraken_reads:
     input:
@@ -440,7 +446,6 @@ rule extract_kraken_reads:
         fastq_r1_extracted="fastq_idmapped/{taxid}/{sample}_R1.fastq.gz",
         fastq_r2_extracted="fastq_idmapped/{taxid}/{sample}_R2.fastq.gz" if config["LAYOUT"] == "PAIRED" else []
     params:
-        # Pass the layout variable down to the shell block
         layout=config["LAYOUT"]
     shell:
         r"""
@@ -495,15 +500,11 @@ rule fetch_gtdb_representative:
         rm {params.accession}.zip
         samtools faidx {output.fasta}
         """
-        
-
-
 
 rule minimap2_align:
     """Align extracted reads with minimap2 short-read preset to the dynamic reference."""
     input:
         fq1="fastq_idmapped/{taxid}/{sample}_R1.fastq.gz",
-        # Dynamically expect R2 if paired
         fq2="fastq_idmapped/{taxid}/{sample}_R2.fastq.gz" if config["LAYOUT"] == "PAIRED" else [],
         ref="Resources/genomes/{taxid}/genome.fna"
     output:
@@ -553,434 +554,9 @@ rule minimap2_merge:
         """
 
 
-
-#################################
-### BLASTN against RefSeq RNA ###
-#################################
-
-
-rule bam_2_fasta:
-    input:
-        "bowtie2/{sample}.bam",
-    output:
-        "bowtie2/fasta/{sample}.fa",
-    shell:
-        """
-        mkdir -p bowtie2/fasta
-        samtools fasta -F 4 {input} > {output}
-        """
-
-
-rule blast:
-    input:
-        fasta="fastq_idmapped/{sample}_R1.fa",
-    output:
-        out="blastn_T2T/{sample}.blastn.out",
-    threads: 8
-    params: 
-        db = config["blast_db"]
-    shell:
-        """
-        mkdir -p blastn_T2T
-
-        if [ -s {input.fasta} ]; then
-            blastn -task blastn \
-                -query {input.fasta} \
-                -db {params.db} \
-                -outfmt "6 qseqid sseqid staxids sscinames pident length evalue bitscore" \
-                -evalue 10 \
-                -word_size 11 \
-                -dust no \
-                -perc_identity 70 \
-                -num_threads {threads} \
-                -out {output.out}
-        else
-            touch {output.out}
-        fi
-        """
-
-
-rule blastn:
-    input:
-        fasta="Megahit/{sample}_assembly/split_fasta/{contig}.fa",
-    output:
-        out="blastn/{sample}/{contig}.out",
-    params:
-        outfmt="6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore staxids sscinames",
-    shell:
-        """
-        mkdir -p blastn/{wildcards.sample}
-        blastn -query {input.fasta} -db refseq_rna -out {output.out} -outfmt "{params.outfmt}"
-        """
-
-
-##################
-### Metaphlan4 ###
-##################
-
-
-rule metaphlan4:
-    input:
-        "fastq/fastq_taxid_depleted/{sample}_R1.fastq.gz",
-    output:
-        profile="metaphlan4/{sample}.profile.txt",
-        bowtie2out="metaphlan4/{sample}.bowtie2.bz2",
-    params:
-        db= config["metaphlan_db"],
-        idx = config["metaphlan_index"]
-    threads: 4
-    shell:
-        """
-        mkdir -p metaphlan4
-        metaphlan {input} --input_type fastq --bowtie2db {params.db} --index {params.idx} --bowtie2out {output.bowtie2out} --nproc {threads}  -o {output.profile} --offline
-        """
-
-#########################
-# Kaiju and Kaiju-merge #
-#########################
-
-
-rule kaiju:
-    input:
-        "Results/star/unmapped/{sample}_unmapped_R1.fastq.gz",
-    output:
-        report="kaiju/{sample}.kaiju.out",
-    log:
-        "log/{sample}_kaiju.log",
-    params:
-        threads=25,
-        db_Nodes=config.get("kaiju", {}).get("db_Nodes", ""),
-        db_FMI=config.get("kaiju", {}).get("db_FMI", ""),
-    shell:
-        """
-        kaiju -z {params.threads} -t {params.db_Nodes} -f {params.db_FMI} -i {input} -o {output.report}  2> {log}
-        """
-
-
-rule kaiju_multi:
-    input:
-        expand("Results/star/unmapped/{sample}_unmapped_R1.fastq.gz", sample=SAMPLES),
-    output:
-        reports=expand("kaiju/{sample}.kaiju.out", sample=SAMPLES),
-    log:
-        "log/kaiju_multi.log",
-    params:
-        threads=config.get("kaiju", {}).get("threads", 12),
-        db_Nodes=config.get("kaiju", {}).get("db_Nodes", ""),
-        db_FMI=config.get("kaiju", {}).get("db_FMI", ""),
-        inputs=lambda wc, input: ",".join(input),
-        outputs=lambda wc, output: ",".join(output.reports),
-    shell:
-        """
-        kaiju-multi -z {params.threads} \
-            -t {params.db_Nodes} \
-            -f {params.db_FMI} \
-            -i {params.inputs} \
-            -o {params.outputs} \
-            2> {log}
-        """
-
-
-rule kaiju_report:
-    input:
-        "kaiju/{sample}.kaiju.out",
-    output:
-        "kaiju/report/{sample}.kaiju.tsv",
-    params:
-        threads=12,
-        db_Nodes=config.get("kaiju", {}).get("db_Nodes", ""),
-        db_FMI=config.get("kaiju", {}).get("db_FMI", ""),
-        db_Names=config.get("kaiju", {}).get("db_Names", ""),
-        taxa_level="species",
-    shell:
-        """
-        mkdir -p kaiju/report
-        kaiju2table -t {params.db_Nodes} -n {params.db_Names} -r {params.taxa_level} -o {output} {input} -u -p
-        """
-
-
-rule all_krakaiju_filtered:
-    input:
-        expand("kaiju/filtered/{sample}.kaiju.out", sample=SAMPLES),
-
-
-rule filter_krakaiju_output:
-    input:
-        "kaiju/merged/{sample}.merged.out",
-    output:
-        "kaiju/filtered/{sample}.kaiju.out",
-    params:
-        contaminants=config.get("CONTAMINANT_INFO", {}).get("contaminant"),
-        human=config.get("CONTAMINANT_INFO", {}).get("humanID"),
-    run:
-        contaminant_conditions = " && ".join(
-            [f"$3 != {c}" for c in params.contaminants]
-        )
-        human_conditions = " && ".join([f"$3 != {c}" for c in params.human])
-        shell(
-            f"mkdir -p kaiju/filtered && awk '{contaminant_conditions} && {human_conditions}' {{input}} > {{output}}"
-        )
-
-
-rule all_kaiju_kraken_merge:
-    input:
-        expand("kaiju/merged/{sample}.merged.out", sample=SAMPLES),
-
-
-rule kaiju_kraken_merge:
-    input:
-        kaiju="kaiju/{sample}.kaiju.out",
-        kraken="koutput_filtered/{sample}.kraken2",
-    output:
-        "kaiju/merged/{sample}.merged.out",
-    params:
-        conflict=config.get("kaiju_merge", "lca"),
-        nodes=config.get("kaiju", {}).get("db_Nodes", ""),
-    shell:
-        r"""
-        mkdir -p kaiju/merged
-
-        if [ "{params.conflict}" = "lca" ] || [ "{params.conflict}" = "lowest" ]; then
-            TAXOPT="-t {params.nodes}"
-        else
-            TAXOPT=""
-        fi
-
-        kaiju-mergeOutputs \
-            -i <(sort -k2,2 {input.kaiju}) \
-            -j <(sort -k2,2 {input.kraken}) \
-            -o {output} \
-            -c {params.conflict} \
-            $TAXOPT \
-            -v
-        """
-
-
-rule kaiju_kraken_merge_report:
-    input:
-        merged="kaiju/filtered/{sample}.kaiju.out",
-        db=config["kraken_k2d"],
-    output:
-        report="kaiju_kraken_merged/{sample}.k2report",
-    shell:
-        """
-        k2report {input.db} {input.merged} {output.report}
-        """
-
-
-
-
-rule bowtie2:
-    input:
-        fastq="fastq_unclassified/{sample}_R1.fa",
-        index="Resources/S_aureus/S_aureus_index.1.bt2",
-    output:
-        sam="bowtie2/{sample}.sam",
-    params:
-        prefix="Resources/S_aureus/S_aureus_index",
-    threads: 8
-    shell:
-        """
-        bowtie2 -x {params.prefix} -U {input.fastq} -S {output.sam} -p {threads} -f --no-unal
-        """
-
-
-rule all_samtools_bam:
-    input:
-        expand("bowtie2/{sample}.bam", sample=SAMPLES),
-
-
-rule samtools_bam:
-    input:
-        "bowtie2/{sample}.sam",
-    output:
-        "bowtie2/{sample}.bam",
-    shell:
-        """
-        samtools view -bS {input} | samtools sort -o {output}
-        """
-
-
-rule all_samtools_index:
-    input:
-        expand("bowtie2/{sample}.bam.bai", sample=SAMPLES),
-
-
-rule samtools_index:
-    input:
-        "bowtie2/{sample}.bam",
-    output:
-        "bowtie2/{sample}.bam.bai",
-    shell:
-        """
-        samtools index {input}
-        """
-
-
-rule all_merged_beds:
-    input:
-        expand("bed_regions/{sample}_merged.bed", sample=SAMPLES),
-
-
-rule bam_to_merged_bed:
-    input:
-        bam="bowtie2/{sample}.bam",
-    output:
-        bed="bed_regions/{sample}_merged.bed",
-    shell:
-        """
-        bedtools bamtobed -i {input.bam} | bedtools merge -d 1000 > {output.bed}
-        """
-
-
-rule combine_all_beds:
-    input:
-        expand("bed_regions/{sample}_merged.bed", sample=SAMPLES),
-    output:
-        "bed_regions/tutte_le_regioni_sospette.bed",
-    shell:
-        """
-        cat {input} | sort -k1,1 -k2,2n | bedtools merge > {output}
-        """
-
-
-
-
-rule all_unmapped_fastqc:
-    input:
-        expand("fastqc/fastq_taxid_depleted/{sample}_R1_fastqc.zip", sample=SAMPLES),
-        expand("fastqc/fastq_taxid_depleted/{sample}_R1_fastqc.html", sample=SAMPLES),
-
-
-rule unmapped_fastqc:
-    input:
-        fastq="fastq/fastq_taxid_depleted/{sample}_R1.fastq.gz",
-    output:
-        zip_out="fastqc/fastq_taxid_depleted/{sample}_R1_fastqc.zip",
-        html_out="fastqc/fastq_taxid_depleted/{sample}_R1_fastqc.html",
-    threads: 8
-    shell:
-        """
-        mkdir -p fastqc/fastq_taxid_depleted/
-        fastqc --threads {threads} --quiet --outdir fastqc/fastq_taxid_depleted/ {input.fastq}
-        """
-
-
-rule extract_overrepresented:
-    input:
-        zips=expand("fastqc/fastq_taxid_depleted/{sample}_R1_fastqc.zip", sample=SAMPLES),
-    output:
-        fasta="diagnostics/overrepresented_sequences.fasta",
-    shell:
-        """
-        # Initialize an empty FASTA file
-        > {output.fasta}
-        
-        echo "Extracting overrepresented sequences across the cohort..."
-        
-        for zip_file in {input.zips}; do
-            # Extract sample name safely
-            sample=$(basename "$zip_file" _R1_fastqc.zip)
-            
-            # Stream the internal fastqc_data.txt without extracting the whole folder to disk
-            if unzip -p "$zip_file" "*/fastqc_data.txt" > temp_fastqc.txt 2>/dev/null; then
-                
-                # Isolate the exact block containing the overrepresented sequences
-                sed -n '/>>Overrepresented sequences/,/>>END_MODULE/p' temp_fastqc.txt | \
-                grep -v ">>" | grep -v "^#Sequence" > temp_block.txt || true
-                
-                if [ -s temp_block.txt ]; then
-                    count=1
-                    while read -r line; do
-                        seq=$(echo "$line" | cut -f1)
-                        pct=$(echo "$line" | cut -f3)
-                        source=$(echo "$line" | cut -f4)
-                        
-                        # Write the FASTA header and sequence
-                        echo ">${{sample}}_ovr_${{count}} | pct:${{pct}}% | source:${{source}}" >> {output.fasta}
-                        echo "$seq" >> {output.fasta}
-                        
-                        count=$((count + 1))
-                    done < temp_block.txt
-                fi
-            fi
-        done
-        
-        rm -f temp_fastqc.txt temp_block.txt
-        echo "Extraction complete."
-        """
-
-
-rule blast_overrepresented_t2t:
-    input:
-        # We point directly to the single aggregated FASTA we just created
-        fasta="diagnostics/overrepresented_sequences.fasta",
-    output:
-        # A single summary TSV file for the entire cohort
-        out="diagnostics/blastn_T2T_overrepresented.tsv",
-    threads: 8
-    params: 
-        db = config["blast_db"]
-    shell:
-        """
-
-        # Safety check: ensure the FASTA is not empty before launching BLAST
-        if [ -s {input.fasta} ]; then
-            blastn -task blastn \
-                -query {input.fasta} \
-                -db {params.db} \
-                -outfmt "6 qseqid sseqid staxids sscinames pident length evalue bitscore stitle" \
-                -max_target_seqs 1 \
-                -evalue 10 \
-                -word_size 11 \
-                -dust no \
-                -perc_identity 70 \
-                -num_threads {threads} \
-                -out {output.out}
-        else
-            touch {output.out}
-        fi
-        """
-
-
-rule blast_overrepresented_nt:
-    input:
-        # Taking the FASTA we extracted from FastQC
-        fasta="diagnostics/overrepresented_sequences.fasta",
-    output:
-        # A new summary TSV for the global hits
-        out="diagnostics/blastn_nt_overrepresented.tsv",
-    shell:
-        """
-        # Safety check: ensure the FASTA is not empty
-        if [ -s {input.fasta} ]; then
-            # Using -remote to hit the complete NCBI database
-            blastn -task megablast \
-                -query {input.fasta} \
-                -db nt \
-                -remote \
-                -outfmt "6 qseqid sseqid staxids sscinames pident length evalue bitscore stitle" \
-                -max_target_seqs 1 \
-                -out {output.out}
-        else
-            touch {output.out}
-        fi
-        """
-
-
-
-#########################
-### MEGAHIT assembly ####
-#########################
-
-
-LAYOUT = config["LAYOUT"].upper()
-
-if LAYOUT not in {"PAIRED", "SINGLE"}:
-    raise ValueError(
-        f"Unsupported LAYOUT={LAYOUT!r}; expected 'PAIRED' or 'SINGLE'"
-    )
-
+##############################################################################
+## 5. MEGAHIT CO-ASSEMBLY + DOWNSTREAM ANNOTATION
+##############################################################################
 
 rule megahit_coassembly:
     input:
@@ -1054,8 +630,18 @@ rule megahit_coassembly:
             >> {log:q} 2>&1
         """
 
-
-
+rule blastn:
+    input:
+        fasta="Megahit/{sample}_assembly/split_fasta/{contig}.fa",
+    output:
+        out="blastn/{sample}/{contig}.out",
+    params:
+        outfmt="6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore staxids sscinames",
+    shell:
+        """
+        mkdir -p blastn/{wildcards.sample}
+        blastn -query {input.fasta} -db refseq_rna -out {output.out} -outfmt "{params.outfmt}"
+        """
 
 rule diamond_blastx:
     input:
@@ -1066,7 +652,6 @@ rule diamond_blastx:
     log:
         "logs/diamond/{taxid}_diamond.log"
     params:
-        # Provide the path to the pre-compiled nr database WITHOUT the .dmnd extension
         db="/home/reference_data/bioinfotree/task/blast/nr/nr.gz", 
         outfmt="100"
     shell:
@@ -1080,7 +665,6 @@ rule diamond_blastx:
             --max-target-seqs 5 \
             --evalue 1e-5 > {log} 2>&1
         """
-
 
 rule run_transdecoder:
     input:
@@ -1101,6 +685,380 @@ rule run_transdecoder:
         
         # 2. Predizione delle ORF più probabili
         TransDecoder.Predict -t ../../../{input.fasta}
+        """
+
+
+##############################################################################
+## 6. ALTERNATIVE PROFILERS  (MetaPhlAn4 / Kaiju + Kaiju-Kraken merge)
+##############################################################################
+
+rule metaphlan4:
+    input:
+        "fastq/fastq_taxid_depleted/{sample}_R1.fastq.gz",
+    output:
+        profile="metaphlan4/{sample}.profile.txt",
+        bowtie2out="metaphlan4/{sample}.bowtie2.bz2",
+    params:
+        db= config["metaphlan_db"],
+        idx = config["metaphlan_index"]
+    threads: 4
+    shell:
+        """
+        mkdir -p metaphlan4
+        metaphlan {input} --input_type fastq --bowtie2db {params.db} --index {params.idx} --bowtie2out {output.bowtie2out} --nproc {threads}  -o {output.profile} --offline
+        """
+
+rule kaiju:
+    input:
+        "Results/star/unmapped/{sample}_unmapped_R1.fastq.gz",
+    output:
+        report="kaiju/{sample}.kaiju.out",
+    log:
+        "log/{sample}_kaiju.log",
+    params:
+        threads=25,
+        db_Nodes=config.get("kaiju", {}).get("db_Nodes", ""),
+        db_FMI=config.get("kaiju", {}).get("db_FMI", ""),
+    shell:
+        """
+        kaiju -z {params.threads} -t {params.db_Nodes} -f {params.db_FMI} -i {input} -o {output.report}  2> {log}
+        """
+
+rule kaiju_multi:
+    input:
+        expand("Results/star/unmapped/{sample}_unmapped_R1.fastq.gz", sample=SAMPLES),
+    output:
+        reports=expand("kaiju/{sample}.kaiju.out", sample=SAMPLES),
+    log:
+        "log/kaiju_multi.log",
+    params:
+        threads=config.get("kaiju", {}).get("threads", 12),
+        db_Nodes=config.get("kaiju", {}).get("db_Nodes", ""),
+        db_FMI=config.get("kaiju", {}).get("db_FMI", ""),
+        inputs=lambda wc, input: ",".join(input),
+        outputs=lambda wc, output: ",".join(output.reports),
+    shell:
+        """
+        kaiju-multi -z {params.threads} \
+            -t {params.db_Nodes} \
+            -f {params.db_FMI} \
+            -i {params.inputs} \
+            -o {params.outputs} \
+            2> {log}
+        """
+
+rule kaiju_report:
+    input:
+        "kaiju/{sample}.kaiju.out",
+    output:
+        "kaiju/report/{sample}.kaiju.tsv",
+    params:
+        threads=12,
+        db_Nodes=config.get("kaiju", {}).get("db_Nodes", ""),
+        db_FMI=config.get("kaiju", {}).get("db_FMI", ""),
+        db_Names=config.get("kaiju", {}).get("db_Names", ""),
+        taxa_level="species",
+    shell:
+        """
+        mkdir -p kaiju/report
+        kaiju2table -t {params.db_Nodes} -n {params.db_Names} -r {params.taxa_level} -o {output} {input} -u -p
+        """
+
+rule all_krakaiju_filtered:
+    input:
+        expand("kaiju/filtered/{sample}.kaiju.out", sample=SAMPLES),
+
+rule filter_krakaiju_output:
+    input:
+        "kaiju/merged/{sample}.merged.out",
+    output:
+        "kaiju/filtered/{sample}.kaiju.out",
+    params:
+        contaminants=config.get("CONTAMINANT_INFO", {}).get("contaminant"),
+        human=config.get("CONTAMINANT_INFO", {}).get("humanID"),
+    run:
+        contaminant_conditions = " && ".join(
+            [f"$3 != {c}" for c in params.contaminants]
+        )
+        human_conditions = " && ".join([f"$3 != {c}" for c in params.human])
+        shell(
+            f"mkdir -p kaiju/filtered && awk '{contaminant_conditions} && {human_conditions}' {{input}} > {{output}}"
+        )
+
+rule all_kaiju_kraken_merge:
+    input:
+        expand("kaiju/merged/{sample}.merged.out", sample=SAMPLES),
+
+rule kaiju_kraken_merge:
+    input:
+        kaiju="kaiju/{sample}.kaiju.out",
+        kraken="koutput_filtered/{sample}.kraken2",
+    output:
+        "kaiju/merged/{sample}.merged.out",
+    params:
+        conflict=config.get("kaiju_merge", "lca"),
+        nodes=config.get("kaiju", {}).get("db_Nodes", ""),
+    shell:
+        r"""
+        mkdir -p kaiju/merged
+
+        if [ "{params.conflict}" = "lca" ] || [ "{params.conflict}" = "lowest" ]; then
+            TAXOPT="-t {params.nodes}"
+        else
+            TAXOPT=""
+        fi
+
+        kaiju-mergeOutputs \
+            -i <(sort -k2,2 {input.kaiju}) \
+            -j <(sort -k2,2 {input.kraken}) \
+            -o {output} \
+            -c {params.conflict} \
+            $TAXOPT \
+            -v
+        """
+
+rule kaiju_kraken_merge_report:
+    input:
+        merged="kaiju/filtered/{sample}.kaiju.out",
+        db=config["kraken_k2d"],
+    output:
+        report="kaiju_kraken_merged/{sample}.k2report",
+    shell:
+        """
+        k2report {input.db} {input.merged} {output.report}
+        """
+
+
+##############################################################################
+## 7. QC & DIAGNOSTICS  (FastQC on depleted reads -> overrepresented BLAST)
+##############################################################################
+
+rule all_unmapped_fastqc:
+    input:
+        expand("fastqc/fastq_taxid_depleted/{sample}_R1_fastqc.zip", sample=SAMPLES),
+        expand("fastqc/fastq_taxid_depleted/{sample}_R1_fastqc.html", sample=SAMPLES),
+
+rule unmapped_fastqc:
+    input:
+        fastq="fastq/fastq_taxid_depleted/{sample}_R1.fastq.gz",
+    output:
+        zip_out="fastqc/fastq_taxid_depleted/{sample}_R1_fastqc.zip",
+        html_out="fastqc/fastq_taxid_depleted/{sample}_R1_fastqc.html",
+    threads: 8
+    shell:
+        """
+        mkdir -p fastqc/fastq_taxid_depleted/
+        fastqc --threads {threads} --quiet --outdir fastqc/fastq_taxid_depleted/ {input.fastq}
+        """
+
+rule extract_overrepresented:
+    input:
+        zips=expand("fastqc/fastq_taxid_depleted/{sample}_R1_fastqc.zip", sample=SAMPLES),
+    output:
+        fasta="diagnostics/overrepresented_sequences.fasta",
+    shell:
+        """
+        tmp_fastqc=$(mktemp)
+        tmp_block=$(mktemp)
+        trap 'rm -f "$tmp_fastqc" "$tmp_block"' EXIT
+
+        # Initialize an empty FASTA file
+        > {output.fasta}
+        
+        echo "Extracting overrepresented sequences across the cohort..."
+        
+        for zip_file in {input.zips}; do
+            # Extract sample name safely
+            sample=$(basename "$zip_file" _R1_fastqc.zip)
+            
+            # Stream the internal fastqc_data.txt without extracting the whole folder to disk
+            if unzip -p "$zip_file" "*/fastqc_data.txt" > "$tmp_fastqc" 2>/dev/null; then
+                
+                # Isolate the exact block containing the overrepresented sequences
+                sed -n '/>>Overrepresented sequences/,/>>END_MODULE/p' "$tmp_fastqc" | \
+                grep -v ">>" | grep -v "^#Sequence" > "$tmp_block" || true
+                
+                if [ -s "$tmp_block" ]; then
+                    count=1
+                    while read -r line; do
+                        seq=$(echo "$line" | cut -f1)
+                        pct=$(echo "$line" | cut -f3)
+                        source=$(echo "$line" | cut -f4)
+                        
+                        # Write the FASTA header and sequence
+                        echo ">${{sample}}_ovr_${{count}} | pct:${{pct}}% | source:${{source}}" >> {output.fasta}
+                        echo "$seq" >> {output.fasta}
+                        
+                        count=$((count + 1))
+                    done < "$tmp_block"
+                fi
+            fi
+        done
+        
+        : # temp files auto-cleaned via trap
+        echo "Extraction complete."
+        """
+
+rule blast_overrepresented_t2t:
+    input:
+        fasta="diagnostics/overrepresented_sequences.fasta",
+    output:
+        out="diagnostics/blastn_T2T_overrepresented.tsv",
+    threads: 8
+    params: 
+        db = config["blast_db"]
+    shell:
+        """
+
+        # Safety check: ensure the FASTA is not empty before launching BLAST
+        if [ -s {input.fasta} ]; then
+            blastn -task blastn \
+                -query {input.fasta} \
+                -db {params.db} \
+                -outfmt "6 qseqid sseqid staxids sscinames pident length evalue bitscore stitle" \
+                -max_target_seqs 1 \
+                -evalue 10 \
+                -word_size 11 \
+                -dust no \
+                -perc_identity 70 \
+                -num_threads {threads} \
+                -out {output.out}
+        else
+            touch {output.out}
+        fi
+        """
+
+rule blast_overrepresented_nt:
+    input:
+        fasta="diagnostics/overrepresented_sequences.fasta",
+    output:
+        out="diagnostics/blastn_nt_overrepresented.tsv",
+    shell:
+        """
+        # Safety check: ensure the FASTA is not empty
+        if [ -s {input.fasta} ]; then
+            # Using -remote to hit the complete NCBI database
+            blastn -task megablast \
+                -query {input.fasta} \
+                -db nt \
+                -remote \
+                -outfmt "6 qseqid sseqid staxids sscinames pident length evalue bitscore stitle" \
+                -max_target_seqs 1 \
+                -out {output.out}
+        else
+            touch {output.out}
+        fi
+        """
+
+
+##############################################################################
+## 8. PROJECT-SPECIFIC  (Bowtie2 / S. aureus region hunt; paracoccus targets)
+##    TODO: hardcoded refs & filenames -- slated to move to a dataset include
+##############################################################################
+
+rule bowtie2:
+    input:
+        fastq="fastq_unclassified/{sample}_R1.fa",
+        index="Resources/S_aureus/S_aureus_index.1.bt2",
+    output:
+        sam="bowtie2/{sample}.sam",
+    params:
+        prefix="Resources/S_aureus/S_aureus_index",
+    threads: 8
+    shell:
+        """
+        bowtie2 -x {params.prefix} -U {input.fastq} -S {output.sam} -p {threads} -f --no-unal
+        """
+
+rule all_samtools_bam:
+    input:
+        expand("bowtie2/{sample}.bam", sample=SAMPLES),
+
+rule samtools_bam:
+    input:
+        "bowtie2/{sample}.sam",
+    output:
+        "bowtie2/{sample}.bam",
+    shell:
+        """
+        samtools view -bS {input} | samtools sort -o {output}
+        """
+
+rule all_samtools_index:
+    input:
+        expand("bowtie2/{sample}.bam.bai", sample=SAMPLES),
+
+rule samtools_index:
+    input:
+        "bowtie2/{sample}.bam",
+    output:
+        "bowtie2/{sample}.bam.bai",
+    shell:
+        """
+        samtools index {input}
+        """
+
+rule all_merged_beds:
+    input:
+        expand("bed_regions/{sample}_merged.bed", sample=SAMPLES),
+
+rule bam_to_merged_bed:
+    input:
+        bam="bowtie2/{sample}.bam",
+    output:
+        bed="bed_regions/{sample}_merged.bed",
+    shell:
+        """
+        bedtools bamtobed -i {input.bam} | bedtools merge -d 1000 > {output.bed}
+        """
+
+rule combine_all_beds:
+    input:
+        expand("bed_regions/{sample}_merged.bed", sample=SAMPLES),
+    output:
+        "bed_regions/tutte_le_regioni_sospette.bed",
+    shell:
+        """
+        cat {input} | sort -k1,1 -k2,2n | bedtools merge > {output}
+        """
+
+rule bam_2_fasta:
+    input:
+        "bowtie2/{sample}.bam",
+    output:
+        "bowtie2/fasta/{sample}.fa",
+    shell:
+        """
+        mkdir -p bowtie2/fasta
+        samtools fasta -F 4 {input} > {output}
+        """
+
+rule blast:
+    input:
+        fasta="fastq_idmapped/{sample}_R1.fa",
+    output:
+        out="blastn_T2T/{sample}.blastn.out",
+    threads: 8
+    params: 
+        db = config["blast_db"]
+    shell:
+        """
+        mkdir -p blastn_T2T
+
+        if [ -s {input.fasta} ]; then
+            blastn -task blastn \
+                -query {input.fasta} \
+                -db {params.db} \
+                -outfmt "6 qseqid sseqid staxids sscinames pident length evalue bitscore" \
+                -evalue 10 \
+                -word_size 11 \
+                -dust no \
+                -perc_identity 70 \
+                -num_threads {threads} \
+                -out {output.out}
+        else
+            touch {output.out}
+        fi
         """
 
 rule samtools_contigs_2_fasta: 

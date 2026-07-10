@@ -2,53 +2,104 @@
 #  / __|___ _ _  / _(_)__ _ _  _ _ _ __ _| |_(_)___ _ _  
 # | (__/ _ \ ' \|  _| / _` | || | '_/ _` |  _| / _ \ ' \ 
 #  \___\___/_||_|_| |_\__, |\_,_|_| \__,_|\__|_\___/_||_|
-#                     |___/                                                                             
+#                     |___/
+#
+# ############################################################################
+#  Pipeline configuration.
+#  Everything under "SYSTEM-SPECIFIC PATHS" MUST be edited for a new machine.
+#  Everything below that block are analysis parameters with sensible defaults.
+# ############################################################################
 
-# ========================
-# GENERAL SETUP
-# ========================
 
-TMPDIR: "/tmp"  # Temporary directory for intermediate files: set accordingly 
-CORES: 6                             # Number of cores to use
+# ============================================================================
+# 1. SYSTEM-SPECIFIC PATHS  —  *** EDIT THESE WHEN MOVING TO A NEW MACHINE ***
+# ============================================================================
+# All absolute paths to reference data / databases live here so a new user has
+# a single place to look. Nothing else below should need editing to port.
 
-# ========================
-# EXPERIMENT INFO
-# ========================
+TMPDIR: "/tmp"                # scratch for intermediate files; point to a large, fast disk (e.g. NVMe) for STAR/sorting
 
-LAYOUT: "SINGLE"  # SINGLE | PAIRED 
-STRANDED: "0"    # 0 -> unstranded, 1 -> forward, 2 -> reverse
-aligner: "star"  # star | bwa
-TRIMMER: "fastp"  # fastp | trimgalore
+# --- Kraken2 / Bracken databases ---
+kraken_db:       "/mnt/nvme_raid0/molinerislab/GTDB/v226"                                  # pass2 (main) DB
+kraken_db_pass1: "/home/reference_data/bioinfotree/task/kraken/nobackup/k2_pluspf_20250402" # pass1 host-removal DB
+kraken_db_nr:    "/home/reference_data/bioinfotree/task/kraken/nobackup/k2_nt"              # nt/nr DB
+kraken_k2d:      "/home/reference_data/bioinfotree/task/kraken/nobackup/k2_pluspf_20250402/taxo.k2d"
+bwa_db: "/home/molinerislab/NeriMetagenome/Reference_genome/bwa/GRCh38.p14.genome.fa"
+# --- MetaPhlAn4 ---
+metaphlan_db:    "/home/reference_data/bioinfotree/task/metaphlan/dataset/nobackup/mpa_vJan25_CHOCOPhlAnSGB_202503"
+metaphlan_index: "mpa_vJan25_CHOCOPhlAnSGB_202503"
+
+# --- BLAST ---
+blast_db:        "/mnt/nobackup/home/reference_data/bioinfotree/task/blast/T2T-CHM13"
+
+# --- Kaiju ---
+kaiju:
+  db_Nodes: "/mnt/nobackup/home/reference_data/bioinfotree/task/kaiju/nodes.dmp"
+  db_FMI:   "/mnt/nobackup/home/reference_data/bioinfotree/task/kaiju/kaiju_db_nr_euk.fmi"
+  db_Names: "/mnt/nobackup/home/reference_data/bioinfotree/task/kaiju/names.dmp"
+
+
+# ============================================================================
+# 2. GENERAL SETUP — CORES
+# ============================================================================
+
+CORES:
+  fastp: 6
+  trimgalore: 6
+  star: 16
+  kraken2: 12
+  bwa: 12
+
+
+# ============================================================================
+# 3. EXPERIMENT INFO
+# ============================================================================
+
+LAYOUT: "SINGLE"    # SINGLE | PAIRED
+STRANDED: "0"       # 0 -> unstranded, 1 -> forward, 2 -> reverse  (kept quoted: consumed as a string in shell)
+aligner: "star"     # star | bwa
+TRIMMER: "fastp"    # fastp | trimgalore
 psitrand: "un"
-# ========================
-# GENCODE & REFERENCE
-# ========================
+
+SPECIES: human
+UCSC_VERSION: hg38
+
+
+# ============================================================================
+# 4. GENCODE & REFERENCE
+# ============================================================================
 
 GENCODE:
-  SPECIES: "mmusculus_hsapiens_combined"      # hsapiens | mmusculus | mmusculus_hsapiens_combined
-  VERSION: "M39_50"            # 32 | M23
-  GENOME: "GRCh38_GRCm39.primary_assembly" # GRCh38.primary_assembly | GRCm38.primary_assembly #GRCh38_GRCm39.primary_assembly #GRCh38.p14
-  ANNOTATION: "primary_assembly.annotation" # primary_assembly.annotation | basic.annotation
+  SPECIES: "hsapiens"                          # hsapiens | mmusculus | mmusculus_hsapiens_combined
+  VERSION: "46"                                # 32 | M23
+  GENOME: "GRCh38.p14"                         # GRCh38.primary_assembly | GRCm38.primary_assembly
+  ANNOTATION: "primary_assembly.annotation"    # primary_assembly.annotation | basic.annotation
 
-# ========================
-# ALIGNMENT (STAR)
-# ========================
+# NOTE: top-level VERSION duplicates GENCODE.VERSION. Kept for backward compatibility
+#       with rules that read config["VERSION"] directly. Keep the two in sync.
+VERSION: "46"
 
+
+# ============================================================================
+# 5. ALIGNMENT (STAR)
+# ============================================================================
+
+STAR_MODE: "two_pass_manual"   # single_pass | two_pass_manual | two_pass_basic
 STAR:
   # Input / Output
   OUT_SAM_TYPE: "BAM SortedByCoordinate"
   readFilesCommand: "zcat"
   ADDITIONAL_OUTPUT: ""
-  quantMode: "GeneCounts"
+  quantMode: "GeneCounts TranscriptomeSAM"
   # Alignment Filters
   OUT_FILTER_TYPE: "BySJout"
-  OUT_FILTER_MULTIMAP_NMAX: 2000           
-  OUT_FILTER_MISMATCH_NMAX: 999           
-  OUT_FILTER_MISMATCH_NOVER_LMAX: 0.04 
-  outSAMmultNmax: 1   
+  OUT_FILTER_MULTIMAP_NMAX: 2000
+  OUT_FILTER_MISMATCH_NMAX: 999
+  OUT_FILTER_MISMATCH_NOVER_LMAX: 0.04
+  outSAMmultNmax: 1
   MULTIMAP_SCORE_RANGE: 1
   # Alignment Splicing/Introns
-  ALIGN_SJ_OVERHANG_MIN: 8                
+  ALIGN_SJ_OVERHANG_MIN: 8
   ALIGN_SJDB_OVERHANG_MIN: 1
   ALIGN_INTRON_MIN: 20
   ALIGN_INTRON_MAX: 1000000
@@ -56,96 +107,95 @@ STAR:
   # Additional Parameters
   sjdbOverhang: 149
   limitSjdbInsertNsj: 1376300
-  SAVE_UNMAPPED: "FASTQ" # BAM | FASTQ 
+  SAVE_UNMAPPED: "FASTQ"   # BAM | FASTQ
   # Version
   VERSION: "2.7.11b"
-  
+
+
+# ============================================================================
+# 6. TRIMMING
+# ============================================================================
 
 TRIM_GALORE:
-  PARAM: "" # https://support-docs.illumina.com/SHARE/AdapterSequences/Content/SingleIndexes.htm
+  PARAM: ""   # https://support-docs.illumina.com/SHARE/AdapterSequences/Content/SingleIndexes.htm
 
-# ========================
-# COUNTING (FeatureCounts)
-# ========================
+FASTP:
+  extra: ""
+
+
+# ============================================================================
+# 7. COUNTING (FeatureCounts)
+# ============================================================================
 
 FEATURECOUNTS_PARAM: "-t exon -g gene_name"
-#default count on exons and summarize on gene names, consider -g gene_id
-#strandnes and paired-end handled in config.smk
-# -O allowMultiOverlap
-# -g gene_name
-# -s 2
-# -p -C ==> paired-end layout
+# default: count on exons, summarize on gene names; consider -g gene_id
+# strandedness and paired-end handled in config.smk
+# -O allowMultiOverlap ; -g gene_name ; -s 2 ; -p -C ==> paired-end layout
 
-# ========================
-# DGE ANALYSIS
-# ========================
+
+# ============================================================================
+# 8. DGE ANALYSIS
+# ============================================================================
 
 DGE:
   DGE_TOOL: "edger"
-  # FIXED: Added space after colon below
-  LIMMA_CONTRASTS: #e.g. LIMMA_CONTRASTS:
-        # contrast_name: "contrast"
-        # KO_vs_WT: "(KO.ND+KO.HFD)-(WT.ND+WT.HFD)"
+  LIMMA_CONTRASTS:            # e.g.  contrast_name: "contrast"
+                             #       KO_vs_WT: "(KO.ND+KO.HFD)-(WT.ND+WT.HFD)"
   LIMMA_DESIGN_FORMULA: "~0+condition"
   LIMMA_FACTORS: ""
   MIN_NUM_OF_EXPRESSED_SAMPLE: 10
   EXPRESSED_GENES_MIN_CPM: 1
   DGE_CONDITION: "condition"
   LIMMA_CONTRASTS_NAMES: []
+
 MARK_SEQC:
   LOGFC: 1
   PVALUE: 1
   PVALUE_ADJ: 0.05
 
 VENN_CONTRASTS:
-  #e.g. TODO better documentation
-  #- untreated
-  #- vem_4h
-  #- vem_24h
-  #- res_vem_0.2
-  #- res_vem_0.8
-  #- res_vem_1.6
+  # e.g. TODO better documentation
+  # - untreated
+  # - vem_4h
 
 HEATMAP:
-  COLUMNS: "condition,sh,vem"
-  # columns of metadata.txt to add to the heatmap, separated by ,
+  COLUMNS: "condition,sh,vem"    # columns of metadata.txt to add to the heatmap, comma-separated
+  N_TOP: "500"                   # number of top most-variant genes for the heatmap
+  COLORS: "--pal_set Set3"       # empty = default colors, or a custom colorbrewer set (default Set1)
+  CLUSTERS: "-r 3 -z 3"          # number of clusters for rows (-r) and columns (-z); empty = no clusters
 
-  N_TOP: "500"
-  # number of the top most variant genes to consider for the heatmap
 
-  COLORS: "--pal_set Set3"
-  # leave empty if you wish to use the standard colors or specify the custom colorbrewer set to use (default is Set1)
+# ============================================================================
+# 9. VISUALIZATION
+# ============================================================================
 
-  CLUSTERS: "-r 3 -z 3"
-  # indicate the number of clusters the rows (-r) and the columns (-z) will be divided into. 
-  # leave empty to have no clusters
-
-# ========================
-# VISUALIZATION
-# ========================
 GFF3_MIN_WINDOW_READS: "100"
 BIGWIG_BIN_SIZE: "50"
 BEDGRAPH_FILTER: "100"
-#REPEAT_FAMILY_RAND_REPETITION=10 
 
-# ========================
-# METAGENOMICS (Kraken/Bracken)
-# ========================
+
+# ============================================================================
+# 10. METAGENOMICS (Kraken / Bracken)
+# ============================================================================
+# NOTE: DB paths for kraken/metaphlan/blast/kaiju are in section 1 at the top.
+
+USE_K2_DAEMON: true
+SAVE_UNCLASSIFIED: true
+
+kraken_options: "--minimum-hit-groups 2"
+kraken_extract_taxid: "150191"
 
 BRACKEN:
   braken_read_len: 100
   braken_min_reads: 5
   braken_level: "S"
 
-kraken_db: "/mnt/nvme_raid0/molinerislab/GTDB/v226/" #/mnt/nobackup/home/reference_data/bioinfotree/task/kraken/GTDB/v226 #/home/reference_data/bioinfotree/task/kraken/nobackup/k2_pluspf_20250402
-kraken_db_pass1: "/home/reference_data/bioinfotree/task/kraken/dataset/k2_pluspf_20260226"
-kraken_db_nr: "/home/reference_data/bioinfotree/task/kraken/nobackup/k2_nt"
-kraken_options: "--minimum-hit-groups 2"
-kraken_k2d: "/home/reference_data/bioinfotree/task/kraken/nobackup/k2_pluspf_20250402/taxo.k2d"
-kraken_extract_taxid: "60227" 
-# ========================
-# FEATURE FILTERING
-# ========================
+kaiju_merge: lca
+
+
+# ============================================================================
+# 11. FEATURE FILTERING (metagenomics abundance)
+# ============================================================================
 
 feature_filter:
   condition: "disease"
@@ -155,9 +205,10 @@ feature_filter:
   min_exp: 100
   min_samples_ratio: 0.5
 
-# ========================
-# CONTAMINANT / HOST
-# ========================
+
+# ============================================================================
+# 12. CONTAMINANT / HOST
+# ============================================================================
 
 CONTAMINANT_INFO:
   contaminant: ["0000"]
@@ -166,111 +217,75 @@ CONTAMINANT_INFO:
   split_by_value: [""]
   multiple_files: FALSE
 
-VERSION: "46"
 
-SPECIES: human
+# ============================================================================
+# 13. MAJIQ
+# ============================================================================
 
-UCSC_VERSION: hg38
- 
-
-#TODO: put them in the featurecounts section above
-# featurecounts param ---
-#FEATURECOUNTS_PARAM = config["FEATURECOUNTS_PARAM"] + " -s" + config["STRANDED"]
-#if config["LAYOUT"] == "PAIRED":
-#    FEATURECOUNTS_PARAM += " -p -C --countReadPairs" 
-# -O allowMultiOverlap
-#LCPM_PRIOR_COUNT = 0.25           # *standard of edgeR*
-#LTPM_PRIOR_COUNT = 0.0001
-
-kraken:
-  exclude_classified: 
-  include_children: 
-
-
-################
-# MAJIQ CONFIG #
-################
-comparisons :
+comparisons:
   - "WT_ND_vs_KO_ND"
   - "WT_HFD_vs_KO_HFD"
   - "KO_ND_vs_KO_HFD"
-  - "WT_ND_vs_WT_HFD" 
-
-metaphlan_db: "/home/reference_data/bioinfotree/task/metaphlan/dataset/nobackup/mpa_vJan25_CHOCOPhlAnSGB_202503"
-
-kaiju:
-  db_Nodes: "/mnt/nobackup/home/reference_data/bioinfotree/task/kaiju/nodes.dmp"
-  db_FMI: "/mnt/nobackup/home/reference_data/bioinfotree/task/kaiju/kaiju_db_nr_euk.fmi"
-  db_Names: "/mnt/nobackup/home/reference_data/bioinfotree/task/kaiju/names.dmp"
-
-kaiju_merge: lca
+  - "WT_ND_vs_WT_HFD"
 
 
+# ============================================================================
+# 14. GSEA
+# ============================================================================
 
-###############
-# GSEA CONFIG #
-###############
+MSIGDB_VERSION: "v7.5.1"   # e.g. v7.5.1 | v2022.1.Mm
 
-MSIGDB_VERSION: "v7.5.1"
-# e.g. v7.5.1|v2022.1.Mm/
-
-# Dashed list of msigdb collection of geneset to be investigated
+# msigdb collections of gene sets to investigate, per MSIGDB_VERSION
 MSIGDB_TYPES:
-        "v7.5.1":
-                - "h.all" # hallmark gene sets
-                - "c1.all" # positional gene sets
-                - "c2.cgp" # curated gene sets - chemical and genetic perturbations
-                - "c2.cp.biocarta" # curated gene sets - BioCarta
-                - "c2.cp.kegg" # curated gene sets - KEGG
-                - "c2.cp.reactome" # curated gene sets - Reactome
-                - "c2.cp" # curated gene sets - Canonical pathways
-                - "c3.mir" # regulatory target gene sets - miRNA
-                - "c3.tft" # regulatory target gene sets - TF
-                - "c4.cgn" # computational gene sets - cancer gene neighborhoods
-                - "c4.cm" # computational gene sets - cancer modules
-                - "c5.go.mf" # ontology gene sets - Molecular Function
-                - "c5.go.bp" # ontology gene sets - Biological Process
-                - "c5.go.cc" # ontology gene sets - Cellular Component
-                - "c6.all" # oncogenic signature gene sets
-                - "c7.all" # immunologic signature gene sets
-                - "c8.all" # cell type signature gene sets
-        "v2022.1.Mm":
-                - "m1.all"
-                - "m2.cgp"
-                - "m2.cp.biocarta"
-                - "m2.cp.reactome"
-                - "m2.cp"
-                - "m2.cp.wikipathways"
-                - "m3.gtrd"
-                - "m3.mirdb"
-                - "m5.go.bp"
-                - "m5.go.cc"
-                - "m5.go.mf"
-                - "m5.go"
-                - "m5.mpt"
-                - "m8.all"
-                - "mh.all"
+  "v7.5.1":
+    - "h.all"            # hallmark gene sets
+    - "c1.all"           # positional gene sets
+    - "c2.cgp"           # curated - chemical and genetic perturbations
+    - "c2.cp.biocarta"   # curated - BioCarta
+    - "c2.cp.kegg"       # curated - KEGG
+    - "c2.cp.reactome"   # curated - Reactome
+    - "c2.cp"            # curated - Canonical pathways
+    - "c3.mir"           # regulatory target - miRNA
+    - "c3.tft"           # regulatory target - TF
+    - "c4.cgn"           # computational - cancer gene neighborhoods
+    - "c4.cm"            # computational - cancer modules
+    - "c5.go.mf"         # ontology - Molecular Function
+    - "c5.go.bp"         # ontology - Biological Process
+    - "c5.go.cc"         # ontology - Cellular Component
+    - "c6.all"           # oncogenic signature gene sets
+    - "c7.all"           # immunologic signature gene sets
+    - "c8.all"           # cell type signature gene sets
+  "v2022.1.Mm":
+    - "m1.all"
+    - "m2.cgp"
+    - "m2.cp.biocarta"
+    - "m2.cp.reactome"
+    - "m2.cp"
+    - "m2.cp.wikipathways"
+    - "m3.gtrd"
+    - "m3.mirdb"
+    - "m5.go.bp"
+    - "m5.go.cc"
+    - "m5.go.mf"
+    - "m5.go"
+    - "m5.mpt"
+    - "m8.all"
+    - "mh.all"
 
-
-
-RNK_METRIC: "logFC_pval"
-# e.g. logFC|logFC_pval
-
+RNK_METRIC: "logFC_pval"   # e.g. logFC | logFC_pval
 MAX_GENES_IN_SET: 5000
 MIN_GENES_IN_SET: 5
+GSEA_WEIGHT: 0             # 0 | 1  — https://www.biostars.org/p/263074/
 
-GSEA_WEIGHT: 0 
-# e.g. 0|1
-# https://www.biostars.org/p/263074/
-
-MSIGDB_DIR: DAP_REFERENCE_ROOT + "/msigdb/dataset/" + MSIGDB_VERSION
-
-
-#################
+# NOTE: MSIGDB_DIR is a *derived path*, not a literal — it CANNOT live in YAML.
+#       The previous value ("DAP_REFERENCE_ROOT + \"/msigdb/dataset/\" + MSIGDB_VERSION")
+#       was stored as a plain string and never evaluated. Build it in config_v1.sk:
 #
-# Publish params
+#           MSIGDB_DIR = REFERENCE_ROOT + "/msigdb/dataset/" + config["MSIGDB_VERSION"]
 #
+#       (confirm whether it should key off REFERENCE_ROOT or a separate DAP_REFERENCE_ROOT.)
 
+# --- GSEA publish params ---
 GSEA_PUBLISH_HOST: 192.168.186.10
 GSEA_PUBLISH_USER: aleone
 GSEA_PUBLISH_REPLACE_FROM: \/home

@@ -17,7 +17,7 @@ def get_accession_for_download(wildcards):
     if taxid_str in TAX_MAP.index:
         return TAX_MAP.loc[taxid_str, "assembly_accession"]
     else:
-        raise ValueError(f"CRITICAL FAULT: TaxID {taxid_str} is missing from kraken_master_map.tsv")
+        raise ValueError(f"CRITICAL FAULT: TaxID {taxid_str} is missing from GTDB_NCBI_bact_table.tsv")
 
 if config["LAYOUT"] == "PAIRED":
     ruleorder: kraken_pe_pass1 > kraken_se_pass1
@@ -103,8 +103,8 @@ rule k2_daemon_stop:
 
 rule kraken_pe_pass1:
     input:
-        R1="Results/star/unmapped/{sample}_unmapped_R1.fastq.gz",
-        R2="Results/star/unmapped/{sample}_unmapped_R2.fastq.gz",
+        R1="fastq/unmapped/{sample}_unmapped_R1.fastq.gz",
+        R2="fastq/unmapped/{sample}_unmapped_R2.fastq.gz",
     output:
         report="kreports/{sample}.k2report",
         out="koutputs/{sample}.kraken2",
@@ -115,6 +115,7 @@ rule kraken_pe_pass1:
         """
         k2 classify --db {config[kraken_db_pass1]} {config[kraken_options]}\
             --threads {threads} \
+            --report-minimizer-data \
             --report {output.report} \
             --output {output.out} \
             --paired {input.R1} {input.R2} \
@@ -123,7 +124,7 @@ rule kraken_pe_pass1:
 
 rule kraken_se_pass1:
     input:
-        R1="Results/star/unmapped/{sample}_unmapped_R1.fastq.gz",
+        R1="fastq/unmapped/{sample}_unmapped_R1.fastq.gz",
     output:
         report="kreports/{sample}.k2report",
         out="koutputs/{sample}.kraken2",
@@ -142,7 +143,7 @@ rule remove_taxid_reads_se:
     input:
         kraken2_output="koutputs/{sample}.kraken2",
         kraken2_report="kreports/{sample}.k2report",
-        fastq_r1="Results/star/unmapped/{sample}_unmapped_R1.fastq.gz",
+        fastq_r1="fastq/unmapped/{sample}_unmapped_R1.fastq.gz",
     output:
         fastq_r1_nonhost="fastq/fastq_taxid_depleted/{sample}_R1.fastq.gz",
     params:
@@ -178,8 +179,8 @@ rule remove_taxid_reads_pe:
     input:
         kraken2_output="koutputs/{sample}.kraken2",
         kraken2_report="kreports/{sample}.k2report",
-        fastq_r1="Results/star/unmapped/{sample}_unmapped_R1.fastq.gz",
-        fastq_r2="Results/star/unmapped/{sample}_unmapped_R2.fastq.gz", 
+        fastq_r1="fastq/unmapped/{sample}_unmapped_R1.fastq.gz",
+        fastq_r2="fastq/unmapped/{sample}_unmapped_R2.fastq.gz", 
     output:
         fastq_r1_nonhost="fastq/fastq_taxid_depleted/{sample}_R1.fastq.gz",
         fastq_r2_nonhost="fastq/fastq_taxid_depleted/{sample}_R2.fastq.gz", 
@@ -239,11 +240,11 @@ rule kraken_se_pass2:
             --threads {threads} \
             $([ "{params.use_daemon}" = "True" ] && echo "--use-daemon" || echo "") \
             --report-minimizer-data \
-            --unclassified-out fastq/unclassified/{wildcards.sample}_unclassified_R1.fq \
+            --unclassified-out fastq/unclassified/{wildcards.sample}_unclassified_R1.fastq \
             --report {output.report} \
             --output {output.out} \
             {input.R1}
-        gzip -f fastq/unclassified/{wildcards.sample}_unclassified_R1.fq
+        gzip -f fastq/unclassified/{wildcards.sample}_unclassified_R1.fastq
         """
 
 rule kraken_pe_pass2:
@@ -266,12 +267,12 @@ rule kraken_pe_pass2:
             --threads {threads} \
             $([ "{params.use_daemon}" = "True" ] && echo "--use-daemon" || echo "") \
             --report-minimizer-data \
-            --unclassified-out fastq/unclassified/{wildcards.sample}_unclassified_#.fq \
+            --unclassified-out fastq/unclassified/{wildcards.sample}_unclassified#.fastq \
             --report {output.report} \
             --output {output.out} \
             --paired {input.R1} {input.R2}
-        gzip -f fastq/unclassified/{wildcards.sample}_unclassified_1.fq
-        gzip -f fastq/unclassified/{wildcards.sample}_unclassified_R2.fq
+        gzip -c fastq/unclassified/{wildcards.sample}_unclassified_1.fastq > {output.unclassified_r1} && rm fastq/unclassified/{wildcards.sample}_unclassified_1.fastq
+        gzip -c fastq/unclassified/{wildcards.sample}_unclassified_2.fastq > {output.unclassified_r2} && rm fastq/unclassified/{wildcards.sample}_unclassified_2.fastq
         """
 
 """
@@ -463,7 +464,7 @@ rule extract_kraken_reads:
                 -k {input.kraken2_output} \
                 --taxid {wildcards.taxid} \
                 --include-children \
-                -s {input.fastq_r1} \
+                -s1 {input.fastq_r1} \
                 -s2 {input.fastq_r2} \
                 --report {input.kraken2_report} \
                 --fastq-output \
@@ -476,7 +477,7 @@ rule extract_kraken_reads:
                 -k {input.kraken2_output} \
                 --taxid {wildcards.taxid} \
                 --include-children \
-                -s {input.fastq_r1} \
+                -s1 {input.fastq_r1} \
                 --report {input.kraken2_report} \
                 --fastq-output \
                 -o "$tmp1"
@@ -710,7 +711,7 @@ rule metaphlan4:
 
 rule kaiju:
     input:
-        "Results/star/unmapped/{sample}_unmapped_R1.fastq.gz",
+        "fastq/unmapped/{sample}_unmapped_R1.fastq.gz",
     output:
         report="kaiju/{sample}.kaiju.out",
     log:
@@ -726,7 +727,7 @@ rule kaiju:
 
 rule kaiju_multi:
     input:
-        expand("Results/star/unmapped/{sample}_unmapped_R1.fastq.gz", sample=SAMPLES),
+        expand("fastq/unmapped/{sample}_unmapped_R1.fastq.gz", sample=SAMPLES),
     output:
         reports=expand("kaiju/{sample}.kaiju.out", sample=SAMPLES),
     log:

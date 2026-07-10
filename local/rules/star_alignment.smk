@@ -5,37 +5,51 @@ import os
 # Ruleorder #
 #############
 
+_star_mode = config.get("STAR_MODE", "two_pass_manual")
+
 if config["LAYOUT"] == "SINGLE":
 
     ruleorder: generate_unmapped_single > generate_unmapped_R1
     ruleorder: generate_unmapped_single > generate_unmapped_R2
     ruleorder: star_twopass_basic_se > star_twopass_basic_pe
-    ruleorder: star_second_pass > star_align_se
 
 elif config["LAYOUT"] == "PAIRED":
 
     ruleorder: generate_unmapped_R1 > generate_unmapped_single
     ruleorder: generate_unmapped_R2 > generate_unmapped_single
     ruleorder: star_twopass_basic_pe > star_twopass_basic_se
-    ruleorder: star_second_pass > star_align_pe
 
-if config["aligner"] == "star" and config["STAR"]["SAVE_UNMAPPED"] == "FASTQ":
+# link_unmapped only serves STAR-emitted FASTQ (single_pass / two_pass_manual).
+# Everything else (two_pass_basic, bwa, SAVE_UNMAPPED=BAM) extracts from the BAM.
+if (
+    config["aligner"] == "star"
+    and config["STAR"]["SAVE_UNMAPPED"] == "FASTQ"
+    and _star_mode in {"single_pass", "two_pass_manual"}
+):
     ruleorder: link_unmapped > generate_unmapped_R1
     ruleorder: link_unmapped > generate_unmapped_R2
+    ruleorder: link_unmapped > generate_unmapped_single
 else:
     ruleorder: generate_unmapped_R1 > link_unmapped
     ruleorder: generate_unmapped_R2 > link_unmapped
+    ruleorder: generate_unmapped_single > link_unmapped
 
 
 ######
 # LINK
 ######
-_star_mode = config.get("STAR_MODE", "two_pass_manual")
 
 _bam_sources = {
     "single_pass":      lambda wc: f"Results/star/{wc.sample}/Aligned.sortedByCoord.out.bam",
     "two_pass_manual":  lambda wc: f"Results/pass2/{wc.sample}/Aligned.sortedByCoord.out.bam",
     "two_pass_basic":   lambda wc: f"star_2pass/{wc.sample}/Aligned.sortedByCoord.out.bam",
+}
+
+# Where STAR writes its unmapped FASTQ per mode (two_pass_basic emits none —
+# it is served by BAM extraction instead, see generate_unmapped_*).
+_unmapped_sources = {
+    "single_pass":     "Results/star/unmapped/{sample}_unmapped_R{mate}.fastq.gz",
+    "two_pass_manual": "Results/pass2/unmapped/{sample}_unmapped_R{mate}.fastq.gz",
 }
 
 rule link_bam:
@@ -180,7 +194,7 @@ rule star_align_pe:
 
 rule link_unmapped:
     input:
-        "Results/star/unmapped/{sample}_unmapped_R{mate}.fastq.gz",
+        _unmapped_sources.get(_star_mode, _unmapped_sources["single_pass"]),
     output:
         "fastq/unmapped/{sample}_unmapped_R{mate}.fastq.gz",
     log:
@@ -194,16 +208,16 @@ rule link_unmapped:
 rule generate_unmapped_single:
     input:
         lambda wildcards: (
-            f"Results/star/{wildcards.sample}/Aligned.sortedByCoord.out.bam"
+            f"Results/bam/{wildcards.sample}/Aligned.sortedByCoord.out.bam"
             if config["aligner"] == "star"
             else f"aligned_bwa/{wildcards.sample}.aligned.bam"
         ),
     output:
-        "fastq/unmapped/{sample}_unmapped.fastq.gz",
+        "fastq/unmapped/{sample}_unmapped_R1.fastq.gz",
     conda:
         "transcript_env.yaml"
     log:
-        "fastq/unmapped/{sample}_unmapped.log",
+        "fastq/unmapped/{sample}_unmapped_single.log",
     shell:
         """
         samtools view -f 4 {input} | awk '{{print "@"$1; print $10; print "+"; print $11}}' | gzip > {output}
@@ -213,7 +227,7 @@ rule generate_unmapped_single:
 rule generate_unmapped_R1:
     input:
         lambda wildcards: (
-            f"Results/star/{wildcards.sample}/Aligned.sortedByCoord.out.bam"
+            f"Results/bam/{wildcards.sample}/Aligned.sortedByCoord.out.bam"
             if config["aligner"] == "star"
             else f"aligned_bwa/{wildcards.sample}.aligned.bam"
         ),
@@ -235,7 +249,7 @@ rule generate_unmapped_R1:
 rule generate_unmapped_R2:
     input:
         lambda wildcards: (
-            f"Results/star/{wildcards.sample}/Aligned.sortedByCoord.out.bam"
+            f"Results/bam/{wildcards.sample}/Aligned.sortedByCoord.out.bam"
             if config["aligner"] == "star"
             else f"aligned_bwa/{wildcards.sample}.aligned.bam"
         ),
@@ -335,12 +349,12 @@ rule star_second_pass:
         gene_counts="Results/pass2/{sample}/ReadsPerGene.out.tab",
         unmapped=(
             [
-                "Results/star/unmapped/{sample}_unmapped_R1.fastq.gz",
-                "Results/star/unmapped/{sample}_unmapped_R2.fastq.gz",
+                "Results/pass2/unmapped/{sample}_unmapped_R1.fastq.gz",
+                "Results/pass2/unmapped/{sample}_unmapped_R2.fastq.gz",
             ]
             if config["STAR"]["SAVE_UNMAPPED"] == "FASTQ" and config["LAYOUT"] == "PAIRED"
             else (
-                ["Results/star/unmapped/{sample}_unmapped_R1.fastq.gz"]
+                ["Results/pass2/unmapped/{sample}_unmapped_R1.fastq.gz"]
                 if config["STAR"]["SAVE_UNMAPPED"] == "FASTQ"
                 else []
             )
@@ -362,8 +376,8 @@ rule star_second_pass:
     shell:
         """
         mkdir -p {params.tmpdir}
-        mkdir -p Results/star/unmapped
-        
+        mkdir -p Results/pass2/unmapped
+
         STAR \
             --runThreadN {threads} \
             --genomeDir {input.idx} \
@@ -381,10 +395,10 @@ rule star_second_pass:
 
         if [ "{params.save_unmapped}" = "FASTQ" ]; then
             if [ -f "{params.tmpdir}/Unmapped.out.mate1" ]; then
-                gzip -c {params.tmpdir}/Unmapped.out.mate1 > Results/star/unmapped/{wildcards.sample}_unmapped_R1.fastq.gz
+                gzip -c {params.tmpdir}/Unmapped.out.mate1 > Results/pass2/unmapped/{wildcards.sample}_unmapped_R1.fastq.gz
             fi
             if [ -f "{params.tmpdir}/Unmapped.out.mate2" ]; then
-                gzip -c {params.tmpdir}/Unmapped.out.mate2 > Results/star/unmapped/{wildcards.sample}_unmapped_R2.fastq.gz
+                gzip -c {params.tmpdir}/Unmapped.out.mate2 > Results/pass2/unmapped/{wildcards.sample}_unmapped_R2.fastq.gz
             fi
         fi
         """
@@ -434,7 +448,8 @@ rule star_twopass_basic_se:
             --sjdbOverhang {params.sjdbOverhang} \
             --outFileNamePrefix {params.out_dir}/ \
             --outSAMtype {params.outsamtype} \
-            --quantMode {params.quantmode} 
+            --outSAMunmapped Within \
+            --quantMode {params.quantmode}
         """
 
 
@@ -485,6 +500,7 @@ rule star_twopass_basic_pe:
             --sjdbOverhang {params.sjdbOverhang} \
             --outFileNamePrefix {params.out_dir}/ \
             --outSAMtype {params.outsamtype} \
-            --quantMode {params.quantmode} 
+            --outSAMunmapped Within \
+            --quantMode {params.quantmode}
         """
 

@@ -13,6 +13,8 @@ rule align_pe_bwa:
     params:
         reference=config["bwa_db"]
     threads: config["CORES"]["bwa"]
+    conda:
+        "transcript_env.yaml"
     log:
         "aligned_bwa/logs/{sample}_bwa.log"
     shell:
@@ -21,7 +23,7 @@ rule align_pe_bwa:
         trap 'rm -rf $T' EXIT
         bwa mem -t {threads} {params.reference} {input.trimmed_fastq1} {input.trimmed_fastq2} 2> {log} | \
         samtools view -b | \
-        sambamba sort --tmpdir=$T -t {threads} --memory-limit 4GB -o {output.bam} /dev/stdin
+        sambamba sort --tmpdir=$T -t {threads}  -o {output.bam} /dev/stdin
         """
 
 
@@ -33,6 +35,8 @@ rule align_se_bwa:
     params:
         reference=config["bwa_db"]
     threads: config["CORES"]["bwa"]
+    conda:
+        "transcript_env.yaml"
     log:
         "aligned_bwa/logs/{sample}_bwa.log"
     shell:
@@ -41,5 +45,5 @@ rule align_se_bwa:
         trap 'rm -rf $T' EXIT
         bwa mem -t {threads} {params.reference} {input.trimmed_fastq} 2> {log} | \
         samtools view -b | \
-        sambamba sort --tmpdir=$T -t {threads} --memory-limit 4GB -o {output.bam} /dev/stdin
+        sambamba sort --tmpdir=$T -t {threads}  -o {output.bam} /dev/stdin
         """

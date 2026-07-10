@@ -65,14 +65,12 @@ if config["LAYOUT"] == "SINGLE":
     ruleorder: fastp_se > fastp_pe
     ruleorder: trim_galore_se > trim_galore_pe
     ruleorder: star_align_se > star_align_pe
-    ruleorder: star_second_pass > star_align_se
 
 elif config["LAYOUT"] == "PAIRED":
 
     ruleorder: fastp_pe > fastp_se
     ruleorder: trim_galore_pe > trim_galore_se
     ruleorder: star_align_pe > star_align_se
-    ruleorder: star_second_pass > star_align_pe
 
 
 ruleorder: featurecounts > split_bam_ribo

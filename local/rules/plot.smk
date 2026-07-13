@@ -184,8 +184,8 @@ rule distance_heatmap:
 
 rule clr_pca:
     input:
-        clr="abundances.filtered.clr.tsv",
-        metadata="metadata.txt"
+        clr="abundances.cleaned.clr_all.tsv",
+        metadata="metadata_full.txt"
     output:
         clr_pca="plots/clr_pca.pdf"
     script:

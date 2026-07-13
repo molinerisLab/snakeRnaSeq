@@ -154,6 +154,16 @@ BIGWIG_BIN_SIZE: "50"
 BEDGRAPH_FILTER: "100"
 #REPEAT_FAMILY_RAND_REPETITION=10 
 
+
+CONTRAST: Resistant_vs_Control
+diff_table: edger.toptable_clean.ALL_contrast.mark_seqc.exp_in_condition.header_added.xlsx
+normalized_bracken_table: abundances.cleaned.relative.tsv
+sample_metadata: metadata.noKI.tsv
+
+top_n_candidate_taxa: 12
+padj_cutoff: 0.05
+
+
 # ========================
 # METAGENOMICS (Kraken/Bracken)
 # ========================
@@ -167,19 +177,6 @@ kraken_db: "/home/nobackup/home/reference_data/bioinfotree/task/kraken/k2_pluspf
 kraken_k2d: "/home/reference_data/bioinfotree/task/kraken/nobackup/k2_pluspf_20250402/taxo.k2d"
 kraken_db_nr: "/home/reference_data/bioinfotree/task/kraken/nobackup/k2_nt"
 hitgrp: 2 
-
-
-# ========================
-# FEATURE FILTERING
-# ========================
-
-# feature_filter:
-#   condition: "disease"
-#   g1: "D"
-#   g2: "H"
-#   use_raw_counts: true
-#   min_exp: 100
-#   min_samples_ratio: 0.5
 
 
 # ========================
@@ -204,7 +201,6 @@ feature_filter:
 
   # Number of non-sample annotation columns
   n_metadata_cols: 3
-
 
 
 # ========================
@@ -233,8 +229,6 @@ UCSC_VERSION: hg38
 # -O allowMultiOverlap
 #LCPM_PRIOR_COUNT = 0.25           # *standard of edgeR*
 #LTPM_PRIOR_COUNT = 0.0001
-
-
 
 kraken:
   exclude_classified: True

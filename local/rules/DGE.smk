@@ -26,8 +26,6 @@ rule get_eset:
         metadata = "metadata.txt"
     output:
         "{folder}/eset.rda"
-    conda:
-        "../../local/env/bit_rnaseq_3_backup.yaml"
     shell:"""
         counts_table2eset {input.gep} {input.metadata} > {output}
     """

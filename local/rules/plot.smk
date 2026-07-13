@@ -103,30 +103,58 @@ rule top_taxa_per_sample:
 #         "../../local/src/read_number.py"
 
 
-rule explore_abundance:
-    input:
-        relative="abundances.filtered.relative.tsv",
-        clr="abundances.filtered.clr.tsv",
-        metadata="metadata_update.txt"
-    output:
-        outdir=directory("plots")
-    script:
-        "../../local/src/explore_abundance.R"
-
 
 rule rel_abundance_barplot:
     input:
-        relative="abundances.filtered.relative.tsv",
-        metadata="metadata.txt"
+        relative="abundances.cleaned.relative_all.tsv",
+        metadata="metadata_full.txt"
     output:
         barplot="plots/stacked_barplot.pdf"
     script:
-        "../../local/src/rel_barplot.R"
+        "../../local/src/rel_barplot1.R"
+
+
+rule all_candidate_species_abundance:
+    input:
+        pdf=f"plots/{config['CONTRAST']}_candidate_species_abundance.pdf",
+        selected=f"plots/{config['CONTRAST']}_selected_candidate_species.tsv",
+        long=f"plots/{config['CONTRAST']}_candidate_species_abundance_long.tsv"
+
+
+rule candidate_species_abundance:
+    input:
+        diff="DGE/edger.toptable_clean.ALL_contrast.mark_seqc.header_added.xlsx",
+        bracken="abundances.cleaned.relative.tsv",
+        metadata="metadata.txt"
+    output:
+        pdf=f"plots/{config['CONTRAST']}_candidate_species_abundance.pdf",
+        selected=f"plots/{config['CONTRAST']}_selected_candidate_species.tsv",
+        long=f"plots/{config['CONTRAST']}_candidate_species_abundance_long.tsv"
+    params:
+        top_n=config.get("top_n_candidate_taxa", 12),
+        padj=config.get("padj_cutoff", 0.05),
+        group_col="condition"
+    log:
+        "logs/candidate_species_abundance.log"
+    shell:
+        """
+        Rscript ../../local/src/plot_candidate_taxa_abundance.R \
+            {input.diff:q} \
+            {input.bracken:q} \
+            {input.metadata:q} \
+            {output.pdf:q} \
+            {output.selected:q} \
+            {output.long:q} \
+            {params.top_n} \
+            {params.padj} \
+            {params.group_col:q} \
+            > {log:q} 2>&1
+        """
 
 
 rule rel_abundance_heatmap:
     input:
-        relative="abundances.filtered.relative.tsv",
+        relative="abundances.cleaned.clr.tsv",
         metadata="metadata.txt"
     output:
         rel_heatmap="plots/relative_heatmap.pdf"
@@ -166,7 +194,7 @@ rule clr_pca:
 
 
 ############################################
-### Story 13 batch-aware summary plotting ###
+### Batch-aware summary plotting ###
 ############################################
 
 rule prepare_inputs:
@@ -195,8 +223,8 @@ rule prepare_inputs:
 
 rule pca:
     input:
-        abundance="abundance.noKIS.tsv",
-        metadata="metadata.noKIS.tsv"
+        abundance="bracken_merged_abundances.num.taxid_collapsed.cleaned.txt",
+        metadata="metadata.txt"
     output:
         raw_pca="plots/pca_clr_raw.pdf",
         batch_corrected_pca="plots/pca_clr_batch_corrected.pdf"
@@ -215,7 +243,7 @@ rule pca:
 
 rule volcano_ma:
     input:
-        top_table="top_table.tsv"
+        top_table="DGE/edger.toptable_clean.ALL_contrast.mark_seqc.header_added.xlsx"
     output:
         volcano="plots/volcano_resistant_vs_control.pdf",
         ma="plots/ma_resistant_vs_control.pdf",
@@ -235,9 +263,9 @@ rule volcano_ma:
 
 rule top_taxa_heatmap:
     input:
-        abundance="abundance.noKIS.tsv",
-        metadata="metadata.noKIS.tsv",
-        top_table="top_table.tsv"
+        abundance="bracken_merged_abundances.num.taxid_collapsed.cleaned.txt",
+        metadata="metadata.txt",
+        top_table="DGE/edger.toptable_clean.ALL_contrast.mark_seqc.header_added.xlsx"
     output:
         heatmap="plots/top30_taxa_clr_heatmap.pdf"
     params:
@@ -257,9 +285,9 @@ rule top_taxa_heatmap:
 
 rule batch_boxplots:
     input:
-        abundance="abundance.noKIS.tsv",
-        metadata="metadata.noKIS.tsv",
-        top_table="top_table.tsv"
+        abundance="bracken_merged_abundances.num.taxid_collapsed.cleaned.txt",
+        metadata="metadata.txt",
+        top_table="DGE/edger.toptable_clean.ALL_contrast.mark_seqc.header_added.xlsx"
     output:
         boxplots="plots/top_taxa_batch_faceted_boxplots.pdf"
     params:

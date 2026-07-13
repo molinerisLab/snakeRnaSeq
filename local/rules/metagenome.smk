@@ -215,7 +215,7 @@ rule filter_frac:
 
 rule collapse_taxid:
     input:
-        "bracken_merged_abundances.num.txt"
+        "bracken_merged_abundances.num.filtered.txt"
     output:
         "bracken_merged_abundances.num.taxid_collapsed.txt"
     # shell: "perl -pe 's/\t/;/; s/\t/;/' {input} > {output}"
@@ -434,14 +434,19 @@ rule filter_taxa:
 
 rule normalize_abundance:
     input:
-        matrix="bracken_merged_abundances.cleaned.tsv"
+        # matrix="bracken_merged_abundances.num.taxid_collapsed.cleaned.txt"
+        matrix="bracken_merged_abundances.num.taxid_collapsed.txt"
     output:
-        relative="abundances.cleaned.relative.tsv",
-        clr="abundances.cleaned.clr.tsv"
+        # relative="abundances.cleaned.relative.tsv",
+        # clr="abundances.cleaned.clr.tsv"
+        relative="abundances.cleaned.relative_all.tsv",
+        clr="abundances.cleaned.clr-all.tsv"
+    params:
+        pseudocount=0.5
     log:
         "logs/normalize_abundance.log"
     script:
-        "../../local/src/normalize_abundance.py"
+        "../../local/src/normalize_abundance.R"
 
 
 rule remove_columns:

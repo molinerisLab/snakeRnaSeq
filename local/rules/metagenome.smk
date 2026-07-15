@@ -555,6 +555,94 @@ rule minimap2_merge:
 
 
 ##############################################################################
+## 4b. IGV SESSION
+##############################################################################
+
+rule igv_session:
+    """Generate a pre-configured IGV XML session file for a given taxid.
+
+    The session loads:
+      - the reference genome (FASTA; the .fai is picked up automatically by IGV)
+      - the GFF3 annotation
+      - the merged BAM (all samples)
+      - one track per individual sample BAM
+
+    Output: igv_sessions/taxid_{taxid}.xml
+    Open in IGV with:  File → Open Session → igv_sessions/taxid_{taxid}.xml
+    """
+    input:
+        ref        = "Resources/genomes/{taxid}/genome.fna",
+        fai        = "Resources/genomes/{taxid}/genome.fna.fai",
+        gff        = "Resources/genomes/{taxid}/annotation.gff",
+        merged_bam = "alignments_merged/{taxid}/merged_all_samples.bam",
+        merged_bai = "alignments_merged/{taxid}/merged_all_samples.bam.bai",
+        bams       = expand("Results/pass2/{sample}/Aligned.sortedByCoord.out.bam", sample=SAMPLES),
+        bais       = expand("Results/pass2/{sample}/Aligned.sortedByCoord.out.bam.bai", sample=SAMPLES),
+    output:
+        session = "igv_sessions/taxid_{taxid}.xml",
+    params:
+        samples = SAMPLES,
+    run:
+        import os
+
+        def abspath(p):
+            """Return absolute path, resolving symlinks if the file exists."""
+            return os.path.realpath(os.path.abspath(p))
+
+        ref_abs    = abspath(input.ref)
+        gff_abs    = abspath(input.gff)
+        merged_abs = abspath(input.merged_bam)
+
+        # Per-sample BAM paths: STAR pass2 aligned BAMs.
+        sample_bam_paths = [abspath(b) for b in input.bams]
+
+        # Resource entries: FASTA, GFF, merged BAM, and each sample BAM.
+        # NB: the .fai is NOT listed; IGV resolves it next to the FASTA.
+        sample_resources = "\n".join(
+            f'        <Resource path="{p}"/>' for p in sample_bam_paths
+        )
+
+        # Per-sample AlignmentTracks. Rendering options (e.g. strand coloring)
+        # go inside <RenderOptions>, not as direct Track attributes.
+        sample_tracks = ""
+        for sample, bam_abs in zip(params.samples, sample_bam_paths):
+            sample_tracks += (
+                f'        <Track id="{bam_abs}" name="{sample}" '
+                f'height="60" displayMode="COLLAPSED">\n'
+                f'            <RenderOptions colorOption="READ_STRAND"/>\n'
+                f'        </Track>\n'
+            )
+
+        session_xml = f"""\
+<?xml version="1.0" encoding="UTF-8"?>
+<Session genome="{ref_abs}" locus="All" version="8">
+    <Resources>
+        <Resource path="{ref_abs}"/>
+        <Resource path="{gff_abs}"/>
+        <Resource path="{merged_abs}"/>
+{sample_resources}
+    </Resources>
+    <Tracks>
+        <!-- Annotation track -->
+        <Track id="{gff_abs}" name="Annotation (GFF)" height="80"
+               displayMode="COLLAPSED" featureVisibilityWindow="-1"/>
+
+        <!-- Merged BAM (all samples) -->
+        <Track id="{merged_abs}" name="merged_all_samples"
+               height="80" displayMode="COLLAPSED">
+            <RenderOptions colorOption="READ_STRAND"/>
+        </Track>
+
+        <!-- Per-sample BAM tracks -->
+{sample_tracks}
+    </Tracks>
+</Session>
+"""
+        os.makedirs(os.path.dirname(output.session), exist_ok=True)
+        with open(output.session, "w") as fh:
+            fh.write(session_xml)
+
+##############################################################################
 ## 5. MEGAHIT CO-ASSEMBLY + DOWNSTREAM ANNOTATION
 ##############################################################################
 

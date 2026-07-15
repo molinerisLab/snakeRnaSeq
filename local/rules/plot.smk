@@ -223,3 +223,16 @@ rule plot_bracken_detailed:
         """
         Rscript ../../local/src/bracken_plots.R {input} "Staphylococcus aureus" 30 plots/
         """
+
+rule plot_bracken_gtdb_comparison:
+    input:
+        standard="bracken_merged_abbundances.txt",
+        gtdb="bracken_merged_abbundances_GTDB.txt"
+    output:
+        "plots/bracken_gtdb_vs_standard_scatter.png",
+        "plots/bracken_gtdb_vs_standard_delta_top.png",
+        "plots/bracken_gtdb_vs_standard_species_stats.tsv"
+    shell:
+        """
+        Rscript ../../local/src/plot_bracken_gtdb_comparison.R {input.standard} {input.gtdb} plots/ 25
+        """

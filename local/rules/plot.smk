@@ -131,8 +131,8 @@ rule candidate_species_abundance:
         selected=f"plots/{config['CONTRAST']}_selected_candidate_species.tsv",
         long=f"plots/{config['CONTRAST']}_candidate_species_abundance_long.tsv"
     params:
-        top_n=config.get("top_n_candidate_taxa", 12),
-        padj=config.get("padj_cutoff", 0.05),
+        top_n=config.get("top_n_candidate_taxa"),
+        padj=config.get("padj_cutoff"),
         group_col="condition"
     log:
         "logs/candidate_species_abundance.log"

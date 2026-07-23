@@ -160,7 +160,7 @@ diff_table: edger.toptable_clean.ALL_contrast.mark_seqc.exp_in_condition.header_
 normalized_bracken_table: abundances.cleaned.relative.tsv
 sample_metadata: metadata.noKI.tsv
 
-top_n_candidate_taxa: 12
+top_n_candidate_taxa: 20
 padj_cutoff: 0.05
 
 

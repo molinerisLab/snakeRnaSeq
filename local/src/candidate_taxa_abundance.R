@@ -14,7 +14,7 @@ args <- commandArgs(trailingOnly = TRUE)
 
 if (length(args) < 8) {
   stop(
-    "Usage: Rscript candidate_taxa_abundance.R ",
+    "Usage: Rscript plot_candidate_taxa_abundance.R ",
     "<diff_table.xlsx/tsv> <relative_abundance.tsv> <metadata.tsv> ",
     "<out_plot.pdf> <out_selected_taxa.tsv> <out_long_abundance.tsv> ",
     "<top_n> <padj_cutoff> [group_col]"
@@ -30,14 +30,6 @@ out_long <- args[6]
 top_n <- as.integer(args[7])
 padj_cutoff <- as.numeric(args[8])
 group_col <- ifelse(length(args) >= 9, args[9], "condition")
-
-if (is.na(top_n) || top_n < 1) {
-  stop("<top_n> must be a positive integer.")
-}
-
-if (is.na(padj_cutoff) || padj_cutoff <= 0 || padj_cutoff > 1) {
-  stop("<padj_cutoff> must be greater than 0 and no greater than 1.")
-}
 
 dir.create(dirname(out_pdf), recursive = TRUE, showWarnings = FALSE)
 dir.create(dirname(out_selected), recursive = TRUE, showWarnings = FALSE)
@@ -105,15 +97,14 @@ diff <- diff %>%
     significance = suppressWarnings(as.numeric(significance)),
     abs_logFC = abs(logFC)
   ) %>%
-  filter(!is.na(GeneID), GeneID != "")
+  filter(!is.na(GeneID))
+
 
 # -----------------------------
 # Select candidate taxa
 # -----------------------------
-# The differential-abundance table is used only to choose candidate taxa.
-# The plotted y-values are taken exclusively from the normalized abundance table.
-# Use FDR-adjusted results when at least top_n taxa are significant; otherwise,
-# fall back to the top_n taxa ranked by raw P value.
+# Use FDR-adjusted results only when at least top_n taxa are significant.
+# Otherwise, fall back to the top_n taxa ranked by raw P value.
 
 sig_taxa <- diff %>%
   filter(
@@ -137,8 +128,10 @@ if (n_sig >= top_n) {
     slice_head(n = top_n) %>%
     mutate(
       selection_rule = paste0(
-        "top_", top_n,
-        "_FDR_significant_by_adjusted_Pvalue_less_than_", padj_cutoff
+        "top_",
+        top_n,
+        "_FDR_significant_by_adjusted_Pvalue_less_than_",
+        padj_cutoff
       )
     )
 } else {
@@ -148,15 +141,17 @@ if (n_sig >= top_n) {
     slice_head(n = top_n) %>%
     mutate(
       selection_rule = paste0(
-        "top_", top_n,
-        "_nominal_by_raw_Pvalue_due_to_only_", n_sig,
+        "top_",
+        top_n,
+        "_nominal_by_raw_Pvalue_due_to_only_",
+        n_sig,
         "_FDR_significant_taxa"
       )
     )
 }
 
 # -----------------------------
-# Read normalized relative-abundance table
+# Read relative abundance table
 # -----------------------------
 
 abundance <- read_tsv(abundance_file, show_col_types = FALSE)
@@ -170,10 +165,7 @@ if ("Geneid" %in% names(abundance)) {
   abundance_gene_col <- "GeneID"
 } else {
   abundance_gene_col <- names(abundance)[1]
-  warning(
-    "No Geneid/GeneID column found in abundance table. Using first column: ",
-    abundance_gene_col
-  )
+  warning("No Geneid/GeneID column found in abundance table. Using first column: ", abundance_gene_col)
 }
 
 abundance <- abundance %>%
@@ -189,6 +181,7 @@ if (length(sample_cols) == 0) {
 abundance <- abundance %>%
   mutate(across(all_of(sample_cols), as.numeric))
 
+# Keep only selected taxa
 abundance_selected <- abundance %>%
   semi_join(selected, by = "GeneID")
 
@@ -246,10 +239,12 @@ metadata <- metadata %>%
   transmute(
     sample = as.character(sample),
     group = as.character(.data[[group_col]])
-  ) %>%
-  distinct(sample, .keep_all = TRUE)
+  )
 
+# Drop samples that are not in metadata
+# This prevents failure if the abundance table has extra samples.
 metadata_samples <- metadata$sample
+
 extra_abundance_samples <- setdiff(unique(abundance_long$sample), metadata_samples)
 
 if (length(extra_abundance_samples) > 0) {
@@ -272,16 +267,23 @@ if (length(missing_abundance_samples) > 0) {
 }
 
 # -----------------------------
-# Join abundance, metadata, and selection statistics
+# Join abundance, metadata, and differential results
 # -----------------------------
-# Statistical results are retained in the output tables but omitted from facet
-# labels so that the figure remains focused on visual inspection.
 
 selected_for_join <- selected %>%
-  mutate(taxon_label = make_taxon_label(GeneID)) %>%
+  mutate(
+    taxon_label = make_taxon_label(GeneID),
+    plot_label = paste0(
+      taxon_label,
+      "\nlogFC=", round(logFC, 2),
+      "; P=", signif(Pvalue, 2),
+      "; FDR=", signif(Pvalue_adj, 2)
+    )
+  ) %>%
   select(
     GeneID,
     taxon_label,
+    plot_label,
     logFC,
     Pvalue,
     Pvalue_adj,
@@ -305,26 +307,22 @@ if (any(is.na(plot_df$group))) {
   )
 }
 
-# Preserve every condition. Use a conventional order for known groups, then
-# append any additional groups alphabetically.
-observed_groups <- unique(plot_df$group)
-preferred_groups <- c("Control", "Resistant", "Susceptible")
-group_levels <- c(
-  preferred_groups[preferred_groups %in% observed_groups],
-  sort(setdiff(observed_groups, preferred_groups))
-)
+# Put Control before Resistant if both exist
+if (all(c("Control", "Resistant") %in% unique(plot_df$group))) {
+  plot_df <- plot_df %>%
+    mutate(group = factor(group, levels = c("Control", "Resistant")))
+} else {
+  plot_df <- plot_df %>%
+    mutate(group = factor(group))
+}
 
 plot_df <- plot_df %>%
   mutate(
-    group = factor(group, levels = group_levels),
-    taxon_label = factor(
-      taxon_label,
-      levels = selected_for_join$taxon_label
-    )
+    plot_label = factor(plot_label, levels = selected_for_join$plot_label)
   )
 
 # -----------------------------
-# Write selected taxa and plotting data
+# Write selected taxa and long table
 # -----------------------------
 
 write_tsv(
@@ -359,12 +357,10 @@ write_tsv(
 )
 
 # -----------------------------
-# Plot normalized abundance for each candidate taxon
+# Plot
 # -----------------------------
 
-nonzero_abundances <- plot_df$abundance[
-  is.finite(plot_df$abundance) & plot_df$abundance > 0
-]
+nonzero_abundances <- plot_df$abundance[plot_df$abundance > 0]
 
 if (length(nonzero_abundances) > 0) {
   pseudocount <- min(nonzero_abundances, na.rm = TRUE) / 2
@@ -375,40 +371,41 @@ if (length(nonzero_abundances) > 0) {
 plot_df <- plot_df %>%
   mutate(abundance_for_plot = abundance + pseudocount)
 
-p <- ggplot(
-  plot_df,
-  aes(x = group, y = abundance_for_plot)
-) +
+plot_title <- paste0(
+  "Relative abundance of candidate species\n",
+  "Candidate selection: ",
+  unique(selected$selection_rule)[1]
+)
+
+p <- ggplot(plot_df, aes(x = group, y = abundance_for_plot)) +
   geom_boxplot(
     outlier.shape = NA,
     width = 0.55,
-    alpha = 0.20
+    alpha = 0.35
   ) +
   geom_point(
-    aes(colour = group),
-    position = position_jitter(width = 0.12, height = 0, seed = 1),
-    size = 2.2,
+    aes(shape = group),
+    position = position_jitter(width = 0.12, height = 0),
+    size = 2,
     alpha = 0.85
   ) +
-  facet_wrap(~ taxon_label, scales = "free_y") +
+  facet_wrap(~ plot_label, scales = "free_y") +
   scale_y_log10(labels = label_scientific()) +
   labs(
-    title = "Normalized abundance of candidate species by condition",
-    subtitle = "Each point represents one sample; candidate taxa were selected from differential-abundance results",
+    title = plot_title,
     x = NULL,
     y = paste0(
-      "Normalized relative abundance + pseudocount",
+      "Relative abundance + pseudocount",
       "\nlog10 scale; pseudocount = ",
       signif(pseudocount, 3)
     ),
-    colour = group_col
+    shape = group_col
   ) +
   theme_bw(base_size = 11) +
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1),
     legend.position = "bottom",
-    strip.text = element_text(size = 9, face = "italic"),
-    panel.grid.minor = element_blank()
+    strip.text = element_text(size = 8)
   )
 
 plot_height <- max(6, ceiling(length(unique(plot_df$GeneID)) / 3) * 3.2)

@@ -1,5 +1,26 @@
 import os
 
+def build_star_flags(d):
+    """Turn a dict of {star_flag_name: value} into a CLI string.
+    - value None or "" (or key absent)  -> flag omitted -> STAR uses its default
+    - value is a list/tuple             -> space-joined (multi-value flags)
+    - value is True                     -> bare flag (rare; only for true no-arg flags)
+    Flag names are given WITHOUT the leading '--'.
+    """
+    if not d:
+        return ""
+    parts = []
+    for flag, val in d.items():
+        if val is None or val == "":
+            continue                                  # unset -> STAR default
+        if val is True:
+            parts.append(f"--{flag}")                 # genuine no-arg flag
+        elif isinstance(val, (list, tuple)):
+            parts.append(f"--{flag} " + " ".join(str(x) for x in val))
+        else:
+            parts.append(f"--{flag} {val}")
+    return " ".join(parts)
+
 
 #############
 # Ruleorder #
@@ -89,23 +110,22 @@ rule star_align_se:
     conda:
         "transcript_env.yaml"
     params:
-        multiscorerange=config["STAR"]["MULTIMAP_SCORE_RANGE"],
-        outfiltermismatch=config["STAR"]["OUT_FILTER_MISMATCH_NMAX"],
         outfiltermultimapnmax=config["STAR"]["OUT_FILTER_MULTIMAP_NMAX"],
-        outfiltermismatchnover=config["STAR"]["OUT_FILTER_MISMATCH_NOVER_LMAX"],
         out_samtype=config["STAR"]["OUT_SAM_TYPE"],
         quant_mode=config["STAR"]["quantMode"],
         sjdbOver=config["STAR"]["sjdbOverhang"],
         read_cmd=config["STAR"]["readFilesCommand"],
         tmpdir=lambda wc, output: os.path.dirname(output.aln),
         save_unmapped=config["STAR"]["SAVE_UNMAPPED"],
+        extra=lambda wc: build_star_flags(config["STAR"].get("EXTRA_PASS2", {})),
     shell:
         """
         mkdir -p {params.tmpdir}
 
         STAR \
             --runThreadN {threads} \
-            --genomeLoad NoSharedMemory \
+            --limitBAMsortRAM 10000000000 \
+            --genomeLoad LoadAndKeep \
             --genomeDir {input.idx} \
             --readFilesIn {input.fq} \
             --readFilesCommand {params.read_cmd} \
@@ -114,12 +134,11 @@ rule star_align_se:
             --quantMode {params.quant_mode} \
             --outSAMtype {params.out_samtype} \
             --outSAMstrandField intronMotif \
-            --outFilterMultimapScoreRange {params.multiscorerange} \
-            --outFilterMismatchNmax {params.outfiltermismatch} \
             --outFilterMultimapNmax {params.outfiltermultimapnmax} \
-            --outFilterMismatchNoverLmax {params.outfiltermismatchnover} \
             --outSAMattributes All \
-            $([ "{params.save_unmapped}" = "FASTQ" ] && echo "--outReadsUnmapped Fastx --outSAMunmapped Within" || echo "")
+            {params.extra} \
+            $([ "{params.save_unmapped}" = "FASTQ" ] && echo "--outReadsUnmapped Fastx --outSAMunmapped Within" || echo "") \
+            > {log} 2>&1
 
         if [ "{params.save_unmapped}" = "FASTQ" ]; then
             mkdir -p Results/star/unmapped
@@ -152,16 +171,14 @@ rule star_align_pe:
     conda:
         "transcript_env.yaml"
     params:
-        multiscorerange=config["STAR"]["MULTIMAP_SCORE_RANGE"],
-        outfiltermismatch=config["STAR"]["OUT_FILTER_MISMATCH_NMAX"],
         outfiltermultimapnmax=config["STAR"]["OUT_FILTER_MULTIMAP_NMAX"],
-        outfiltermismatchnover=config["STAR"]["OUT_FILTER_MISMATCH_NOVER_LMAX"],
         out_samtype=config["STAR"]["OUT_SAM_TYPE"],
         quant_mode=config["STAR"]["quantMode"],
         sjdbOver=config["STAR"]["sjdbOverhang"],
         read_cmd=config["STAR"]["readFilesCommand"],
         tmpdir=lambda wc, output: os.path.dirname(output.aln),
         save_unmapped=config["STAR"]["SAVE_UNMAPPED"],
+        extra=lambda wc: build_star_flags(config["STAR"].get("EXTRA_PASS2", {})),
     shell:
         """
         mkdir -p {params.tmpdir}
@@ -178,12 +195,11 @@ rule star_align_pe:
             --quantMode {params.quant_mode} \
             --outSAMtype {params.out_samtype} \
             --outSAMstrandField intronMotif \
-            --outFilterMultimapScoreRange {params.multiscorerange} \
-            --outFilterMismatchNmax {params.outfiltermismatch} \
             --outFilterMultimapNmax {params.outfiltermultimapnmax} \
-            --outFilterMismatchNoverLmax {params.outfiltermismatchnover} \
             --outSAMattributes All \
-            $([ "{params.save_unmapped}" = "FASTQ" ] && echo "--outReadsUnmapped Fastx --outSAMunmapped Within" || echo "")
+            {params.extra} \
+            $([ "{params.save_unmapped}" = "FASTQ" ] && echo "--outReadsUnmapped Fastx --outSAMunmapped Within" || echo "") \
+            > {log} 2>&1
 
         if [ "{params.save_unmapped}" = "FASTQ" ]; then
             gzip -c {params.tmpdir}/Unmapped.out.mate1 > Results/star/unmapped/{wildcards.sample}_unmapped_R1.fastq.gz
@@ -298,6 +314,7 @@ rule star_align_first_pass:
         tmpdir=lambda wc, output: os.path.dirname(output.sj),
         read_cmd=config["STAR"]["readFilesCommand"],
         limitSjdb=config["STAR"]["limitSjdbInsertNsj"],
+        extra=lambda wc: build_star_flags(config["STAR"].get("EXTRA_PASS1", {})),
     shell:
         """
         mkdir -p {params.tmpdir}
@@ -309,8 +326,11 @@ rule star_align_first_pass:
             --readFilesCommand {params.read_cmd} \
             --limitSjdbInsertNsj {params.limitSjdb} \
             --outFileNamePrefix {params.tmpdir}/{wildcards.sample}_ \
-            --outSAMtype None
+            --outSAMtype None \
+            {params.extra} \
+            > {log} 2>&1
         """
+
 
 
 rule merge_and_filter_sj:
@@ -347,6 +367,7 @@ rule star_second_pass:
     output:
         bam="Results/pass2/{sample}/Aligned.sortedByCoord.out.bam",
         gene_counts="Results/pass2/{sample}/ReadsPerGene.out.tab",
+        log_final="Results/pass2/{sample}/Log.final.out",
         unmapped=(
             [
                 "Results/pass2/unmapped/{sample}_unmapped_R1.fastq.gz",
@@ -373,6 +394,7 @@ rule star_second_pass:
         limitSjdb=config["STAR"]["limitSjdbInsertNsj"],
         tmpdir=lambda wc, output: os.path.dirname(output.bam),
         save_unmapped=config["STAR"]["SAVE_UNMAPPED"],
+        extra=lambda wc: build_star_flags(config["STAR"].get("EXTRA_PASS2", {})),
     shell:
         """
         mkdir -p {params.tmpdir}
@@ -392,7 +414,9 @@ rule star_second_pass:
             --outFileNamePrefix {params.tmpdir}/ \
             --outSAMtype {params.out_samtype} \
             --quantMode {params.quant_mode} \
-            $([ "{params.save_unmapped}" = "FASTQ" ] && echo "--outReadsUnmapped Fastx --outSAMunmapped Within" || echo "")
+            $([ "{params.save_unmapped}" = "FASTQ" ] && echo "--outReadsUnmapped Fastx --outSAMunmapped Within" || echo "") \
+            {params.extra} \
+            > {log} 2>&1
 
         if [ "{params.save_unmapped}" = "FASTQ" ]; then
             if [ -f "{params.tmpdir}/Unmapped.out.mate1" ]; then
@@ -403,6 +427,7 @@ rule star_second_pass:
             fi
         fi
         """
+
 
 
 

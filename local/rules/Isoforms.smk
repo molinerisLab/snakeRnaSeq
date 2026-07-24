@@ -48,12 +48,17 @@ rule salmon_quant_bam:
             -o salmon_bam/{wildcards.sample}
         """
 
+rule all_bam2fq: 
+    input: 
+        expand("/mnt/molilab_cold_bak/BRAF/fastq/{sample}_R1.fastq.gz", sample=SAMPLES),
+        expand("/mnt/molilab_cold_bak/BRAF/fastq/{sample}_R2.fastq.gz", sample=SAMPLES)
 
 rule bam_to_fastq:
     input:
-        bam=lambda wc: f"star_2pass_{GENOME_KEY}/{wc.sample}/Aligned.sortedByCoord.out.bam",
+        bam=lambda wc: f"Results/star/{wc.sample}/Aligned.sortedByCoord.out.bam",
     output:
-        fq="fastq_from_bam/{sample}.fastq.gz",
+        fq1="/mnt/molilab_cold_bak/BRAF/fastq/{sample}_R1.fastq.gz",
+        fq2="/mnt/molilab_cold_bak/BRAF/fastq/{sample}_R2.fastq.gz"
     threads: 8
     conda:
         "transcript_env.yaml"
@@ -61,10 +66,13 @@ rule bam_to_fastq:
         """
         mkdir -p fastq_from_bam
 
-        samtools fastq \
-            -@ {threads} \
-            -0 {output.fq} \
-            {input.bam}
+        samtools collate -u -O {input.bam} | \\
+        samtools fastq \\
+            -@ {threads} \\
+            -1 {output.fq1} \\
+            -2 {output.fq2} \\
+            -0 /dev/null -s /dev/null \\
+            -
         """
 
 

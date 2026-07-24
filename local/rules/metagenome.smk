@@ -47,15 +47,6 @@ _unclassified_pe_r2 = (
 
 
 ##############################################################################
-## 0. TARGETS
-##############################################################################
-
-rule all_metagenome:
-    input:
-        expand("alignments_merged/{taxid}/merged_all_samples.bam.bai", taxid=config["kraken_extract_taxid"])
-
-
-##############################################################################
 ## 1. K2 DAEMON LIFECYCLE
 ##############################################################################
 
@@ -66,7 +57,7 @@ rule k2_daemon_start:
     output:
         temp(".k2_daemon.sentinel")
     params:
-        db=config["kraken_db"],
+        db=config["kraken_db_pass1"],
         use_daemon=config.get("USE_K2_DAEMON", False),
     shell:
         """
@@ -114,6 +105,9 @@ rule kraken_pe_pass1:
         """
         k2 classify --db {config[kraken_db_pass1]} {config[kraken_options]}\
             --threads {threads} \
+            --confidence 0.85 \
+            --minimum-hit-groups 5 \
+            --minimum-base-quality 20 \
             --report-minimizer-data \
             --report {output.report} \
             --output {output.out} \
@@ -128,13 +122,20 @@ rule kraken_se_pass1:
         report="kreports/{sample}.k2report",
         out="koutputs/{sample}.kraken2",
     threads: config["CORES"]["kraken2"]
+    params:
+        use_daemon=config.get("USE_K2_DAEMON", False),
     shell:
         """
         k2 classify --db {config[kraken_db_pass1]} {config[kraken_options]} \
             --threads {threads} \
+            --confidence 0.85 \
+            $([ "{params.use_daemon}" = "True" ] && echo "--use-daemon" || echo "") \
+            --minimum-hit-groups 5 \
+            --minimum-base-quality 20 \
             --report-minimizer-data \
             --report {output.report} \
             --output {output.out} \
+            --unclassified-out unclassified/{wildcards.sample}_R1.fastq \
             {input.R1}
         """
 
@@ -1158,4 +1159,67 @@ rule samtools_contigs_2_fasta:
     shell:
         """
         samtools faidx {input.ref} $(cat {input.contigs} | tr '\n' ' ') > {output.fasta}
+        """
+
+
+
+rule bwa_index: 
+    input: 
+        fasta = "/home/reference_data/bioinfotree/task/gencode/dataset/mmusculus_hsapiens_combined/M39_50/GRCh38_GRCm39primary_assembly.genome.fa"
+    output:
+        multiext("index/index", ".0123", ".amb", ".ann", ".bwt.2bit.64", ".pac")
+    shell: 
+        """
+        mkdir -p index
+        bwa-mem2 index -p index/index {input.fasta} 
+        """
+
+rule all_bwa_aling: 
+    input: 
+        bam = expand("bwa_alignments/{sample}.bam", sample=SAMPLES),
+        bai = expand("bwa_alignments/{sample}.bam.bai", sample=SAMPLES),
+        
+    
+rule bwa_align:
+    input:
+        R1   = "fastq/unmapped/{sample}_unmapped_R1.fastq.gz",
+        R2   = "fastq/unmapped/{sample}_unmapped_R2.fastq.gz" if config["LAYOUT"] == "PAIRED" else [],
+        idx  = multiext("index/index", ".0123", ".amb", ".ann", ".bwt.2bit.64", ".pac"),
+    output:
+        bam  = "bwa_alignments/{sample}.bam",
+        bai  = "bwa_alignments/{sample}.bam.bai",
+    threads: config["CORES"]["bwa"]
+    params:
+        layout = config["LAYOUT"],
+        idx_prefix = "index/index",
+    shell:
+        """
+        mkdir -p bwa_alignments
+        if [ "{params.layout}" = "PAIRED" ]; then
+            bwa-mem2 mem -t {threads} {params.idx_prefix} {input.R1} {input.R2}
+        else
+            bwa-mem2 mem -t {threads} {params.idx_prefix} {input.R1}
+        fi \
+            | samtools sort -@ {threads} -o {output.bam}
+        samtools index {output.bam}
+        """
+
+rule all_samtool_filter: 
+    input: 
+        expand("bwa_alignments/confidence/{sample}_confidence.bam", sample=SAMPLES),
+        expand("bwa_alignments/confidence/{sample}_confidence.bam.bai", sample=SAMPLES),
+
+rule samtool_filter: 
+    input: 
+        bam = "bwa_alignments/{sample}.bam",
+    output: 
+        bam = "bwa_alignments/confidence/{sample}_confidence.bam",
+        bai = "bwa_alignments/confidence/{sample}_confidence.bam.bai",
+    threads: config["CORES"]["bwa"]
+    shell: 
+        """
+        mkdir -p bwa_alignments/confidence
+        samtools view -b -q 30 -F 2308 --threads {threads} {input.bam} \
+            | samtools sort -@ {threads} -o {output.bam}
+        samtools index {output.bam}
         """

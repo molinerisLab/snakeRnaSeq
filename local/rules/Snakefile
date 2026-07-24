@@ -146,6 +146,11 @@ rule all_star_sp:
         ),
 
 
+rule all_metagenome:
+    input:
+        expand("alignments_merged/{taxid}/merged_all_samples.bam.bai", taxid=config["kraken_extract_taxid"])
+
+
 rule all_merge_filter_sj:
     input:
         expand("Results/pass1/merged_filtered_SJ.out.tab"),

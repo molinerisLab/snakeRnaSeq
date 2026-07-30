@@ -30,14 +30,14 @@ _star_mode = config.get("STAR_MODE", "two_pass_manual")
 
 if config["LAYOUT"] == "SINGLE":
 
-    ruleorder: generate_unmapped_single > generate_unmapped_R1
-    ruleorder: generate_unmapped_single > generate_unmapped_R2
+    ruleorder: generate_unmapped_single > generate_unmapped_R1 > generate_unmapped_pairs
+    ruleorder: generate_unmapped_single > generate_unmapped_R2 > generate_unmapped_pairs
     ruleorder: star_twopass_basic_se > star_twopass_basic_pe
 
 elif config["LAYOUT"] == "PAIRED":
 
-    ruleorder: generate_unmapped_R1 > generate_unmapped_single
-    ruleorder: generate_unmapped_R2 > generate_unmapped_single
+    ruleorder: generate_unmapped_pairs > generate_unmapped_R1 > generate_unmapped_single
+    ruleorder: generate_unmapped_pairs > generate_unmapped_R2 > generate_unmapped_single
     ruleorder: star_twopass_basic_pe > star_twopass_basic_se
 
 # link_unmapped only serves STAR-emitted FASTQ (single_pass / two_pass_manual).
@@ -47,9 +47,9 @@ if (
     and config["STAR"]["SAVE_UNMAPPED"] == "FASTQ"
     and _star_mode in {"single_pass", "two_pass_manual"}
 ):
-    ruleorder: link_unmapped > generate_unmapped_R1
-    ruleorder: link_unmapped > generate_unmapped_R2
-    ruleorder: link_unmapped > generate_unmapped_single
+    ruleorder: generate_unmapped_pairs > generate_unmapped_R1 > link_unmapped
+    ruleorder: generate_unmapped_pairs > generate_unmapped_R2 > link_unmapped
+    ruleorder: generate_unmapped_pairs > generate_unmapped_single > link_unmapped
 else:
     ruleorder: generate_unmapped_R1 > link_unmapped
     ruleorder: generate_unmapped_R2 > link_unmapped
@@ -168,8 +168,6 @@ rule star_align_pe:
     log:
         "Results/star/{sample}/star.log",
     threads: config["CORES"]["star"]
-    conda:
-        "transcript_env.yaml"
     params:
         outfiltermultimapnmax=config["STAR"]["OUT_FILTER_MULTIMAP_NMAX"],
         out_samtype=config["STAR"]["OUT_SAM_TYPE"],
@@ -179,10 +177,20 @@ rule star_align_pe:
         tmpdir=lambda wc, output: os.path.dirname(output.aln),
         save_unmapped=config["STAR"]["SAVE_UNMAPPED"],
         extra=lambda wc: build_star_flags(config["STAR"].get("EXTRA_PASS2", {})),
+        strand_field="--outSAMstrandField intronMotif",
+        unmapped_flags=lambda wc: (
+            "--outReadsUnmapped Fastx --outSAMunmapped Within"
+            if config["STAR"]["SAVE_UNMAPPED"] == "FASTQ"
+            else ""
+        ),
     shell:
-        """
+        r"""
+        set -euo pipefail
+        exec > {log} 2>&1
+
         mkdir -p {params.tmpdir}
         mkdir -p Results/star/unmapped
+        rm -rf {params.tmpdir}/_STARtmp
 
         STAR \
             --runThreadN {threads} \
@@ -190,23 +198,57 @@ rule star_align_pe:
             --genomeDir {input.idx} \
             --readFilesIn {input.fq1} {input.fq2} \
             --readFilesCommand {params.read_cmd} \
-            --sjdbOverhang {params.sjdbOver} \
             --outFileNamePrefix {params.tmpdir}/ \
             --quantMode {params.quant_mode} \
             --outSAMtype {params.out_samtype} \
-            --outSAMstrandField intronMotif \
             --outFilterMultimapNmax {params.outfiltermultimapnmax} \
             --outSAMattributes All \
+            {params.strand_field} \
             {params.extra} \
-            $([ "{params.save_unmapped}" = "FASTQ" ] && echo "--outReadsUnmapped Fastx --outSAMunmapped Within" || echo "") \
-            > {log} 2>&1
+            {params.unmapped_flags}
 
         if [ "{params.save_unmapped}" = "FASTQ" ]; then
-            gzip -c {params.tmpdir}/Unmapped.out.mate1 > Results/star/unmapped/{wildcards.sample}_unmapped_R1.fastq.gz
-            gzip -c {params.tmpdir}/Unmapped.out.mate2 > Results/star/unmapped/{wildcards.sample}_unmapped_R2.fastq.gz
+            filter_unmapped() {{
+                # keep only records whose trailing mate-status tag is 00
+                paste - - - - < "$1" \
+                  | awk -F'\t' '{{n=split($1,a," "); if (a[n]=="00") print $1"\n"$2"\n"$3"\n"$4}}' \
+                  | gzip -c > "$2"
+            }}
+
+            filter_unmapped {params.tmpdir}/Unmapped.out.mate1 Results/star/unmapped/{wildcards.sample}_unmapped_R1.fastq.gz
+            filter_unmapped {params.tmpdir}/Unmapped.out.mate2 Results/star/unmapped/{wildcards.sample}_unmapped_R2.fastq.gz
+
+            # ---- depletion QC: one row per sample ----
+            unmapped_records=$(( $(wc -l < {params.tmpdir}/Unmapped.out.mate1) / 4 ))
+            kept=$(( $(gzip -dc Results/star/unmapped/{wildcards.sample}_unmapped_R1.fastq.gz | wc -l) / 4 ))
+            kept2=$(( $(gzip -dc Results/star/unmapped/{wildcards.sample}_unmapped_R2.fastq.gz | wc -l) / 4 ))
+            input_pairs=$(awk -F'\t' '/Number of input reads/ {{gsub(/ /,"",$2); print $2}}' \
+                            {params.tmpdir}/Log.final.out)
+
+            {{
+              printf 'sample\tinput_pairs\tunmapped_records\tpairs_to_classifier\thalf_mapped_discarded\tpct_retained\n'
+              printf '%s\t%s\t%s\t%s\t%s\t%.3f\n' \
+                  "{wildcards.sample}" "$input_pairs" "$unmapped_records" "$kept" \
+                  "$(( unmapped_records - kept ))" \
+                  "$(awk -v a="$kept" -v b="$input_pairs" 'BEGIN{{print (b>0)? 100*a/b : 0}}')"
+            }} > Results/star/unmapped/{wildcards.sample}_depletion_qc.tsv
+
+            # kraken2 --paired requires equal counts in identical order.
+            test "$kept" -eq "$kept2" \
+                || {{ echo "ERROR: mate count mismatch R1=$kept R2=$kept2" >&2; exit 1; }}
+
+            # A broken filter (awk syntax error, escape mangling) writes valid-but-EMPTY
+            # .gz files and exits 0; the mate-count test above passes trivially (0 == 0).
+            # This is the guard that actually catches it.
+            test "$unmapped_records" -eq 0 -o "$kept" -gt 0 \
+                || {{ echo "ERROR: filter kept 0 of $unmapped_records unmapped records" >&2; exit 1; }}
         fi
+
+        rm -rf {params.tmpdir}/_STARtmp
         """
 
+
+ruleorder: generate_unmapped_pairs > link_unmapped
 
 rule link_unmapped:
     input:
@@ -261,6 +303,11 @@ rule generate_unmapped_R1:
 
 # 76=4+8+64 = read unmapped AND mate unmapped AND first in pair, i.e., discard reads that are unmapped but that have mate mapped
 
+rule all_unmapped_pe: 
+    input: 
+        expand("fastq/unmapped/{sample}_unmapped_R1.fastq.gz", sample=SAMPLES),
+        expand("fastq/unmapped/{sample}_unmapped_R2.fastq.gz", sample=SAMPLES),
+
 
 rule generate_unmapped_R2:
     input:
@@ -282,7 +329,46 @@ rule generate_unmapped_R2:
 
 
 # 140=4+8+128 = read unmapped AND mate unmapped AND second in pair, i.e., discard reads that are unmapped but that have mate mapped
+rule all_unmap_paired: 
+    input: 
+        expand("fastq/unmapped/{sample}_unmapped_R1.fastq.gz", sample=SAMPLES),
+        expand("fastq/unmapped/{sample}_unmapped_R2.fastq.gz", sample=SAMPLES),
 
+rule generate_unmapped_pairs:
+    input:
+        bam=lambda wildcards: (
+            f"Results/bam/{wildcards.sample}/Aligned.sortedByCoord.out.bam"
+            if config["aligner"] == "star"
+            else f"aligned_bwa/{wildcards.sample}/Aligned.sortedByCoord.out.bam"
+        )
+    output:
+        r1="fastq/unmapped/{sample}_unmapped_R1.fastq.gz",
+        r2="fastq/unmapped/{sample}_unmapped_R2.fastq.gz"
+    threads: 4
+    conda:
+        "transcript_env.yaml"
+    log:
+        "fastq/unmapped/{sample}_unmapped.log"
+    shell:
+        r"""
+        set -euo pipefail
+
+        samtools view \
+            -u \
+            -f 12 \
+            -F 2304 \
+            {input.bam} 2>> {log} \
+        | samtools collate \
+            -u -O - 2>> {log} \
+        | samtools fastq \
+            -@ {threads} \
+            -n \
+            -1 {output.r1} \
+            -2 {output.r2} \
+            -0 /dev/null \
+            -s /dev/null \
+            - 2>> {log}
+        """
 
 # ==============================================
 # STAR DOUBLE PASS ALIGNMENT (if needed)
@@ -534,4 +620,139 @@ rule star_twopass_basic_pe:
             --quantMode {params.quantmode}
         """
 
+rule all_star_chm: 
+    input: 
+        expand("Results/star_CHM/{sample}/Aligned.sortedByCoord.out.bam", sample=SAMPLES)
 
+
+rule star_align_pe_CHM:
+    input:
+        fq1="fastq/unmapped/{sample}_unmapped_R1.fastq.gz",
+        fq2="fastq/unmapped/{sample}_unmapped_R2.fastq.gz",
+        idx=config["STAR"]["GENOME_DIR_CHM"],
+    output:
+        aln="Results/star_CHM/{sample}/Aligned.sortedByCoord.out.bam",
+        star_log="Results/star_CHM/{sample}/Log.out",
+        sj="Results/star_CHM/{sample}/SJ.out.tab",
+        log_final="Results/star_CHM/{sample}/Log.final.out",
+        unmapped=(
+            [
+                "Results/star_CHM/unmapped/{sample}_unmapped_R1.fastq.gz",
+                "Results/star_CHM/unmapped/{sample}_unmapped_R2.fastq.gz",
+            ]
+            if config["STAR"]["SAVE_UNMAPPED"] == "FASTQ"
+            else []
+        ),
+        depletion_qc=(
+            ["Results/star_CHM/unmapped/{sample}_depletion_qc.tsv"]
+            if config["STAR"]["SAVE_UNMAPPED"] == "FASTQ"
+            else []
+        ),
+    log:
+        "Results/star_CHM/{sample}/star.log",
+    threads:
+        config["CORES"]["star"]
+    params:
+        outdir=lambda wc: f"Results/star_CHM/{wc.sample}",
+        outfiltermultimapnmax=config["STAR"]["OUT_FILTER_MULTIMAP_NMAX"],
+        read_cmd=config["STAR"]["readFilesCommand"],
+        save_unmapped=config["STAR"]["SAVE_UNMAPPED"],
+        extra=lambda wc: build_star_flags(
+            config["STAR"].get("EXTRA_PASS2", {})
+        ),
+        unmapped_flags=lambda wc: (
+            "--outSAMunmapped Within"
+            if config["STAR"]["SAVE_UNMAPPED"] == "FASTQ"
+            else ""
+        ),
+    conda:
+        "transcript_env.yaml"
+    shell:
+        r"""
+        set -euo pipefail
+
+        outdir="{params.outdir}"
+        unmapped_dir="Results/star_CHM/unmapped"
+        star_tmp="${{outdir}}/_STARtmp"
+
+        mkdir -p "$outdir" "$unmapped_dir"
+        exec > {log} 2>&1
+
+        rm -rf -- "$star_tmp"
+        trap 'rm -rf -- "$star_tmp"' EXIT
+
+        STAR \
+            --runThreadN {threads} \
+            --genomeLoad NoSharedMemory \
+            --genomeDir {input.idx} \
+            --readFilesIn {input.fq1} {input.fq2} \
+            --readFilesCommand {params.read_cmd} \
+            --outFileNamePrefix "$outdir/" \
+            --outSAMtype BAM SortedByCoordinate \
+            --outFilterMultimapNmax {params.outfiltermultimapnmax} \
+            {params.extra} \
+            {params.unmapped_flags}
+
+        samtools quickcheck -v {output.aln}
+
+        if [ "{params.save_unmapped}" = "FASTQ" ]; then
+            r1="$unmapped_dir/{wildcards.sample}_unmapped_R1.fastq.gz"
+            r2="$unmapped_dir/{wildcards.sample}_unmapped_R2.fastq.gz"
+            qc="$unmapped_dir/{wildcards.sample}_depletion_qc.tsv"
+
+            samtools view -u -f 12 -F 2304 {output.aln} \
+            | samtools collate -u -O - \
+            | samtools fastq \
+                -@ {threads} \
+                -n \
+                -1 "$r1" \
+                -2 "$r2" \
+                -0 /dev/null \
+                -s /dev/null \
+                -
+
+            gzip -t "$r1"
+            gzip -t "$r2"
+
+            input_pairs=$(
+                awk -F'\t' \
+                    '/Number of input reads/ {{
+                        gsub(/ /, "", $2)
+                        print $2
+                    }}' \
+                    {output.log_final}
+            )
+
+            both_unmapped_records=$(
+                samtools view -c -f 12 -F 2304 {output.aln}
+            )
+
+            test $(( both_unmapped_records % 2 )) -eq 0
+
+            expected_pairs=$(( both_unmapped_records / 2 ))
+            kept_r1=$(( $(gzip -dc "$r1" | wc -l) / 4 ))
+            kept_r2=$(( $(gzip -dc "$r2" | wc -l) / 4 ))
+
+            test -n "$input_pairs"
+            test "$kept_r1" -eq "$kept_r2"
+            test "$kept_r1" -eq "$expected_pairs"
+            test "$kept_r1" -le "$input_pairs"
+
+            pct_retained=$(
+                awk \
+                    -v retained="$kept_r1" \
+                    -v input="$input_pairs" \
+                    'BEGIN {{
+                        printf "%.3f", (input > 0 ? 100 * retained / input : 0)
+                    }}'
+            )
+
+            printf \
+                'sample\tinput_pairs\tpairs_to_classifier\tpct_retained_after_chm13\n%s\t%s\t%s\t%s\n' \
+                "{wildcards.sample}" \
+                "$input_pairs" \
+                "$kept_r1" \
+                "$pct_retained" \
+                > "$qc"
+        fi
+        """

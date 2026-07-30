@@ -52,8 +52,6 @@ _unclassified_pe_r2 = (
 
 rule k2_daemon_start:
     """Load the kraken2 database into RAM"""
-    input:
-        expand("fastq/fastq_taxid_depleted/{sample}_R1.fastq.gz", sample=SAMPLES),
     output:
         temp(".k2_daemon.sentinel")
     params:
@@ -95,20 +93,21 @@ rule kraken_pe_pass1:
     input:
         R1="fastq/unmapped/{sample}_unmapped_R1.fastq.gz",
         R2="fastq/unmapped/{sample}_unmapped_R2.fastq.gz",
+        daemon=".k2_daemon.sentinel",
     output:
         report="kreports/{sample}.k2report",
         out="koutputs/{sample}.kraken2",
         unclassified1="unclassified/{sample}_unclassified_1.fq",
         unclassified2="unclassified/{sample}_unclassified_2.fq",
     threads: config["CORES"]["kraken2"]
+    params:
+        use_daemon=config.get("USE_K2_DAEMON", False),
     shell:
         """
         k2 classify --db {config[kraken_db_pass1]} {config[kraken_options]}\
             --threads {threads} \
-            --confidence 0.85 \
-            --minimum-hit-groups 5 \
-            --minimum-base-quality 20 \
             --report-minimizer-data \
+             $([ "{params.use_daemon}" = "True" ] && echo "--use-daemon" || echo "") \
             --report {output.report} \
             --output {output.out} \
             --paired {input.R1} {input.R2} \
@@ -118,6 +117,7 @@ rule kraken_pe_pass1:
 rule kraken_se_pass1:
     input:
         R1="fastq/unmapped/{sample}_unmapped_R1.fastq.gz",
+        daemon=".k2_daemon.sentinel",
     output:
         report="kreports/{sample}.k2report",
         out="koutputs/{sample}.kraken2",
@@ -299,7 +299,7 @@ rule braken:
         report="breports/{sample}.breport",
         out="boutputs/{sample}.braken",
     params:
-        db=config["kraken_db"],
+        db=config["kraken_db_pass1"],
         read_len=config["BRACKEN"]["braken_read_len"],
         level=config["BRACKEN"]["braken_level"],
         min_reads=config["BRACKEN"]["braken_min_reads"],
@@ -1165,7 +1165,7 @@ rule samtools_contigs_2_fasta:
 
 rule bwa_index: 
     input: 
-        fasta = "/home/reference_data/bioinfotree/task/gencode/dataset/mmusculus_hsapiens_combined/M39_50/GRCh38_GRCm39primary_assembly.genome.fa"
+        fasta = GENCODE_GENOME_FASTA
     output:
         multiext("index/index", ".0123", ".amb", ".ann", ".bwt.2bit.64", ".pac")
     shell: 
@@ -1173,37 +1173,7 @@ rule bwa_index:
         mkdir -p index
         bwa-mem2 index -p index/index {input.fasta} 
         """
-
-rule all_bwa_aling: 
-    input: 
-        bam = expand("bwa_alignments/{sample}.bam", sample=SAMPLES),
-        bai = expand("bwa_alignments/{sample}.bam.bai", sample=SAMPLES),
         
-    
-rule bwa_align:
-    input:
-        R1   = "fastq/unmapped/{sample}_unmapped_R1.fastq.gz",
-        R2   = "fastq/unmapped/{sample}_unmapped_R2.fastq.gz" if config["LAYOUT"] == "PAIRED" else [],
-        idx  = multiext("index/index", ".0123", ".amb", ".ann", ".bwt.2bit.64", ".pac"),
-    output:
-        bam  = "bwa_alignments/{sample}.bam",
-        bai  = "bwa_alignments/{sample}.bam.bai",
-    threads: config["CORES"]["bwa"]
-    params:
-        layout = config["LAYOUT"],
-        idx_prefix = "index/index",
-    shell:
-        """
-        mkdir -p bwa_alignments
-        if [ "{params.layout}" = "PAIRED" ]; then
-            bwa-mem2 mem -t {threads} {params.idx_prefix} {input.R1} {input.R2}
-        else
-            bwa-mem2 mem -t {threads} {params.idx_prefix} {input.R1}
-        fi \
-            | samtools sort -@ {threads} -o {output.bam}
-        samtools index {output.bam}
-        """
-
 rule all_samtool_filter: 
     input: 
         expand("bwa_alignments/confidence/{sample}_confidence.bam", sample=SAMPLES),

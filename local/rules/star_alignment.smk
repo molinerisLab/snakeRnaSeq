@@ -128,7 +128,7 @@ rule star_align_pe:
 
 rule link_unmapped:
     input:
-        "star/{sample}_unmapped_R{mate}.fastq.gz"
+        "star/unmapped/{sample}_unmapped_R{mate}.fastq.gz"
     output:
         "fastq/unmapped/{sample}_unmapped_R{mate}.fastq.gz"
     shell:

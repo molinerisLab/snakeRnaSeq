@@ -132,7 +132,10 @@ rule link_unmapped:
     output:
         "fastq/unmapped/{sample}_unmapped_R{mate}.fastq.gz"
     shell:
-        "ln -sf {input} {output}"
+        """
+        mkdir -p "$(dirname {output:q})"
+        ln -sfr {input:q} {output:q}
+        """
 
 
 rule star_align_human_pe:

@@ -43,48 +43,11 @@ rule star_align_se:
             f"--alignIntronMax {config['STAR']['ALIGN_INTRON_MAX']} "
             f"--alignMatesGapMax {config['STAR']['ALIGN_MATES_GAP_MAX']} "
             f"{config['STAR']['ADDITIONAL_OUTPUT']}"
-            f"{'--outReadsUnmapped Fastx --outSAMunmapped None' if config['STAR']['SAVE_UNMAPPED'] == 'FASTQ' else '--outSAMunmapped Within'}"
+            f"{'--outSAMunmapped None' if config['STAR']['SAVE_UNMAPPED'] == 'FASTQ' else '--outSAMunmapped Within'}"
         )
     wrapper:
         "v3.3.6/bio/star/align"
 
-# rule star_align_pe:
-#     input:
-#         fq1 = "fastq/fastq_trimmed/{sample}_R1.fastq.gz",
-#         fq2 = "fastq/fastq_trimmed/{sample}_R2.fastq.gz",
-#         idx = STAR_GENOME_DIR
-#     output:
-#         aln = "star/{sample}.bam",
-#         log = "star/{sample}.Log.out",
-#         sj  = "star/{sample}.SJ.out.tab",
-#         unmapped = (
-#             ["star/unmapped/{sample}_unmapped_R1.fastq.gz", 
-#              "star/unmapped/{sample}_unmapped_R2.fastq.gz"]
-#             if config['STAR']['SAVE_UNMAPPED'] == "FASTQ" 
-#             else []
-#         ),
-#         log_final = "star/{sample}.Log.final.out"
-#     log:
-#         "star/{sample}.log"
-#     conda: 
-#         "transcript_env.yaml"
-#     threads: 16
-#     params:
-#         extra = lambda wildcards: (
-#             f"--outSAMtype {config['STAR']['OUT_SAM_TYPE']} "
-#             f"--chimOutType WithinBAM "
-#             f"--outFilterMultimapNmax {config['STAR']['OUT_FILTER_MULTIMAP_NMAX']} "
-#             f"--outFilterMismatchNoverReadLmax {config['STAR']['OUT_FILTER_MISMATCH_NOVER_LMAX']} "
-#             f"--alignSJoverhangMin {config['STAR']['ALIGN_SJ_OVERHANG_MIN']} "
-#             f"--alignSJDBoverhangMin {config['STAR']['ALIGN_SJDB_OVERHANG_MIN']} "
-#             f"--alignIntronMin {config['STAR']['ALIGN_INTRON_MIN']} "
-#             f"--alignIntronMax {config['STAR']['ALIGN_INTRON_MAX']} "
-#             f"--alignMatesGapMax {config['STAR']['ALIGN_MATES_GAP_MAX']} "
-#             f"{config['STAR']['ADDITIONAL_OUTPUT']}"
-#             f"{'--outReadsUnmapped Fastx --outSAMunmapped None' if config['STAR']['SAVE_UNMAPPED'] == 'FASTQ' else '--outSAMunmapped Within'}"
-#         )
-#     wrapper:
-#         "v3.3.6/bio/star/align"
 
 rule star_align_pe:
     input:
@@ -120,7 +83,7 @@ rule star_align_pe:
             f"--alignIntronMax {config['STAR']['ALIGN_INTRON_MAX']} "
             f"--alignMatesGapMax {config['STAR']['ALIGN_MATES_GAP_MAX']} "
             f"{config['STAR']['ADDITIONAL_OUTPUT']} "
-            f"{'--outReadsUnmapped Fastx --outSAMunmapped None' if config['STAR']['SAVE_UNMAPPED'] == 'FASTQ' else '--outSAMunmapped Within'}"
+            f"{'--outSAMunmapped None' if config['STAR']['SAVE_UNMAPPED'] == 'FASTQ' else '--outSAMunmapped Within'}"
         )
     wrapper:
         "v3.3.6/bio/star/align"
@@ -170,7 +133,7 @@ rule star_align_human_pe:
             f"--alignIntronMax {config['STAR']['ALIGN_INTRON_MAX']} "
             f"--alignMatesGapMax {config['STAR']['ALIGN_MATES_GAP_MAX']} "
             f"{config['STAR']['ADDITIONAL_OUTPUT']} "
-            f"{'--outReadsUnmapped Fastx --outSAMunmapped None' if config['STAR']['SAVE_UNMAPPED'] == 'FASTQ' else '--outSAMunmapped Within'}"
+            f"{'--outSAMunmapped None' if config['STAR']['SAVE_UNMAPPED'] == 'FASTQ' else '--outSAMunmapped Within'}"
         )
     wrapper:
         "v3.3.6/bio/star/align"

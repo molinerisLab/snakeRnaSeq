@@ -65,7 +65,7 @@ METAGENOMICS:
     # STAR_INDEX: GENCODE_DIR
 
   HUMAN_FILTER:
-    ENABLED: false # set to true if you want to filter out human reads from the unmapped reads (only relevant for metagenomics samples)
+    ENABLED: true # set to true if you want to filter out human reads from the unmapped reads (only relevant for metagenomics samples)
     # STAR_INDEX: GENCODE_DIR
 
   TAXA_FILTERING:

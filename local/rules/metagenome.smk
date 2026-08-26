@@ -462,4 +462,61 @@ rule remove_columns:
             {output} \
             {params.cols_to_remove}
     """
-        
+
+###############################################
+### Compare Kraken Reports Across Databases ###
+###############################################
+
+rule compare_kraken_reports:
+    input:
+        old_db="/home/molinerislab/Mosquito/dataset/v1/kreports/{sample}.k2report",
+        new_db="/home/molinerislab/Mosquito/dataset/v1_1/kreports/{sample}.k2report"
+    output:
+        pdf="results/kraken_database_comparison/{sample}_comparison.pdf",
+        table="results/kraken_database_comparison/{sample}_taxon_comparison.csv",
+        summary="results/kraken_database_comparison/{sample}_summary.csv"
+    log:
+        "logs/kraken_database_comparison/{sample}.log"
+    params:
+        script="/home/molinerislab/Mosquito/local/src/compare_kraken_reports.R"
+    shell:
+        """
+        mkdir -p "$(dirname {output.pdf:q})"
+        mkdir -p "$(dirname {log:q})"
+        Rscript {params.script:q} \
+            --old_db {input.old_db:q} \
+            --new_db {input.new_db:q} \
+            --sample {wildcards.sample:q} \
+            --pdf {output.pdf:q} \
+            --table {output.table:q} \
+            --summary {output.summary:q} \
+            > {log:q} 2>&1
+        """
+
+rule aggregate_kraken_comparisons:
+    input:
+        summaries=expand("results/kraken_database_comparison/{sample}_summary.csv", sample=SAMPLES),
+        taxa=expand("results/kraken_database_comparison/{sample}_taxon_comparison.csv", sample=SAMPLES)
+    output:
+        pdf="results/kraken_database_comparison/all_samples_report.pdf",
+        summary="results/kraken_database_comparison/all_samples_overview.csv"
+    log:
+        "logs/kraken_database_comparison/all_samples.log"
+    params:
+        script="/home/molinerislab/Mosquito/local/src/aggregate_kraken_comparisons.R",
+        results_dir="results/kraken_database_comparison"
+    shell:
+        """
+        mkdir -p "$(dirname {output.pdf:q})"
+        mkdir -p "$(dirname {log:q})"
+        Rscript {params.script:q} \
+            --results_dir {params.results_dir:q} \
+            --pdf {output.pdf:q} \
+            --summary {output.summary:q} \
+            > {log:q} 2>&1
+        """
+
+rule all_kraken_comparisons:
+    input:
+        "results/kraken_database_comparison/all_samples_report.pdf",
+        "results/kraken_database_comparison/all_samples_overview.csv"

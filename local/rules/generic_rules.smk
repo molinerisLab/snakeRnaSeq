@@ -55,8 +55,10 @@ rule add_header:
         "{path}.gz"
     output: 
         "{path}.header_added.gz"
-    shell: 
-        "(bawk -M {input} | cut -f 2 | transpose; zcat {input} ) | gzip > {output}"
+    shell:
+        r"""
+        (bawk -M {input} | cut -f 2 | paste -sd '\t' -; zcat {input}) | gzip > {output}
+        """
 
 rule header_add:
     input: 

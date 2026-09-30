@@ -53,6 +53,8 @@ rule fastp_pe:
     params:
         extra=config["FASTP"]["extra"] 
     threads: config["CORES"]["fastp"]
+    conda:
+        "transcript_env.yaml"
     wrapper:
         "v3.3.6/bio/fastp"
 

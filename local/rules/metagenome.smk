@@ -106,8 +106,10 @@ rule kraken_pe_pass1:
         """
         k2 classify --db {config[kraken_db_pass1]} {config[kraken_options]}\
             --threads {threads} \
+            --confidence 0.85 \
+            --minimum-base-quality 20 \
             --report-minimizer-data \
-             $([ "{params.use_daemon}" = "True" ] && echo "--use-daemon" || echo "") \
+            $([ "{params.use_daemon}" = "True" ] && echo "--use-daemon" || echo "") \
             --report {output.report} \
             --output {output.out} \
             --paired {input.R1} {input.R2} \

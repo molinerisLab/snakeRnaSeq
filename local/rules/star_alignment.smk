@@ -26,6 +26,7 @@ def build_star_flags(d):
 # Ruleorder #
 #############
 
+
 _star_mode = config.get("STAR_MODE", "two_pass_manual")
 
 if config["LAYOUT"] == "SINGLE":
@@ -164,20 +165,31 @@ rule star_align_pe:
             if config["STAR"]["SAVE_UNMAPPED"] == "FASTQ"
             else []
         ),
+        qc=(
+            "Results/star/unmapped/{sample}_depletion_qc.tsv"
+            if config["STAR"]["SAVE_UNMAPPED"] == "FASTQ"
+            else []
+        ),
         log_final="Results/star/{sample}/Log.final.out",
     log:
         "Results/star/{sample}/star.log",
-    threads: config["CORES"]["star"]
+    threads:
+        config["CORES"]["star"]
     params:
         outfiltermultimapnmax=config["STAR"]["OUT_FILTER_MULTIMAP_NMAX"],
         out_samtype=config["STAR"]["OUT_SAM_TYPE"],
+        sam_attributes=config["STAR"].get("OUT_SAM_ATTRIBUTES", "All"),
+        strand_field=config["STAR"].get(
+            "OUT_SAM_STRAND_FIELD",
+            "intronMotif",
+        ),
         quant_mode=config["STAR"]["quantMode"],
-        sjdbOver=config["STAR"]["sjdbOverhang"],
         read_cmd=config["STAR"]["readFilesCommand"],
         tmpdir=lambda wc, output: os.path.dirname(output.aln),
         save_unmapped=config["STAR"]["SAVE_UNMAPPED"],
-        extra=lambda wc: build_star_flags(config["STAR"].get("EXTRA_PASS2", {})),
-        strand_field="--outSAMstrandField intronMotif",
+        extra=lambda wc: build_star_flags(
+            config["STAR"].get("EXTRA_PASS2", {})
+        ),
         unmapped_flags=lambda wc: (
             "--outReadsUnmapped Fastx --outSAMunmapped Within"
             if config["STAR"]["SAVE_UNMAPPED"] == "FASTQ"
@@ -187,11 +199,9 @@ rule star_align_pe:
         r"""
         set -euo pipefail
         exec > {log} 2>&1
-
         mkdir -p {params.tmpdir}
         mkdir -p Results/star/unmapped
         rm -rf {params.tmpdir}/_STARtmp
-
         STAR \
             --runThreadN {threads} \
             --genomeLoad NoSharedMemory \
@@ -202,46 +212,139 @@ rule star_align_pe:
             --quantMode {params.quant_mode} \
             --outSAMtype {params.out_samtype} \
             --outFilterMultimapNmax {params.outfiltermultimapnmax} \
-            --outSAMattributes All \
-            {params.strand_field} \
+            --outSAMattributes {params.sam_attributes} \
+            --outSAMstrandField {params.strand_field} \
             {params.extra} \
             {params.unmapped_flags}
 
         if [ "{params.save_unmapped}" = "FASTQ" ]; then
+            r1="Results/star/unmapped/{wildcards.sample}_unmapped_R1.fastq.gz"
+            r2="Results/star/unmapped/{wildcards.sample}_unmapped_R2.fastq.gz"
+
             filter_unmapped() {{
-                # keep only records whose trailing mate-status tag is 00
+                # STAR appends 00, 10 or 01 to describe mate mapping status.
+                # Keep only pairs for which neither mate mapped.
                 paste - - - - < "$1" \
-                  | awk -F'\t' '{{n=split($1,a," "); if (a[n]=="00") print $1"\n"$2"\n"$3"\n"$4}}' \
+                  | awk -F'\t' \
+                    '{{n=split($1,a," "); if (a[n]=="00") print $1"\n"$2"\n"$3"\n"$4}}' \
                   | gzip -c > "$2"
             }}
 
-            filter_unmapped {params.tmpdir}/Unmapped.out.mate1 Results/star/unmapped/{wildcards.sample}_unmapped_R1.fastq.gz
-            filter_unmapped {params.tmpdir}/Unmapped.out.mate2 Results/star/unmapped/{wildcards.sample}_unmapped_R2.fastq.gz
+            filter_unmapped \
+                {params.tmpdir}/Unmapped.out.mate1 \
+                "$r1"
 
-            # ---- depletion QC: one row per sample ----
+            filter_unmapped \
+                {params.tmpdir}/Unmapped.out.mate2 \
+                "$r2"
+
+            # Validate compressed output.
+            gzip -t "$r1" "$r2"
+
             unmapped_records=$(( $(wc -l < {params.tmpdir}/Unmapped.out.mate1) / 4 ))
-            kept=$(( $(gzip -dc Results/star/unmapped/{wildcards.sample}_unmapped_R1.fastq.gz | wc -l) / 4 ))
-            kept2=$(( $(gzip -dc Results/star/unmapped/{wildcards.sample}_unmapped_R2.fastq.gz | wc -l) / 4 ))
-            input_pairs=$(awk -F'\t' '/Number of input reads/ {{gsub(/ /,"",$2); print $2}}' \
-                            {params.tmpdir}/Log.final.out)
+            unmapped_records2=$(( $(wc -l < {params.tmpdir}/Unmapped.out.mate2) / 4 ))
+            
+
+            kept=$(( \
+                $(gzip -dc "$r1" | wc -l) / 4 \
+            ))
+
+            kept2=$(( \
+                $(gzip -dc "$r2" | wc -l) / 4 \
+            ))
+
+            input_pairs=$(
+                awk -F'\t' \
+                    '/Number of input reads/ {{
+                        gsub(/ /, "", $2);
+                        print $2
+                    }}' \
+                    {params.tmpdir}/Log.final.out
+            )
+
+            # Raw STAR mate outputs must contain equal numbers of records.
+            test "$unmapped_records" -eq "$unmapped_records2" \
+                || {{
+                    echo \
+                      "ERROR: raw STAR mate mismatch R1=$unmapped_records R2=$unmapped_records2" \
+                      >&2
+                    exit 1
+                }}
+
+            # Filtered FASTQs must contain equal numbers of reads.
+            test "$kept" -eq "$kept2" \
+                || {{
+                    echo \
+                      "ERROR: filtered mate mismatch R1=$kept R2=$kept2" \
+                      >&2
+                    exit 1
+                }}
+
+            # Avoid accepting two valid but empty gzip files.
+            test "$unmapped_records" -eq 0 -o "$kept" -gt 0 \
+                || {{
+                    echo \
+                      "ERROR: filter retained 0 of $unmapped_records records" \
+                      >&2
+                    exit 1
+                }}
+
+            # Equal counts alone do not prove that corresponding mates match.
+            qname_mismatches=$(
+                paste \
+                  <(
+                    gzip -dc "$r1" \
+                    | awk 'NR%4==1 {{
+                        id=$1;
+                        sub(/^@/, "", id);
+                        sub(/\/[12]$/, "", id);
+                        print id
+                    }}'
+                  ) \
+                  <(
+                    gzip -dc "$r2" \
+                    | awk 'NR%4==1 {{
+                        id=$1;
+                        sub(/^@/, "", id);
+                        sub(/\/[12]$/, "", id);
+                        print id
+                    }}'
+                  ) \
+                | awk '$1 != $2 {{n++}} END {{print n+0}}'
+            )
+
+            test "$qname_mismatches" -eq 0 \
+                || {{
+                    echo \
+                      "ERROR: $qname_mismatches mismatched mate QNAMEs" \
+                      >&2
+                    exit 1
+                }}
+
+            half_mapped_discarded=$(( unmapped_records - kept ))
+
+            pct_retained=$(
+                awk \
+                  -v retained="$kept" \
+                  -v total="$input_pairs" \
+                  'BEGIN {{
+                      print (total > 0) ? 100 * retained / total : 0
+                  }}'
+            )
 
             {{
-              printf 'sample\tinput_pairs\tunmapped_records\tpairs_to_classifier\thalf_mapped_discarded\tpct_retained\n'
-              printf '%s\t%s\t%s\t%s\t%s\t%.3f\n' \
-                  "{wildcards.sample}" "$input_pairs" "$unmapped_records" "$kept" \
-                  "$(( unmapped_records - kept ))" \
-                  "$(awk -v a="$kept" -v b="$input_pairs" 'BEGIN{{print (b>0)? 100*a/b : 0}}')"
-            }} > Results/star/unmapped/{wildcards.sample}_depletion_qc.tsv
+                printf \
+                  'sample\tinput_pairs\tunmapped_records\tpairs_to_classifier\thalf_mapped_discarded\tpct_retained\n'
 
-            # kraken2 --paired requires equal counts in identical order.
-            test "$kept" -eq "$kept2" \
-                || {{ echo "ERROR: mate count mismatch R1=$kept R2=$kept2" >&2; exit 1; }}
-
-            # A broken filter (awk syntax error, escape mangling) writes valid-but-EMPTY
-            # .gz files and exits 0; the mate-count test above passes trivially (0 == 0).
-            # This is the guard that actually catches it.
-            test "$unmapped_records" -eq 0 -o "$kept" -gt 0 \
-                || {{ echo "ERROR: filter kept 0 of $unmapped_records unmapped records" >&2; exit 1; }}
+                printf \
+                  '%s\t%s\t%s\t%s\t%s\t%.3f\n' \
+                  "{wildcards.sample}" \
+                  "$input_pairs" \
+                  "$unmapped_records" \
+                  "$kept" \
+                  "$half_mapped_discarded" \
+                  "$pct_retained"
+            }} > {output.qc}
         fi
 
         rm -rf {params.tmpdir}/_STARtmp
@@ -622,13 +725,13 @@ rule star_twopass_basic_pe:
 
 rule all_star_chm: 
     input: 
-        expand("Results/star_CHM/{sample}/Aligned.sortedByCoord.out.bam", sample=SAMPLES)
+        expand("Results/star_CHM/{sample}/Aligned.sortedByCoord.out.bam", sample=CHM13_SAMPLES)
 
 
 rule star_align_pe_CHM:
     input:
-        fq1="fastq/unmapped/{sample}_unmapped_R1.fastq.gz",
-        fq2="fastq/unmapped/{sample}_unmapped_R2.fastq.gz",
+        fq1="Results/star/unmapped/{sample}_unmapped_R1.fastq.gz",
+        fq2="Results/star/unmapped/{sample}_unmapped_R2.fastq.gz",
         idx=config["STAR"]["GENOME_DIR_CHM"],
     output:
         aln="Results/star_CHM/{sample}/Aligned.sortedByCoord.out.bam",

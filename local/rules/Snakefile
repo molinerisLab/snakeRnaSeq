@@ -38,7 +38,7 @@ configfile: "config.yaml"
 if os.path.exists("Snakefile_versioned.sk"):
 
     include: "Snakefile_versioned.sk"
-
+include: "../../local/rules/mad_ltmm.smk"
 include: "../../local/config/config_v1.sk"
 include: "../../local/rules/preflight.smk"
 include: "../../local/rules/plot.smk"
@@ -131,7 +131,7 @@ rule ALL_infer_experiment:
 
 rule ALL_star:
     input:
-        expand("Results/star/{sample}/Aligned.sortedByCoord.out.bam", sample=SAMPLES),
+        expand("Results/star/{sample}/Aligned.sortedByCoord.out.bam", sample=STAR_SAMPLES)
         
 
 

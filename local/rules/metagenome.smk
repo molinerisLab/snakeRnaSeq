@@ -419,13 +419,17 @@ rule qc_abundance_matrix:
 
 rule filter_taxa:
     input:
-        matrix="bracken_merged_abundances.tsv"
+        matrix="bracken_merged_abundances.tsv",
+        taxonomy_nodes=config["METAGENOMICS"]["TAXONOMY_NODES"]
     output:
         filtered="bracken_merged_abundances.cleaned.tsv",
         summary="filter_summary.txt"
     params:
         min_prevalence=config["METAGENOMICS"]["TAXA_FILTERING"]["min_prevalence"],
-        min_total=config["METAGENOMICS"]["TAXA_FILTERING"]["min_total"]
+        min_total=config["METAGENOMICS"]["TAXA_FILTERING"]["min_total"],
+        targets=config["METAGENOMICS"]["TARGET TAXA"]["targets"],
+        targets_enabled=config["METAGENOMICS"]["TARGET TAXA"]["ENABLED"],
+        preserve_targets=config["METAGENOMICS"]["TARGET TAXA"]["preserve_from_filtering"],
     log:
         "logs/filter_taxa.log"
     script:

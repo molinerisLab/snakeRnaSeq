@@ -23,14 +23,14 @@ TRIMMER: "trim_galore"  # fastp | trim_galore
 # ========================
 # GENCODE & REFERENCE
 # ========================
-DATABASE: "gencode" # vectorbase | gencode | custom
+DATABASE: "vectorbase" # vectorbase | gencode | custom
 GENCODE:
-  SPECIES: "hsapiens"      # hsapiens | mmusculus | mmusculus_hsapiens_combined | mosquito
+  SPECIES: "mosquito"      # hsapiens | mmusculus | mmusculus_hsapiens_combined | mosquito
   VERSION: "46"            # 32 | M23
-  GENOME: "GRCh38.p14" # GRCh38.primary_assembly | GRCm38.primary_assembly | GRCh38.p14 | GRCm39.primary_assembly | Agambiae
+  GENOME: "Agambiae" # GRCh38.primary_assembly | GRCm38.primary_assembly | GRCh38.p14 | GRCm39.primary_assembly | Agambiae
   ANNOTATION: "basic.annotation" # primary_assembly.annotation | basic.annotation
 
-GENOME_ASSEMBLY: "GRCh38.p14"
+GENOME_ASSEMBLY: "Agambiae"
 
 # ========================
 # ALIGNMENT (STAR)
@@ -59,45 +59,6 @@ STAR:
   limitSjdbInsertNsj: 1000000
   SAVE_UNMAPPED: "FASTQ" # BAM | FASTQ 
   
-
-METAGENOMICS:
-  PRIMARY_HOST:
-    # STAR_INDEX: GENCODE_DIR
-
-  HUMAN_FILTER:
-    ENABLED: true # set to true if you want to filter out human reads from the unmapped reads (only relevant for metagenomics samples)
-    # STAR_INDEX: GENCODE_DIR
-
-  TAXA_FILTERING:
-    min_prevalence: 2
-    min_total: 10
-
-  TAXONOMY_NODES: "/home/reference_data/bioinfotree/task/kraken/nobackup/k2_pluspf_20250402/taxo.k2d"
-
-  TARGET TAXA:
-    ENABLED: true
-    preserve_from_filtering: true
-    
-    targets:
-      Plasmodium:
-        taxid: 5820
-        rank: genus
-        include_children: true
-
-      Plasmodium_falciparum:
-        taxid: 5833
-        rank: species
-        include_children: true
-        
-      Plasmodium_vivax:
-        taxid: 5855
-        rank: species
-        include_children: true
-
-  COLUMNS_TO_REMOVE:
-    - KIS01
-    - KIS02
-    - KIS03
 
 # ========================
 # TRIMMING
@@ -196,10 +157,144 @@ BRACKEN:
   bracken_level: "S"
 
 # kraken_db: "/home/nobackup/home/reference_data/bioinfotree/task/kraken/k2_pluspf_20250402"
+# kraken_k2d: "/home/reference_data/bioinfotree/task/kraken/nobackup/k2_pluspf_20250402/taxo.k2d"
 kraken_db: "/home/reference_data/bioinfotree/task/kraken/dataset/k2_pluspf_20260226"
-kraken_k2d: "/home/reference_data/bioinfotree/task/kraken/nobackup/k2_pluspf_20250402/taxo.k2d"
+kraken_k2d: "/home/reference_data/bioinfotree/task/kraken/dataset/k2_pluspf_20260226/taxo.k2d"
 kraken_db_nr: "/home/reference_data/bioinfotree/task/kraken/nobackup/k2_nt"
 hitgrp: 2 
+
+
+METAGENOMICS:
+  PRIMARY_HOST:
+    # STAR_INDEX: GENCODE_DIR
+
+  HUMAN_FILTER:
+    ENABLED: true # set to true if you want to filter out human reads from the unmapped reads (only relevant for metagenomics samples)
+    # STAR_INDEX: GENCODE_DIR
+
+  TAXA_FILTERING:
+    min_prevalence: 2
+    min_total: 10
+
+  TAXONOMY_NODES: "/home/reference_data/bioinfotree/task/kraken/dataset/k2_pluspf_20260226/taxonomy/nodes.dmp"
+  TAXONOMY_NAMES: "/home/reference_data/bioinfotree/task/kraken/dataset/k2_pluspf_20260226/taxonomy/names.dmp"
+  TAXONOMY_NAMES: "kraken_db/taxonomy/names.dmp"
+
+  TARGET_TAXA:
+    ENABLED: true
+    preserve_from_filtering: true
+    targets:
+      # BASELINE: broadly informative for Anopheles, and reusable elsewhere
+      Microsporidia:
+        name: Microsporidia
+        rank: phylum
+        category: broad_microsporidian_screen
+        include_children: true
+      Microsporidium:
+        name: Microsporidium
+        rank: genus
+        category: microsporidian_subgroup
+        include_children: true
+      Microsporidia_MB:
+        name: "Microsporidia sp. MB"
+        category: anopheles_symbiont
+        include_children: true
+      Edhazardia:
+        name: Edhazardia
+        category: mosquito_microsporidia
+        include_children: true
+      Amblyospora:
+        name: Amblyospora
+        category: mosquito_microsporidia
+        include_children: true
+      Vavraia:
+        name: Vavraia
+        category: mosquito_microsporidia
+        include_children: true
+      Ascogregarina:
+        name: Ascogregarina
+        category: mosquito_gregarines
+        include_children: true
+      Plasmodium:
+        name: Plasmodium
+        taxid: 5820             # Optional: may specify known taxid and name together
+        rank: genus
+        category: vector_borne_parasite
+        include_children: true
+      Plasmodium_falciparum:
+        name: "Plasmodium falciparum"
+        category: vector_borne_parasite
+        include_children: true
+      Wuchereria:
+        name: Wuchereria
+        category: vector_borne_parasite
+        include_children: true
+      Thorsellia:
+        name: Thorsellia
+        category: mosquito_associated_bacteria
+        include_children: true
+      Asaia:
+        name: Asaia
+        category: mosquito_associated_bacteria
+        include_children: true
+      Wolbachia:
+        name: Wolbachia
+        category: mosquito_associated_bacteria
+        include_children: true
+      Elizabethkingia:
+        name: Elizabethkingia
+        category: mosquito_associated_bacteria
+        include_children: true
+      Serratia:
+        name: Serratia
+        category: mosquito_associated_bacteria
+        include_children: true
+      Chromobacterium:
+        name: Chromobacterium
+        category: mosquito_associated_bacteria
+        include_children: true
+      Cedecea:
+        name: Cedecea
+        category: mosquito_associated_bacteria
+        include_children: true
+      Anopheles_flavivirus:
+        name: "Anopheles flavivirus"
+        category: mosquito_associated_viruses
+        include_children: true
+      Phasi_Charoen_like_phasivirus:
+        name: "Phasi Charoen-like phasivirus"
+        category: mosquito_associated_viruses
+        include_children: true
+      Cell_fusing_agent_virus:
+        name: "Cell fusing agent virus"
+        category: mosquito_associated_viruses
+        include_children: true
+      Culex_flavivirus:
+        name: "Culex flavivirus"
+        category: mosquito_associated_viruses
+        include_children: true
+      Anopheles_gambiae_densovirus:
+        name: "Anopheles gambiae densovirus"
+        category: mosquito_associated_viruses
+        include_children: true
+      Onyon_nyong_virus:
+        name: "O'nyong-nyong virus"
+        category: vector_borne_viruses
+        include_children: true
+      # Exploratory regex searches only matrix labels; no lineage is implied.
+      # Disabled until explicitly reviewed for specificity and false positives.
+      exploratory_microsporidian_label:
+        name: "Microsporidia sp."
+        enabled: false
+        match: matrix_name_regex
+        pattern: '(?i)^Microsporidia sp\.'
+        category: exploratory_unresolved_labels
+        preserve: false
+
+  COLUMNS_TO_REMOVE:
+    - KIS01
+    - KIS02
+    - KIS03
 
 
 # ========================

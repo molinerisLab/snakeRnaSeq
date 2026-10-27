@@ -130,10 +130,9 @@ rule split_merged:
     output:
         num="bracken_merged_abundances.num.txt",
         frac="bracken_merged_abundances.frac.txt"
-    shell:
-        "grep_columns -k 1,2,3 bracken_num  < {input} | perl -pe '$.==1; s/.bracken_num//g'  > {output.num};"
-        "grep_columns -k 1,2,3 bracken_frac < {input} | perl -pe '$.==1; s/.bracken_frac//g' > {output.frac}"
-    
+    script:
+        "../../local/src/split_bracken_matrix.py"
+
 
 rule feature_filter:
     input:
@@ -420,16 +419,19 @@ rule qc_abundance_matrix:
 rule filter_taxa:
     input:
         matrix="bracken_merged_abundances.tsv",
-        taxonomy_nodes=config["METAGENOMICS"]["TAXONOMY_NODES"]
+        nodes=config["METAGENOMICS"]["TAXONOMY_NODES"],
+        names=config["METAGENOMICS"]["TAXONOMY_NAMES"]
     output:
         filtered="bracken_merged_abundances.cleaned.tsv",
-        summary="filter_summary.txt"
+        summary="filter_summary.txt",
+        resolution="qc/target_taxon_resolution.tsv",
+        matches="qc/target_taxon_matches.tsv"
     params:
         min_prevalence=config["METAGENOMICS"]["TAXA_FILTERING"]["min_prevalence"],
         min_total=config["METAGENOMICS"]["TAXA_FILTERING"]["min_total"],
-        targets=config["METAGENOMICS"]["TARGET TAXA"]["targets"],
-        targets_enabled=config["METAGENOMICS"]["TARGET TAXA"]["ENABLED"],
-        preserve_targets=config["METAGENOMICS"]["TARGET TAXA"]["preserve_from_filtering"],
+        targets=config["METAGENOMICS"]["TARGET_TAXA"]["targets"],
+        targets_enabled=config["METAGENOMICS"]["TARGET_TAXA"]["ENABLED"],
+        preserve_targets=config["METAGENOMICS"]["TARGET_TAXA"]["preserve_from_filtering"]
     log:
         "logs/filter_taxa.log"
     script:

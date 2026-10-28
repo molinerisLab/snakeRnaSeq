@@ -1,34 +1,131 @@
-name: snakeRNAseq
+# Direct pipeline dependencies for Linux x86_64 / WSL2.
+# Supporting libraries (Cairo, compiler runtimes, fonts, etc.) are resolved by Conda.
+# Core tool versions match the validated WSL setup; optional branches need validation.
+#
+# From the project root:
+#   conda env create --file local/env/SnakeRNAseq.yaml
+#   conda activate snakernaseq-tested
+# For the existing .envrc location, use --prefix local/env/conda when creating.
+#
+# External: reference data, licensed MAJIQ v3, and server-specific scripts/binaries.
+# Deferred as requested: tab2xls, fastq2tab, enumerate_rows.
+# Repository commands in local/bin and local/src still need to be on PATH (.envrc).
+name: snakernaseq-tested
 channels:
   - conda-forge
-  - bioconda
   - molinerislab
+  - bioconda
+  - nodefaults
 
 dependencies:
+  # Workflow and Python code used directly by the pipeline.
   - python=3.12
-  - star=2.7.11b
-  - subread          
-  - multiqc=1.25.2
-  - fastqc
-  - pandas
-  - numpy
-  - biopython
   - pip
-  - bsort=1.0
-  - kraken2=2.1.3
-  - bwa=0.7.18
-  - krakentools=1.2
-  - snakemake
-  - samtools
-  - bioconda::krona
-  - ca-certificates
-  - certifi
-  - openssl
-  - molinerislab::tab2xlsx
-  - molinerislab::tabular_data_manipulation
-  - conda-forge::biopython
-  - bawk
+  - snakemake-minimal=9.16.2
+  - snakemake-wrapper-utils=0.6.2
+  - pandas=2.3.3
+  - numpy=2.5.1
+
+  # Read QC and trimming: trim.smk, qc.smk.
+  - fastp=1.4.0
+  - fastqc=0.12.1
+  - multiqc=1.25.2
+  - trim-galore=0.6.10
+
+  # Alignment, BAM processing, read counting and coverage tracks.
+  - star=2.7.11b
+  - bwa-mem2=2.3
+  - samtools=1.23.1
+  - sambamba=0.6.6
+  - subread=2.1.1
+  - bedtools
+  - deeptools
+
+  # Transcript quantification and assembly: Isoforms.smk.
+  - salmon=2.2.1
+  - kallisto=0.52.0
+  - stringtie=3.0.3
+  - psiclass
+  - gffcompare
+  - gffread
+
+  # Metagenomics rules; remove this group if those targets are not used.
+  - kraken2=2.17.1
+  - bracken=3.1
+  - krakentools=1.2.1
+  - krona=2.8.1
+  - minimap2=2.31
+  - bowtie2=2.5.5
+  - blast=2.17.0
+  - diamond=2.1.24
+  - megahit=1.2.9
+  - seqkit=2.13.0
+  - transdecoder=6.0.0
+  - ncbi-datasets-cli=18.30.1
+  - metaphlan=4
+  - kaiju
+
+  # R packages imported by the analysis, plotting and GSEA scripts.
+  - r-base=4.5.3
+  - r-optparse
+  - r-data.table
+  - r-matrixstats
+  - r-statmod
+  - r-dplyr
+  - r-tidyr
+  - r-readr
+  - r-stringr
+  - r-ggplot2
+  - r-scales
+  - r-rcolorbrewer
+  - r-pheatmap
+  - r-ggrepel
+  - r-ggextra
+  - r-rmarkdown
+  - r-shiny
+  - r-dt
+  - bioconductor-edger
+  - bioconductor-deseq2
+  - bioconductor-limma
+  - bioconductor-biobase
+  - bioconductor-geoquery
+  - bioconductor-genomeinfodb
+  - bioconductor-rhdf5
+  - bioconductor-tximport
+  - bioconductor-rtracklayer
+  - bioconductor-fgsea
+
+  # MolinerisLab commands invoked by the rules.
+  - tabular_data_manipulation
+  - symbol_count
+  - matrix2tab
   - matrix_reduce
-  - conda-forge::typer
-  - dap
-  - conda-forge::async
+  - filter_1col
+  - bawk
+  - translate
+  - transpose
+  - bsort
+  - find_best
+  - tab2xlsx=1.1
+
+  # Shell commands used by rules, report rendering and optional publishing.
+  - perl
+  - gawk
+  - coreutils
+  - grep
+  - sed
+  - gzip
+  - pigz
+  - unzip
+  - pandoc
+  - rsync
+  - openssh
+
+  # Direct Python dependencies available/tested through pip in the WSL setup.
+  - pip:
+      - bx-python==0.14.0
+      - pysam==0.24.0
+      - RSeQC==5.0.4
+      - spladder
+      # Required only for Slurm execution; omit for local-only runs.
+      - snakemake-executor-plugin-slurm==2.7.1

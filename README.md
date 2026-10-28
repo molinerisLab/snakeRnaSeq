@@ -43,13 +43,23 @@ The first column must be named `sample` and contain the `<sample_name>` of the f
 
 ---
 
-## 🌐 Environment 
-The pipeline is designed to run locally using conda environments. You can create the base environment with:
+## 🌐 Environment
+
+The pipeline runs on Linux, including WSL2, using Conda.
+
+From the project root, create the environment with:
+
 ```bash
-conda env create --prefix=local/env/conda --file=local/env/env.yaml
+conda env create --prefix=local/env/conda --file=local/env/SnakeRNAseq.yaml
 ```
 
-The environment is directly activated by running `direnv allow` when prompted.
+This location matches the project's `.envrc` configuration. With Conda and direnv installed, authorize automatic activation by running:
+
+```bash
+direnv allow
+```
+
+After authorization, direnv activates the environment whenever you enter the project directory.
 
 ---
 

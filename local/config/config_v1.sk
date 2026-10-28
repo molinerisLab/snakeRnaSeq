@@ -61,7 +61,13 @@ try:
     STAR_VERSION = shell("STAR --version 2>&1", read=True).strip()
 except Exception:
     STAR_VERSION = config["STAR"]["VERSION"]
-STAR_GENOME_DIR = GENCODE_DIR+"/"+config["GENCODE"]["GENOME"]+".star_index/"+STAR_VERSION
+STAR_GENOME_DIR = (
+    GENCODE_DIR + "/"
+    + config["GENCODE"]["GENOME"]
+    + ".star_index/" + STAR_VERSION
+    + "/SJ_" + str(config["STAR"]["sjdbOverhang"])
+)
+
 FEATURECOUNTS_PARAM = config["FEATURECOUNTS_PARAM"] + " -s" + config["STRANDED"]
 LCPM_PRIOR_COUNT = 0.25 
 LTPM_PRIOR_COUNT = 0.0001
@@ -69,3 +75,23 @@ LTPM_PRIOR_COUNT = 0.0001
 
 ##############
 MSIGDB_DIR = REFERENCE_ROOT + "/msigdb/dataset/" + config["MSIGDB_VERSION"]
+
+
+###################
+# Sample subsets  #
+###################
+# config SAMPLE_SUBSETS.<key>: regex matched against sample names; unset or "" -> all samples.
+
+def select_samples(key):
+    pattern = (config.get("SAMPLE_SUBSETS") or {}).get(key) or ""
+    if not pattern:
+        return SAMPLES
+    selected = [s for s in SAMPLES if re.search(pattern, s)]
+    if not selected:
+        logger.warning(f"[samples] SAMPLE_SUBSETS.{key}={pattern!r} matches no sample")
+    return selected
+
+
+STAR_SAMPLES = select_samples("STAR")
+CHM13_SAMPLES = select_samples("CHM13")
+BWA_SAMPLES = select_samples("BWA")

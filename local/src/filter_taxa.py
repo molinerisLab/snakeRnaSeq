@@ -7,7 +7,6 @@ preserve_targets] and log[0].
 Important: names.dmp and nodes.dmp must be readable NCBI-format files representing
 THE SAME TAXONOMY as the Kraken2 database that generated the Bracken data.
 """
-from __future__ import annotations
 
 import csv
 import re
@@ -76,6 +75,39 @@ def resolve_name(name, scientific, aliases):
     return next(iter(candidates)), "scientific name" if scientific.get(key) else "synonym"
 
 
+def resolve_name(name, scientific, aliases, preferred_taxid=None):
+    """Resolve a taxonomy name, using a configured taxid to disambiguate."""
+    key = normalise(name)
+    primary_matches = scientific.get(key, set())
+    alias_matches = aliases.get(key, set())
+    candidates = primary_matches or alias_matches
+    if not candidates:
+        return None, "not found in names.dmp"
+    if preferred_taxid is not None:
+        if preferred_taxid not in candidates:
+            raise ValueError(
+                f"Configured taxid {preferred_taxid} does not match "
+                f"taxonomy name {name!r}. "
+                f"Candidate taxids: {sorted(candidates)}"
+            )
+        source = (
+            "scientific name"
+            if preferred_taxid in primary_matches
+            else "synonym"
+        )
+        return preferred_taxid, f"{source}; configured taxid"
+    if len(candidates) != 1:
+        raise ValueError(
+            f"Ambiguous taxonomy name {name!r}: "
+            f"candidate taxids {sorted(candidates)}. "
+            "Specify a taxid in config.yaml."
+        )
+    taxid = next(iter(candidates))
+    source = "scientific name" if primary_matches else "synonym"
+
+    return taxid, source
+
+
 def has_ancestor(taxid, ancestor, parents):
     """True for the taxid itself or any descendant; safe for malformed cycles."""
     current = taxid
@@ -92,14 +124,20 @@ def has_ancestor(taxid, ancestor, parents):
 
 
 def row_count_columns(df):
-    """Support upstream Bracken combine implementations using either suffix."""
+    """Identify Bracken count columns, supporting two naming conventions."""
     dotted = [c for c in df.columns if c.endswith(".bracken_num")]
-    underscored = [c for c in df.columns if c.endswith("_num")]
+    underscored = [c for c in df.columns if c.endswith("_num") and not c.endswith(".bracken_num")]
     if dotted and underscored:
-        raise ValueError("Both '.bracken_num' and '_num' count columns detected; choose one format")
+        raise ValueError(
+            "Both '.bracken_num' and '_num' count column formats "
+            "detected; choose one format"
+        )
     num_cols = dotted or underscored
     if not num_cols:
-        raise ValueError("No Bracken counts found (expected *_num or *.bracken_num columns)")
+        raise ValueError(
+            "No Bracken counts found "
+            "(expected *_num or *.bracken_num columns)"
+        )
     return num_cols
 
 
@@ -172,7 +210,7 @@ def _execute(smk):
             if mode == "taxonomy":
                 config_taxid = entry.get("taxid")
                 requested_id = int(config_taxid) if config_taxid is not None else None
-                name_id, name_message = resolve_name(label, scientific, aliases)
+                name_id, name_message = resolve_name(label, scientific, aliases, preferred_taxid=requested_id)
                 if requested_id is not None and requested_id not in parents:
                     note = f"Configured taxid {requested_id} absent from supplied nodes.dmp"
                 elif requested_id is not None and name_id is not None and name_id != requested_id:

@@ -12,17 +12,23 @@ rule tab2xlsx:
         "{file}"
     output: 
         "{file}.xlsx"
+    conda:
+        "transcript_env.yaml"
     shell: 
-        "cat < {input} | tab2xlsx > {output}"
+        "tab2xlsx < {input:q} > {output:q}"
 
 rule gz2xlsx:
-    """Decompress a gzipped tab file and convert to Excel (.xlsx)."""
+    """Decompress a gzipped tab file and export it as .gz.xlsx."""
     input: 
         "{file}.gz"
     output: 
-        "{file}.xlsx"
+        "{file}.gz.xlsx"
+    conda:
+        "transcript_env.yaml"
     shell: 
-        "zcat < {input} | tab2xlsx > {output}"
+        "gzip -cd {input:q} | tab2xlsx > {output:q}"
+
+ruleorder: gz2xlsx > tab2xlsx
 
 rule tab2xls:
     """Convert a TSV/Tab file to the older Excel (.xls) format."""
@@ -30,8 +36,10 @@ rule tab2xls:
         "{file}"
     output: 
         "{file}.xls"
+    conda:
+        "transcript_env.yaml"
     shell: 
-        "tab2xls < {input} > {output}"
+        "tab2xls < {input:q} > {output:q}"
 
 
 # =============================================================================
@@ -44,8 +52,10 @@ rule add_header:
         "{path}.gz"
     output: 
         "{path}.header_added.gz"
+    conda:
+        "transcript_env.yaml"
     shell: 
-        "(bawk -M {input} | cut -f 2 | transpose; zcat {input} ) | gzip > {output}"
+        "(bawk -M {input:q} | cut -f 2 | transpose; zcat {input:q} ) | gzip > {output:q}"
 
 rule header_add:
     """Add a header row to a standard text file by transposing the 2nd column."""
@@ -53,8 +63,10 @@ rule header_add:
         "{file}"
     output: 
         "{file}.header_added"
+    conda:
+        "transcript_env.yaml"
     shell: 
-        "(bawk -M {input} | cut -f 2 | transpose; cat {input} ) > {output}"
+        "(bawk -M {input:q} | cut -f 2 | transpose; cat {input:q} ) > {output:q}"
 
 # =============================================================================
 # 3. SEQUENCE MANIPULATION (FASTQ/FASTA)
@@ -66,5 +78,18 @@ rule get_fa:
         "{file}.fastq.gz"
     output: 
         "{file}.fa.gz"
+    conda:
+        "transcript_env.yaml"
     shell: 
-        "zcat {input} | fastq2tab | enumerate_rows | cut -f 1,3 | tab2fasta -s | gzip > {output}"
+        "zcat {input:q} | fastq2tab | enumerate_rows | cut -f 1,3 | tab2fasta -s | gzip > {output:q}"
+
+rule check_utils_environment:
+    """Verify that the utility environment and lab PATH supply every required command."""
+    conda:
+        "transcript_env.yaml"
+    shell:
+        r"""
+        for tool in tab2xlsx tab2xls bawk transpose fastq2tab enumerate_rows tab2fasta gawk cut cat gzip zcat; do
+            command -v "$tool" || {{ echo "Missing utility command: $tool" >&2; exit 1; }}
+        done
+        """

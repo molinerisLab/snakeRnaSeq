@@ -176,10 +176,9 @@ METAGENOMICS:
     min_prevalence: 2
     min_total: 10
 
-  TAXONOMY_NODES: "/home/reference_data/bioinfotree/task/kraken/dataset/k2_pluspf_20260226/taxonomy/nodes.dmp"
-  TAXONOMY_NAMES: "/home/reference_data/bioinfotree/task/kraken/dataset/k2_pluspf_20260226/taxonomy/names.dmp"
-  TAXONOMY_NAMES: "kraken_db/taxonomy/names.dmp"
-
+  TAXONOMY_NODES: "/home/reference_data/bioinfotree/task/kraken/dataset/k2_pluspf_20260226/nodes.dmp"
+  TAXONOMY_NAMES: "/home/reference_data/bioinfotree/task/kraken/dataset/k2_pluspf_20260226/names.dmp"
+  
   TARGET_TAXA:
     ENABLED: true
     preserve_from_filtering: true
@@ -247,6 +246,8 @@ METAGENOMICS:
         include_children: true
       Serratia:
         name: Serratia
+        taxid: 613
+        rank: genus
         category: mosquito_associated_bacteria
         include_children: true
       Chromobacterium:

@@ -23,7 +23,7 @@ A comprehensive, fully-automated workflow powered by Snakemake to process RNA-se
 
 a) git clone the following repository:
 ```bash
-git clone -b develop --single-branch [https://github.com/molinerisLab/snakeRNASeq.git](https://github.com/molinerisLab/snakeRNASeq.git)
+git clone https://github.com/molinerisLab/snakeRNASeq
 ```
 b) 📜 Clone the SnakeReferences repository: 
 ```bash

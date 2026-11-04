@@ -124,6 +124,31 @@ rule krona_html:
     shell: "ktImportText {input} -o {output}"
 
 
+#######################################
+
+#######################################
+rule filter_taxa:
+    input:
+        matrix="bracken_merged_abundances.tsv",
+        nodes=config["METAGENOMICS"]["TAXONOMY_NODES"],
+        names=config["METAGENOMICS"]["TAXONOMY_NAMES"]
+    output:
+        filtered="bracken_merged_abundances.cleaned.tsv",
+        summary="filter_summary.txt",
+        resolution="qc/target_taxon_resolution.tsv",
+        matches="qc/target_taxon_matches.tsv"
+    params:
+        min_prevalence=config["METAGENOMICS"]["TAXA_FILTERING"]["min_prevalence"],
+        min_total=config["METAGENOMICS"]["TAXA_FILTERING"]["min_total"],
+        targets=config["METAGENOMICS"]["TARGET_TAXA"]["targets"],
+        targets_enabled=config["METAGENOMICS"]["TARGET_TAXA"]["ENABLED"],
+        preserve_targets=config["METAGENOMICS"]["TARGET_TAXA"]["preserve_from_filtering"]
+    log:
+        "logs/filter_taxa.log"
+    script:
+        "../../local/src/filter_taxa.py"
+
+
 rule split_merged:
     input:
         "bracken_merged_abundances.cleaned.tsv"
@@ -134,12 +159,78 @@ rule split_merged:
         "../../local/src/split_bracken_matrix.py"
 
 
-rule feature_filter:
+rule collapse_taxid_qc:
+    input:
+        "bracken_merged_abundances.num.txt"
+    output:
+        "qc/counts_all.taxid_collapsed.txt"
+    shell:
+        r"""
+        perl -F'\t' -lane '
+            if ($. == 1) {{
+                print join("\t", "Geneid", @F[3..$#F]);
+            }} else {{
+                $F[0] =~ s/ /_/g;
+                print join("\t", join("_", @F[0..2]), @F[3..$#F]);
+            }}
+        ' {input:q} > {output:q}
+        """
+
+
+rule normalize_abundance_qc:
+    input:
+        matrix="qc/counts_all.taxid_collapsed.txt"
+    output:
+        relative="qc/abundances.relative_all.tsv",
+        clr="qc/abundances.clr_all.tsv"
+    params:
+        pseudocount=0.5
+    log:
+        "logs/normalize_abundance_qc.log"
+    script:
+        "../../local/src/normalize_abundance.R"
+
+
+rule explore_abundance_qc:
+    input:
+        clr="qc/abundances.clr_all.tsv",
+        relative="qc/abundances.relative_all.tsv",
+        counts="qc/counts_all.taxid_collapsed.txt",
+        metadata="metadata.txt",
+        totals="qc/sample_totals.txt"
+    output:
+        pca="qc/exploration/pca.pdf",
+        heatmap="qc/exploration/sample_distances.pdf",
+        summary="qc/exploration/sample_qc_summary.tsv",
+        group_summary="qc/exploration/group_qc_summary.tsv",
+        pca_coordinates="qc/exploration/pca_coordinates.tsv"
+    params:
+        condition_column="condition",
+        outlier_z=3.5
+    log:
+        "logs/explore_abundance_qc.log"
+    script:
+        "../../local/src/explore_abundance_qc.R"
+
+
+rule apply_qc_exclusions:
     input:
         abundances="bracken_merged_abundances.num.txt",
-        metadata="metadata.txt"
+        metadata="metadata.txt",
+        exclusions="qc/excluded_samples.tsv"
     output:
-        filtered="bracken_merged_abundances.num.filtered.txt"
+        abundances="analysis/counts.selected.tsv",
+        metadata="analysis/metadata.selected.tsv"
+    script:
+        "../../local/src/apply_qc_exclusions.py"
+
+
+rule feature_filter:
+    input:
+        abundances="analysis/counts.selected.tsv",
+        metadata="analysis/metadata.selected.tsv"
+    output:
+        filtered="analysis/counts.feature_filtered.tsv"
     params:
         # Metadata grouping
         condition=config["feature_filter"]["condition"],
@@ -164,13 +255,10 @@ rule feature_filter:
             for(i=2;i<=n;i++) {{
                 prefix=prefix ";" $i
             }}
-
             printf "%s", prefix
-
             for(i=n+1;i<=NF;i++) {{
                 printf "\t%s", $i
             }}
-
             printf "\n"
         }}
         ' {input.abundances} > {input.abundances}.tmp
@@ -195,29 +283,30 @@ rule feature_filter:
             {params.use_raw_counts} \
             --min_exp {params.min_exp} \
             --min_samples_ratio {params.min_samples_ratio} \
-        | perl -pe 's/;/\t/; s/;/\t/; s/;/\t/' \
+        | perl -pe 's/;/\t/; s/;/\t/' \
         >> {output.filtered}
 
         rm -f {input.abundances}.tmp
         """
 
 
-rule filter_frac:
+rule rescue_target_taxa:
     input:
-        num_filter="bracken_merged_abundances.num.filtered.txt",
-        frac="bracken_merged_abundances.frac.txt"
+        original="analysis/counts.selected.tsv",
+        filtered="analysis/counts.feature_filtered.tsv",
+        targets="qc/target_taxon_matches.tsv"
     output:
-        "bracken_merged_abundances.frac.filtered.txt"
-    shell:
-        "filter_1col 3 <(cut -f 3 {input.num_filter}) < {input.frac} > {output}"
+        restored="analysis/counts.final.tsv",
+        report="qc/target_rescue_summary.tsv"
+    script:
+        "../../local/src/rescue_target_taxa.py"
 
 
 rule collapse_taxid:
     input:
-        "bracken_merged_abundances.num.filtered.txt"
+        "analysis/counts.final.tsv"
     output:
-        "bracken_merged_abundances.num.taxid_collapsed.txt"
-    # shell: "perl -pe 's/\t/;/; s/\t/;/' {input} > {output}"
+        "analysis/counts.final.taxid_collapsed.txt"
     shell:
         r"""
         perl -F'\t' -lane '
@@ -229,6 +318,32 @@ rule collapse_taxid:
             }}
         ' {input} > {output}
         """
+
+
+rule normalize_abundance:
+    input:
+        matrix="analysis/counts.final.taxid_collapsed.txt"
+    output:
+        # relative="abundances.cleaned.relative.tsv",
+        # clr="abundances.cleaned.clr.tsv"
+        relative="abundances.cleaned.relative_all.tsv",
+        clr="abundances.cleaned.clr-all.tsv"
+    params:
+        pseudocount=0.5
+    log:
+        "logs/normalize_abundance.log"
+    script:
+        "../../local/src/normalize_abundance.R"
+
+
+rule filter_frac:
+    input:
+        num_filter="bracken_merged_abundances.num.filtered.txt",
+        frac="bracken_merged_abundances.frac.txt"
+    output:
+        "bracken_merged_abundances.frac.filtered.txt"
+    shell:
+        "filter_1col 3 <(cut -f 3 {input.num_filter}) < {input.frac} > {output}"
 
 
 rule degw:
@@ -415,44 +530,6 @@ rule qc_abundance_matrix:
     script:
         "../../local/src/qc_abundance_matrix.py"
 
-
-rule filter_taxa:
-    input:
-        matrix="bracken_merged_abundances.tsv",
-        nodes=config["METAGENOMICS"]["TAXONOMY_NODES"],
-        names=config["METAGENOMICS"]["TAXONOMY_NAMES"]
-    output:
-        filtered="bracken_merged_abundances.cleaned.tsv",
-        summary="filter_summary.txt",
-        resolution="qc/target_taxon_resolution.tsv",
-        matches="qc/target_taxon_matches.tsv"
-    params:
-        min_prevalence=config["METAGENOMICS"]["TAXA_FILTERING"]["min_prevalence"],
-        min_total=config["METAGENOMICS"]["TAXA_FILTERING"]["min_total"],
-        targets=config["METAGENOMICS"]["TARGET_TAXA"]["targets"],
-        targets_enabled=config["METAGENOMICS"]["TARGET_TAXA"]["ENABLED"],
-        preserve_targets=config["METAGENOMICS"]["TARGET_TAXA"]["preserve_from_filtering"]
-    log:
-        "logs/filter_taxa.log"
-    script:
-        "../../local/src/filter_taxa.py"
-
-
-rule normalize_abundance:
-    input:
-        # matrix="bracken_merged_abundances.num.taxid_collapsed.cleaned.txt"
-        matrix="bracken_merged_abundances.num.taxid_collapsed.txt"
-    output:
-        # relative="abundances.cleaned.relative.tsv",
-        # clr="abundances.cleaned.clr.tsv"
-        relative="abundances.cleaned.relative_all.tsv",
-        clr="abundances.cleaned.clr-all.tsv"
-    params:
-        pseudocount=0.5
-    log:
-        "logs/normalize_abundance.log"
-    script:
-        "../../local/src/normalize_abundance.R"
 
 
 rule remove_columns:

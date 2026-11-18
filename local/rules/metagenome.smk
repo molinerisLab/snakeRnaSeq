@@ -220,7 +220,8 @@ rule apply_qc_exclusions:
         exclusions="qc/excluded_samples.tsv"
     output:
         abundances="analysis/counts.selected.tsv",
-        metadata="analysis/metadata.selected.tsv"
+        metadata="analysis/metadata.selected.tsv",
+        audit="qc/exclusion_audit.tsv"
     script:
         "../../local/src/apply_qc_exclusions.py"
 
